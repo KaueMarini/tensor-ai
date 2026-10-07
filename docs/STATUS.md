@@ -15,8 +15,12 @@ Fora do escopo desta fase: IA, motor de capacidade, heatmap, sugestões e execut
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
-(branch `feat/front-backlog`, ver 2.6). Validado com navegador headless: alteração no
+(na `main`, ver 2.6). Validado com navegador headless: alteração no
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
+Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
+
+**Fluxo de git atual:** por decisão do usuário, trabalho consolidado direto na `main`
+(a branch `feat/front-backlog` / PR #1 foi integrada por fast-forward e apagada).
 
 **Latência medida:** ~9 s do salvar no DevOps até a tela. Desses, **~8 s são o próprio
 Azure DevOps demorando para disparar o Service Hook** (`System.ChangedDate` →
@@ -52,6 +56,7 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `20261007000000_schema_inicial.sql` | Schema completo + RPCs + views + RLS + Realtime |
 | `20261007000100_fix_upsert_temp_table.sql` | `upsert_work_items` aceita várias chamadas na mesma transação |
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
+| `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
 
 - **Tabelas:** projeto, time, pessoa, time_membro, sprint, capacidade_sprint, dias_off,
   ausencia, feriado, skill_tag, work_item, sugestao, evento, sync_state.
@@ -198,6 +203,21 @@ alertas, agente de IA, caixa de sugestões, executor.
   o Chrome local em headless, logando com o usuário de demo.
 - Nomes de responsáveis podem vir em CAIXA ALTA do DevOps; o front normaliza só na exibição.
 - Free tier: wall clock de 150 s nas Edge Functions → orçamento de 110 s no `devops-sync`.
+
+### Limites de uso (MVP no free tier)
+Folga grande para poucos projetos/usuários: ~8,6 mil execuções/mês do cron (limite 500 mil),
+~20 GETs leves ao DevOps por reconciliação (limite 200 TSTU/5 min por PAT), 1 conexão
+Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções aplicadas:
+- Upsert só grava se `rev` maior; meta (sprints/times/capacidade) só grava se mudou →
+  reconciliação sem mudanças não gera escrita nem mensagens Realtime.
+- Front junta rajadas de eventos Realtime em 1 refetch por query a cada 500 ms
+  (`JANELA_INVALIDACAO_MS` em `realtime.tsx`).
+- Reconcile relê capacidade/days off só da sprint atual e futuras (`sprintsAtivas` em
+  `_shared/mappers/team.ts`); a sync completa relê todas.
+- Retenção: job `radar-retencao-eventos` (diário 03:17 UTC) apaga eventos `processado`/
+  `ignorado` com mais de 30 dias (migration `20261007000300`). Erros ficam.
+- Atenção: projeto free do Supabase pausa após ~7 dias sem uso — abrir o painel antes da demo.
+- Edição em massa no DevOps gera rajada de webhooks; retry + reconciliação cobrem throttling.
 - Delete no DevOps vira soft delete (`deleted_at`); restore limpa `deleted_at` se rev ≥ salvo.
 - Hierarquia do projeto de demo: Sprint → Feature → (User Story) → Task.
 - A confirmar com a iPORT: campos de horas usados, datas próprias nas tasks, Epic, padrão de tags.
@@ -210,3 +230,4 @@ alertas, agente de IA, caixa de sugestões, executor.
 |---|---|
 | 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, CLAUDE.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. Repositório privado criado: github.com/KaueMarini/radar-capacidade. |
 | 2026-10-07 | Front inicial (branch `feat/front-backlog`): login, sidebar ao vivo, tabela Backlog Sprint → Feature → Task com Realtime (destaque + toast); `pnpm demo:user`. Validado com Chrome headless; latência medida ~9 s (8 s são do DevOps). |
+| 2026-10-07 | Branch do front consolidada na `main` (fast-forward, PR #1 marcado como merged, branch apagada). Proteções de limite: debounce de invalidação no front, capacidade só de sprints ativas no reconcile, retenção de 30 dias na tabela evento. Migration aplicada via `db push`, `devops-sync` republicada, reconcile e teste ao vivo validados. |
