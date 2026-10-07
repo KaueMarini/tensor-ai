@@ -1,0 +1,82 @@
+{
+  "count": 4,
+  "value": [
+    {
+      "id": 1,
+      "rev": 3,
+      "fields": {
+        "System.Id": 1,
+        "System.AreaPath": "Demo",
+        "System.TeamProject": "Demo",
+        "System.IterationPath": "Demo\\Sprint 1",
+        "System.WorkItemType": "Feature",
+        "System.State": "New",
+        "System.ChangedDate": "2026-10-06T14:02:11.53Z",
+        "System.Title": "Agendamento de janelas de carga",
+        "System.Description": "<div>Permitir que transportadoras agendem janelas.</div>",
+        "System.Tags": "agendamento; backend; front-end",
+        "Microsoft.VSTS.Common.Priority": 2
+      },
+      "url": "https://dev.azure.com/org/_apis/wit/workItems/1"
+    },
+    {
+      "id": 7,
+      "rev": 5,
+      "fields": {
+        "System.Id": 7,
+        "System.AreaPath": "Demo",
+        "System.TeamProject": "Demo",
+        "System.IterationPath": "Demo\\Sprint 1",
+        "System.WorkItemType": "Task",
+        "System.State": "Active",
+        "System.AssignedTo": {
+          "displayName": "Ana Teste",
+          "id": "11111111-1111-1111-1111-111111111111",
+          "uniqueName": "ana@exemplo.com"
+        },
+        "System.ChangedDate": "2026-10-07T09:15:00.123Z",
+        "System.Title": "API de janelas disponíveis",
+        "System.Description": "<div>Endpoint REST.</div>",
+        "System.Tags": "api; backend",
+        "System.Parent": 1,
+        "Microsoft.VSTS.Scheduling.OriginalEstimate": 16,
+        "Microsoft.VSTS.Scheduling.RemainingWork": 10.5,
+        "Microsoft.VSTS.Scheduling.CompletedWork": 5.5,
+        "Microsoft.VSTS.Common.Activity": "Development"
+      },
+      "url": "https://dev.azure.com/org/_apis/wit/workItems/7"
+    },
+    {
+      "id": 19,
+      "rev": 1,
+      "fields": {
+        "System.Id": 19,
+        "System.AreaPath": "Demo",
+        "System.TeamProject": "Demo",
+        "System.IterationPath": "Demo\\Sprint 2",
+        "System.WorkItemType": "Task",
+        "System.State": "New",
+        "System.ChangedDate": "2026-10-06T14:05:00Z",
+        "System.Title": "Testes de carga do websocket",
+        "System.Tags": "performance; qa; testes",
+        "System.Parent": 3
+      },
+      "url": "https://dev.azure.com/org/_apis/wit/workItems/19"
+    },
+    {
+      "id": 31,
+      "rev": 2,
+      "fields": {
+        "System.Id": 31,
+        "System.WorkItemType": "Task",
+        "System.Title": "Task sem quase nada",
+        "System.IterationPath": "Demo"
+      },
+      "relations": [
+        { "rel": "System.LinkTypes.Hierarchy-Reverse", "url": "https://dev.azure.com/org/_apis/wit/workItems/30", "attributes": { "isLocked": false, "name": "Parent" } },
+        { "rel": "System.LinkTypes.Related", "url": "https://dev.azure.com/org/_apis/wit/workItems/2", "attributes": { "name": "Related" } }
+      ],
+      "url": "https://dev.azure.com/org/_apis/wit/workItems/31"
+    }
+  ]
+}

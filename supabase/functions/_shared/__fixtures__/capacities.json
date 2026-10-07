@@ -1,0 +1,16 @@
+{
+  "teamMembers": [
+    {
+      "teamMember": { "displayName": "Ana Teste", "id": "11111111-1111-1111-1111-111111111111", "uniqueName": "ana@exemplo.com" },
+      "activities": [ { "capacityPerDay": 4, "name": "Development" }, { "capacityPerDay": 2, "name": "Testing" } ],
+      "daysOff": [ { "start": "2026-10-08T00:00:00Z", "end": "2026-10-09T00:00:00Z" } ]
+    },
+    {
+      "teamMember": { "displayName": "Bruno Teste", "id": "22222222-2222-2222-2222-222222222222", "uniqueName": "bruno@exemplo.com" },
+      "activities": [ { "capacityPerDay": 0, "name": null } ],
+      "daysOff": []
+    }
+  ],
+  "totalCapacityPerDay": 6,
+  "totalDaysOff": 2
+}

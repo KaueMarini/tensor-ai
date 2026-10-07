@@ -1,0 +1,16 @@
+{
+  "subscriptionId": "00000000-0000-0000-0000-00000000aaaa",
+  "notificationId": 12,
+  "id": "27646e0e-b520-4d2b-9411-bba7524947cd",
+  "eventType": "workitem.updated",
+  "publisherId": "tfs",
+  "resource": {
+    "id": 2,
+    "workItemId": 7,
+    "rev": 6,
+    "fields": { "System.Title": { "oldValue": "API antiga", "newValue": "API de janelas disponíveis" } },
+    "revision": { "id": 7, "rev": 6, "fields": { "System.Title": "API de janelas disponíveis" } }
+  },
+  "resourceContainers": { "project": { "id": "badd3c28-0000-0000-0000-000000000000" } },
+  "createdDate": "2026-10-07T12:00:00.000Z"
+}

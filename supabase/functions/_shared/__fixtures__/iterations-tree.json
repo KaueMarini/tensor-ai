@@ -1,0 +1,46 @@
+{
+  "id": 1,
+  "identifier": "00000000-0000-0000-0000-0000000000r0",
+  "name": "Demo",
+  "structureType": "iteration",
+  "hasChildren": true,
+  "path": "\\Demo\\Iteration",
+  "children": [
+    {
+      "id": 2,
+      "identifier": "aaaaaaaa-0000-0000-0000-000000000001",
+      "name": "Sprint 1",
+      "structureType": "iteration",
+      "hasChildren": false,
+      "path": "\\Demo\\Iteration\\Sprint 1",
+      "attributes": { "startDate": "2026-10-05T00:00:00Z", "finishDate": "2026-10-16T00:00:00Z" }
+    },
+    {
+      "id": 3,
+      "identifier": "aaaaaaaa-0000-0000-0000-000000000002",
+      "name": "Release 1",
+      "structureType": "iteration",
+      "hasChildren": true,
+      "path": "\\Demo\\Iteration\\Release 1",
+      "children": [
+        {
+          "id": 4,
+          "identifier": "aaaaaaaa-0000-0000-0000-000000000003",
+          "name": "Sprint 2",
+          "structureType": "iteration",
+          "hasChildren": false,
+          "path": "\\Demo\\Iteration\\Release 1\\Sprint 2",
+          "attributes": { "startDate": "2026-10-19T00:00:00Z", "finishDate": "2026-10-30T00:00:00Z" }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "identifier": "aaaaaaaa-0000-0000-0000-000000000004",
+      "name": "Iteration 1",
+      "structureType": "iteration",
+      "hasChildren": false,
+      "path": "\\Demo\\Iteration\\Iteration 1"
+    }
+  ]
+}
