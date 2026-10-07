@@ -1,0 +1,23 @@
+# dependências e builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# segredos (nunca versionar)
+.env
+.env.*
+!.env.example
+*.local
+supabase/.env.functions
+supabase/.env
+supabase/.temp/
+.supabase/
+
+# sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
