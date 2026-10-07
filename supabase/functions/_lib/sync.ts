@@ -5,7 +5,7 @@
 import { AzdoHttpError, chunk } from "../_shared/azdo/client.ts";
 import type { AzdoProject, AzdoWorkItem } from "../_shared/azdo/types.ts";
 import { errorMessage, log } from "../_shared/log.ts";
-import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff } from "../_shared/mappers/team.ts";
+import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff, sprintsAtivas } from "../_shared/mappers/team.ts";
 import { mapWorkItem } from "../_shared/mappers/workItem.ts";
 import { extractWebhookRef } from "../_shared/mappers/webhook.ts";
 import type { AzdoServiceHookPayload } from "../_shared/azdo/types.ts";
@@ -130,7 +130,11 @@ export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   return detalhados;
 }
 
-export async function syncMeta(ctx: SyncCtx, projetoId: string) {
+/**
+ * apenasAtivas (reconcile): relê capacidade e days off só da sprint atual e das futuras.
+ * A sync completa relê todas.
+ */
+export async function syncMeta(ctx: SyncCtx, projetoId: string, { apenasAtivas = false } = {}) {
   // Sprints (iterações do projeto, com datas)
   const tree = await ctx.azdo.getIterationTree(projetoId);
   const sprints = flattenIterations(tree, projetoId);
@@ -147,6 +151,7 @@ export async function syncMeta(ctx: SyncCtx, projetoId: string) {
   }
 
   // Times, membros e capacidade por sprint
+  const comCapacidade = apenasAtivas ? sprintsAtivas(sprints, new Date().toISOString().slice(0, 10)) : ids;
   const times = await ctx.azdo.listTeams(projetoId);
   const timesAtuais = rows(await ctx.db.from("time").select("id, projeto_id, nome").eq("projeto_id", projetoId), "ler times");
   const timesMudaram = times
@@ -159,7 +164,7 @@ export async function syncMeta(ctx: SyncCtx, projetoId: string) {
     must(await ctx.db.rpc("sync_time_membros", { p_time_id: time.id, p_membros: asJson(membros) }), "sync_time_membros");
 
     const iteracoes = await ctx.azdo.listTeamIterations(projetoId, time.id);
-    for (const it of iteracoes.filter((i) => ids.has(i.id))) {
+    for (const it of iteracoes.filter((i) => comCapacidade.has(i.id))) {
       const [cap, off] = await Promise.all([
         ctx.azdo.getCapacities(projetoId, time.id, it.id),
         ctx.azdo.getTeamDaysOff(projetoId, time.id, it.id),
@@ -329,7 +334,7 @@ export async function runReconcile(ctx: SyncCtx, projetoId: string): Promise<Res
   }
   ctx.runId = crypto.randomUUID();
   try {
-    await syncMeta(ctx, projetoId);
+    await syncMeta(ctx, projetoId, { apenasAtivas: true });
 
     const desde = new Date(Date.parse(state.ultimo_changed_date) - RECONCILE_OVERLAP_MS).toISOString();
     const ids = await ctx.azdo.wiqlIds(

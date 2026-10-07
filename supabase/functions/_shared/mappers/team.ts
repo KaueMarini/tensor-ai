@@ -43,6 +43,15 @@ export function flattenIterations(root: AzdoClassificationNode, projetoId: strin
   return out;
 }
 
+/**
+ * Sprints cuja capacidade ainda pode mudar: atual, futuras e sem data de fim.
+ * Sprints encerradas só são relidas na sync completa (evita crescer as chamadas
+ * ao DevOps a cada 5 min conforme o histórico de sprints aumenta).
+ */
+export function sprintsAtivas(sprints: Pick<SprintRow, "id" | "fim">[], hoje: string): Set<string> {
+  return new Set(sprints.filter((s) => !s.fim || s.fim >= hoje).map((s) => s.id));
+}
+
 export interface MembroRow {
   devops_user_id: string;
   nome: string;

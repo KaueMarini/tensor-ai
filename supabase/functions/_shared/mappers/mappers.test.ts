@@ -9,7 +9,7 @@ import hookDeleted from "../__fixtures__/webhook-deleted.json" with { type: "jso
 import type { AzdoClassificationNode, AzdoWorkItem } from "../azdo/types.ts";
 import { normalizeIterationPath, toDateOnly } from "./paths.ts";
 import { mapWorkItem, parentId, parseTags } from "./workItem.ts";
-import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff } from "./team.ts";
+import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff, sprintsAtivas } from "./team.ts";
 import { extractWebhookRef } from "./webhook.ts";
 
 const PROJ = "badd3c28-0000-0000-0000-000000000000";
@@ -132,5 +132,21 @@ describe("webhook", () => {
   it("gera chave determinística quando o evento não tem id", () => {
     const ref = extractWebhookRef({ eventType: "workitem.created", resource: { id: 40, rev: 1 } });
     expect(ref.chave).toBe("workitem.created:40:1:");
+  });
+});
+
+describe("sprintsAtivas", () => {
+  it("mantém atual, futuras e sem data; descarta encerradas", () => {
+    const ativas = sprintsAtivas(
+      [
+        { id: "passada", fim: "2026-09-30" },
+        { id: "atual", fim: "2026-10-16" },
+        { id: "termina-hoje", fim: "2026-10-07" },
+        { id: "futura", fim: "2026-11-13" },
+        { id: "sem-data", fim: null },
+      ],
+      "2026-10-07",
+    );
+    expect([...ativas].sort()).toEqual(["atual", "futura", "sem-data", "termina-hoje"]);
   });
 });
