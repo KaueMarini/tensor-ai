@@ -20,6 +20,8 @@ const Ctx = createContext<RealtimeCtx>({ status: "conectando", destacados: new S
 
 const DESTAQUE_MS = 2200;
 const JANELA_TOAST_MS = 600;
+// Junta rajadas (ex.: 50 tasks movidas de uma vez) em um único refetch por query
+const JANELA_INVALIDACAO_MS = 500;
 
 type WorkItem = Tables<"work_item">;
 
@@ -41,6 +43,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const fila = useRef<string[]>([]);
   const filaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jaConectou = useRef(false);
+  const pendentes = useRef(new Set<string>());
+  const invalidacaoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const invalidar = useCallback(
+    (...raizes: string[]) => {
+      for (const r of raizes) pendentes.current.add(r);
+      if (invalidacaoTimer.current) return;
+      invalidacaoTimer.current = setTimeout(() => {
+        invalidacaoTimer.current = null;
+        const lista = [...pendentes.current];
+        pendentes.current.clear();
+        for (const r of lista) void qc.invalidateQueries({ queryKey: [r] });
+      }, JANELA_INVALIDACAO_MS);
+    },
+    [qc],
+  );
 
   const destacar = useCallback((id: number) => {
     setDestacados((prev) => new Set(prev).add(id));
@@ -74,17 +92,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const channel = supabase
       .channel("radar-db")
       .on<WorkItem>("postgres_changes", { event: "*", schema: "public", table: "work_item" }, (p) => {
-        void qc.invalidateQueries({ queryKey: ["backlog"] });
+        invalidar("backlog");
         const id = (p.new as Partial<WorkItem>).devops_id ?? (p.old as Partial<WorkItem>).devops_id;
         if (id) destacar(id);
         avisar(descrever(p));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sprint" }, () => {
-        void qc.invalidateQueries({ queryKey: ["sprints"] });
-        void qc.invalidateQueries({ queryKey: ["backlog"] });
+        invalidar("sprints", "backlog");
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
-        void qc.invalidateQueries({ queryKey: ["sync_state"] });
+        invalidar("sync_state");
       })
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
@@ -103,8 +120,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       for (const timer of t.values()) clearTimeout(timer);
       t.clear();
       if (filaTimer.current) clearTimeout(filaTimer.current);
+      if (invalidacaoTimer.current) clearTimeout(invalidacaoTimer.current);
     };
-  }, [qc, destacar, avisar]);
+  }, [qc, destacar, avisar, invalidar]);
 
   const value = useMemo(() => ({ status, destacados }), [status, destacados]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
