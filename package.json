@@ -1,0 +1,29 @@
+{
+  "name": "radar-capacidade",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter web typecheck",
+    "devops:seed": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-seed.ts",
+    "devops:hooks": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-hooks.ts",
+    "db:types": "supabase gen types typescript --project-id wswcksxvsqhmxxawgwmq --schema public > supabase/functions/_shared/db.types.ts",
+    "db:apply": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f",
+    "db:test": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f supabase/tests/idempotencia_rev.sql",
+    "functions:deploy": "supabase functions deploy devops-sync --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-webhook --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq",
+    "devops:latency": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-latency.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "supabase": "^2.50.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
+}
