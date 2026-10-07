@@ -12,10 +12,10 @@ import {
   Search,
   SquareCheck,
 } from "lucide-react";
-import { useBacklog, useProjetos, useSprints } from "@/lib/queries";
+import { useBacklog, useSprints } from "@/lib/queries";
 import { agruparBacklog, type FeatureGroup, type ItemNode, type SprintGroup, type SprintStatus, type Totais } from "@/lib/backlog";
 import { useRealtime } from "@/lib/realtime";
-import { cn, formatData, formatHoras } from "@/lib/utils";
+import { cn, corAvatar, formatData, formatHoras, iniciais, normalizarNome } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,14 +23,12 @@ import { Input } from "@/components/ui/input";
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
 export function ProjetoPage() {
-  const { projetoId } = useParams({ from: "/app/projetos/$projetoId" });
-  const projetos = useProjetos();
+  const { projetoId } = useParams({ strict: false }) as { projetoId: string };
   const sprints = useSprints(projetoId);
   const backlog = useBacklog(projetoId);
   const [busca, setBusca] = useState("");
   const [recolhidos, setRecolhidos] = useState<ReadonlySet<string>>(new Set());
 
-  const projeto = projetos.data?.find((p) => p.id === projetoId);
   const grupos = useMemo(
     () => agruparBacklog(sprints.data ?? [], backlog.data ?? [], { busca }),
     [sprints.data, backlog.data, busca],
@@ -61,12 +59,7 @@ export function ProjetoPage() {
   const erro = sprints.error ?? backlog.error;
 
   return (
-    <div className="mx-auto max-w-[1500px] px-6 py-6">
-      <header className="mb-5">
-        <div className="text-xs font-medium text-slate-500">Projeto</div>
-        <h1 className="text-2xl font-semibold tracking-tight">{projeto?.nome ?? "…"}</h1>
-      </header>
-
+    <>
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Kpi rotulo="Sprints" valor={resumo.sprints} />
         <Kpi rotulo="Features" valor={resumo.features} />
@@ -99,11 +92,11 @@ export function ProjetoPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] table-fixed border-collapse text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
                 <th className="px-4 py-2.5">Item</th>
                 <th className="w-24 px-3 py-2.5">Estado</th>
                 <th className="w-44 px-3 py-2.5">Responsável</th>
@@ -124,7 +117,7 @@ export function ProjetoPage() {
               )}
               {!carregando && !erro && grupos.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                     {busca ? "Nada encontrado para essa busca." : "Nenhuma sprint ou item sincronizado neste projeto."}
                   </td>
                 </tr>
@@ -136,7 +129,7 @@ export function ProjetoPage() {
           </table>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -144,12 +137,12 @@ function Kpi({ rotulo, valor, alerta }: { rotulo: string; valor: string | number
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white px-4 py-3",
-        alerta ? "border-amber-200 bg-amber-50/50" : "border-slate-200",
+        "rounded-lg border bg-white px-4 py-3 dark:bg-slate-900",
+        alerta ? "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30" : "border-slate-200 dark:border-slate-800",
       )}
     >
-      <div className={cn("text-xs", alerta ? "text-amber-700" : "text-slate-500")}>{rotulo}</div>
-      <div className={cn("mt-0.5 text-xl font-semibold tabular-nums", alerta && "text-amber-800")}>{valor}</div>
+      <div className={cn("text-xs", alerta ? "text-amber-700 dark:text-amber-500" : "text-slate-500 dark:text-slate-400")}>{rotulo}</div>
+      <div className={cn("mt-0.5 text-xl font-semibold tabular-nums dark:text-slate-100", alerta && "text-amber-800 dark:text-amber-400")}>{valor}</div>
     </div>
   );
 }
@@ -168,9 +161,9 @@ function Chevron({ aberto }: { aberto: boolean }) {
 function HorasCells({ t }: { t: Totais }) {
   return (
     <>
-      <td className="px-3 text-right tabular-nums">{formatHoras(t.estimadas)}</td>
-      <td className="px-3 text-right tabular-nums">{formatHoras(t.restantes)}</td>
-      <td className="px-3 text-right tabular-nums">{formatHoras(t.concluidas)}</td>
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">{formatHoras(t.estimadas)}</td>
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">{formatHoras(t.restantes)}</td>
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">{formatHoras(t.concluidas)}</td>
     </>
   );
 }
@@ -189,7 +182,7 @@ function SprintRows({
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-slate-200 bg-slate-50 font-medium text-slate-800 hover:bg-slate-100/70"
+        className="cursor-pointer border-b border-slate-200 bg-slate-50 font-medium text-slate-800 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800/60"
         onClick={() => alternar(sprint.key)}
       >
         <td className="px-4 py-2.5">
@@ -198,11 +191,11 @@ function SprintRows({
             <span className="font-semibold">{sprint.nome}</span>
             {sprint.id && <Badge tone={st.tone}>{st.texto}</Badge>}
             {sprint.inicio && (
-              <span className="text-xs font-normal text-slate-500">
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
                 {formatData(sprint.inicio)} – {formatData(sprint.fim)}
               </span>
             )}
-            <span className="text-xs font-normal text-slate-400">
+            <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
               · {sprint.features.length} {sprint.features.length === 1 ? "feature" : "features"} · {sprint.totais.itens}{" "}
               {sprint.totais.itens === 1 ? "item" : "itens"}
             </span>
@@ -211,7 +204,7 @@ function SprintRows({
         <td />
         <td>
           {sprint.totais.semEstimativa > 0 && (
-            <span className="px-3 text-xs font-normal text-amber-700">
+            <span className="px-3 text-xs font-normal text-amber-700 dark:text-amber-500">
               {sprint.totais.semEstimativa} sem estimativa
             </span>
           )}
@@ -220,8 +213,8 @@ function SprintRows({
         <td />
       </tr>
       {aberto && sprint.features.length === 0 && (
-        <tr className="border-b border-slate-100">
-          <td colSpan={7} className="py-3 pl-12 text-xs text-slate-400">
+        <tr className="border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={7} className="py-3 pl-12 text-xs text-slate-400 dark:text-slate-500">
             Nenhuma feature nesta sprint.
           </td>
         </tr>
@@ -248,7 +241,7 @@ function FeatureRows({
     <>
       <tr
         className={cn(
-          "cursor-pointer border-b border-slate-100 hover:bg-slate-50",
+          "cursor-pointer border-b border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40",
           feature.id !== null && destacados.has(feature.id) && "row-flash",
         )}
         onClick={() => alternar(feature.key)}
@@ -256,12 +249,12 @@ function FeatureRows({
         <td className="py-2 pr-4 pl-9">
           <div className="flex min-w-0 items-center gap-2">
             <Chevron aberto={aberto} />
-            <Layers className={cn("size-4 shrink-0", feature.id === null ? "text-slate-300" : "text-violet-600")} />
+            <Layers className={cn("size-4 shrink-0", feature.id === null ? "text-slate-300 dark:text-slate-600" : "text-violet-600 dark:text-violet-400")} />
             {feature.id !== null && <IdLink id={feature.id} />}
-            <span className={cn("truncate font-medium", feature.id === null && "text-slate-500 italic")} title={feature.titulo}>
+            <span className={cn("truncate font-medium dark:text-slate-200", feature.id === null && "text-slate-500 italic dark:text-slate-400")} title={feature.titulo}>
               {feature.titulo}
             </span>
-            <span className="shrink-0 text-xs text-slate-400">
+            <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
               {feature.itens.length} {feature.itens.length === 1 ? "item" : "itens"}
             </span>
           </div>
@@ -272,8 +265,8 @@ function FeatureRows({
         <td />
       </tr>
       {aberto && feature.itens.length === 0 && (
-        <tr className="border-b border-slate-100">
-          <td colSpan={7} className="py-2 pl-[5.5rem] text-xs text-amber-700">
+        <tr className="border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={7} className="py-2 pl-[5.5rem] text-xs text-amber-700 dark:text-amber-500">
             Feature sem itens de trabalho
           </td>
         </tr>
@@ -299,7 +292,7 @@ function ItemRow({ node }: { node: ItemNode }) {
   return (
     <tr
       className={cn(
-        "border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70",
+        "border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30",
         r.item_id !== null && destacados.has(r.item_id) && "row-flash",
       )}
     >
@@ -307,7 +300,7 @@ function ItemRow({ node }: { node: ItemNode }) {
         <div className="flex min-w-0 items-center gap-2">
           <tipo.Icon className={cn("size-4 shrink-0", tipo.cor)} aria-label={r.item_tipo ?? undefined} />
           {r.item_id !== null && <IdLink id={r.item_id} />}
-          <span className={cn("truncate", node.temFilhos && "font-medium")} title={r.item_titulo ?? undefined}>
+          <span className={cn("truncate dark:text-slate-200", node.temFilhos && "font-medium")} title={r.item_titulo ?? undefined}>
             {r.item_titulo}
           </span>
         </div>
@@ -316,19 +309,19 @@ function ItemRow({ node }: { node: ItemNode }) {
       <td className="px-3">
         <Responsavel nome={r.responsavel_nome} />
       </td>
-      <td className="px-3 text-right tabular-nums">
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">
         {semEstimativa ? (
           <Badge tone="amber" title="Sem horas no DevOps">
             <AlertTriangle className="size-3" /> sem estimativa
           </Badge>
         ) : (
-          <span className={cn(r.horas_origem === "sistema" && "text-slate-400 italic")} title={r.horas_origem === "sistema" ? "Estimativa do sistema" : undefined}>
+          <span className={cn(r.horas_origem === "sistema" && "text-slate-400 italic dark:text-slate-500")} title={r.horas_origem === "sistema" ? "Estimativa do sistema" : undefined}>
             {formatHoras(r.horas_estimadas)}
           </span>
         )}
       </td>
-      <td className="px-3 text-right tabular-nums">{formatHoras(r.horas_restantes)}</td>
-      <td className="px-3 text-right tabular-nums">{formatHoras(r.horas_concluidas)}</td>
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">{formatHoras(r.horas_restantes)}</td>
+      <td className="px-3 text-right tabular-nums dark:text-slate-300">{formatHoras(r.horas_concluidas)}</td>
       <td className="px-3 py-1.5">
         <div className="flex flex-wrap gap-1">
           {(r.tags ?? []).map((t) => (
@@ -343,7 +336,7 @@ function ItemRow({ node }: { node: ItemNode }) {
 }
 
 function IdLink({ id }: { id: number }) {
-  const cls = "font-mono text-xs text-slate-400";
+  const cls = "font-mono text-xs text-slate-400 dark:text-slate-500";
   if (!AZDO_ORG_URL) return <span className={cls}>#{id}</span>;
   return (
     <a
@@ -374,42 +367,20 @@ function Estado({ estado }: { estado: string }) {
   return <Badge tone={tone}>{estado}</Badge>;
 }
 
-const AVATAR_CORES = ["bg-teal-600", "bg-sky-600", "bg-violet-600", "bg-amber-600", "bg-rose-600", "bg-emerald-600"];
-
-const MINUSCULAS = new Set(["da", "de", "do", "das", "dos", "e"]);
-
-/** "KAUÊ NEBOT MARINI" → "Kauê Nebot Marini" (só mexe em nomes todo em maiúsculas). */
-function normalizarNome(nome: string): string {
-  if (nome !== nome.toUpperCase()) return nome;
-  return nome
-    .toLowerCase()
-    .split(/\s+/)
-    .map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
-    .join(" ");
-}
-
 function Responsavel({ nome: bruto }: { nome: string | null }) {
-  if (!bruto) return <span className="text-xs text-slate-400">Não atribuído</span>;
+  if (!bruto) return <span className="text-xs text-slate-400 dark:text-slate-500">Não atribuído</span>;
   const nome = normalizarNome(bruto);
-  const iniciais = nome
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
-  let h = 0;
-  for (const c of nome) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span
         className={cn(
           "grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white",
-          AVATAR_CORES[h % AVATAR_CORES.length],
+          corAvatar(nome),
         )}
       >
-        {iniciais}
+        {iniciais(nome)}
       </span>
-      <span className="truncate text-sm text-slate-700" title={nome}>
+      <span className="truncate text-sm text-slate-700 dark:text-slate-300" title={nome}>
         {nome}
       </span>
     </div>
@@ -420,9 +391,9 @@ function LinhasCarregando() {
   return (
     <>
       {Array.from({ length: 6 }, (_, i) => (
-        <tr key={i} className="border-b border-slate-100">
+        <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
           <td colSpan={7} className="px-4 py-3">
-            <div className="h-4 animate-pulse rounded bg-slate-100" style={{ width: `${60 - i * 6}%` }} />
+            <div className="h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" style={{ width: `${60 - i * 6}%` }} />
           </td>
         </tr>
       ))}

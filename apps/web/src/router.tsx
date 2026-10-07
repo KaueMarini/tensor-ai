@@ -4,7 +4,9 @@ import { supabase } from "@/lib/supabase";
 import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
 import { InicioPage } from "@/routes/inicio";
+import { ProjetoLayout } from "@/routes/projeto-layout";
 import { ProjetoPage } from "@/routes/projeto";
+import { MembrosPage } from "@/routes/membros";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -43,10 +45,27 @@ const inicioRoute = createRoute({ getParentRoute: () => appRoute, path: "/", com
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/projetos/$projetoId",
+  component: ProjetoLayout,
+});
+
+const projetoBacklogRoute = createRoute({
+  getParentRoute: () => projetoRoute,
+  path: "/",
   component: ProjetoPage,
 });
 
-const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([inicioRoute, projetoRoute])]);
+const membrosRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/membros",
+  validateSearch: (s: Record<string, unknown>): { visao?: "projeto" } =>
+    s.visao === "projeto" ? { visao: "projeto" } : {},
+  component: MembrosPage,
+});
+
+const routeTree = rootRoute.addChildren([
+  loginRoute,
+  appRoute.addChildren([inicioRoute, membrosRoute, projetoRoute.addChildren([projetoBacklogRoute])]),
+]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent" });
 

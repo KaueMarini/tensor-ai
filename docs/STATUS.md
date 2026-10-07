@@ -5,7 +5,8 @@
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
 **Última atualização:** 2026-10-07
-**Fase atual:** Fundação — sincronização com o Azure DevOps + front básico com Realtime.
+**Fase atual:** Fundação — sincronização com o Azure DevOps + front com Realtime,
+abas Backlog/Membros, skills/tags editáveis e dark mode.
 Fora do escopo desta fase: IA, motor de capacidade, heatmap, sugestões e executor
 (a arquitetura já está preparada para recebê-los).
 
@@ -18,6 +19,10 @@ O **backend de sincronização está completo, publicado e validado em produçã
 (na `main`, ver 2.6). Validado com navegador headless: alteração no
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
+
+Nesta sessão: nova **aba Membros** (skills + tags de função, editáveis pelo gestor,
+persistidas no Supabase — ver 2.7), **dark mode** em todo o app e **login redesenhado**
+com painel de marca (ver 2.6). Validado com navegador headless, luz e escuro.
 
 **Fluxo de git atual:** por decisão do usuário, trabalho consolidado direto na `main`
 (a branch `feat/front-backlog` / PR #1 foi integrada por fast-forward e apagada).
@@ -39,7 +44,7 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `tsc --noEmit` e `deno check` | sem erros |
 | Histórico de migrations remoto | reparado (`migration repair`); `db push` funciona |
 
-**Próximo passo imediato:** abas Membros e Sprints, página de Sync e CI/CD (seção 4).
+**Próximo passo imediato:** aba Sprints, página de Sync, ESLint no front, CI/CD (seção 4).
 
 ---
 
@@ -57,10 +62,16 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `20261007000100_fix_upsert_temp_table.sql` | `upsert_work_items` aceita várias chamadas na mesma transação |
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
 | `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
+| `20261007000400_membros_skills_tags.sql` | `funcao_tag` + `pessoa_funcao_tag` (catálogo de tags de função) + policies de escrita pro gestor em `skill_tag`/`funcao_tag`/`pessoa_funcao_tag` + view `v_membros` |
 
 - **Tabelas:** projeto, time, pessoa, time_membro, sprint, capacidade_sprint, dias_off,
-  ausencia, feriado, skill_tag, work_item, sugestao, evento, sync_state.
-  (`feature` é uma **view** sobre `work_item` com `tipo='Feature'`.)
+  ausencia, feriado, skill_tag, funcao_tag, pessoa_funcao_tag, work_item, sugestao,
+  evento, sync_state. (`feature` é uma **view** sobre `work_item` com `tipo='Feature'`.)
+- **Skills e tags de função:** `skill_tag` (já existia, pensada pro CLAUDE.md §4) agora
+  também recebe escrita direto do front (`origem='gestor'`); `funcao_tag` é o catálogo
+  novo de tags de papel/função (nome único, editável/renomeável — afeta todo mundo que
+  usa a tag) e `pessoa_funcao_tag` é a associação N:N com pessoa. View `v_membros`
+  agrega pessoa + time (+ projeto_id) + skills/tags como jsonb, uma linha por pessoa×time.
 - **work_item** guarda tudo do DevOps: devops_id (PK), rev, tipo, estado, parent_devops_id,
   feature_devops_id (ancestral resolvido), area/iteration path, horas (estimada, restante,
   concluída), start/finish/target date, tags `text[]`, changed_date, `fields` (jsonb bruto),
@@ -71,9 +82,12 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
   (funciona com User Story no meio e com filho chegando antes do pai).
   Triggers vinculam work_item ↔ sprint pelo iteration_path.
 - **Views:** `feature`, `v_backlog` (linhas planas Sprint → Feature → Item, com
-  `sem_estimativa`). Ambas `security_invoker`.
-- **Segurança:** RLS em todas as tabelas; `select` para `authenticated`; escrita só via
-  service_role (RPCs com `execute` revogado de anon/authenticated).
+  `sem_estimativa`), `v_membros` (pessoa × time, skills/tags em jsonb). Todas
+  `security_invoker`.
+- **Segurança:** RLS em todas as tabelas; `select` para `authenticated`; escrita via
+  service_role (RPCs com `execute` revogado de anon/authenticated) — **exceção:**
+  `skill_tag`, `funcao_tag` e `pessoa_funcao_tag` também aceitam escrita direta de
+  `authenticated` (dados locais, não tocam o DevOps; ver seção 5, "Permissões").
 - **Realtime:** work_item, sprint, time_membro, capacidade_sprint, evento, sync_state.
 - **Vault:** `radar_project_url` e `radar_sync_secret` (criados manualmente, não versionados).
 - Teste SQL de idempotência: `supabase/tests/idempotencia_rev.sql` (`pnpm db:test`, roda com rollback).
@@ -135,6 +149,65 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
   ao reconectar, invalida tudo.
 - `apps/web/.env.example`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_AZDO_ORG_URL`.
 - Rodar: `pnpm dev` na raiz → http://localhost:5173
+- **Rotas**: `/projetos/$projetoId` é rota-mãe (`routes/projeto-layout.tsx`, header)
+  com o Backlog como index (`routes/projeto.tsx`). Membros é uma seção própria na
+  sidebar (grupo "Equipe"): `/membros` (todos) e `/membros?visao=projeto` (por projeto).
+- **Dark mode**: `lib/theme.tsx` (`ThemeProvider`/`useTheme`, classe `.dark` no
+  `<html>`, persistido em `localStorage["tema"]`, cai pro `prefers-color-scheme` sem
+  preferência salva; script inline em `index.html` evita flash no load). Toggle
+  (ícone sol/lua) na sidebar, ao lado do e-mail do usuário. Todos os componentes e
+  páginas existentes ganharam pares `dark:` (sem variáveis CSS novas, mesmo estilo
+  utilitário já usado no projeto).
+- **Paleta de marca**: `--color-brand-*` trocou de teal para uma rampa slate-índigo
+  ancorada em `#4C516D` (`index.css`), propaga pra botão primário, badges tone="teal",
+  link ativo da sidebar e login.
+- **Login redesenhado**: card dividido — painel esquerdo (`PainelMarca` em
+  `routes/login.tsx`, visível em telas ≥ lg) com a `Logo` existente ampliada, headline
+  e tagline sobre gradiente da marca; painel direito com o formulário (mesmo fluxo de
+  auth de antes), ambos com dark mode.
+
+### 2.7 Membros, skills e tags
+
+Seção **Membros** (`routes/membros.tsx`), item "Membros" no grupo "Equipe" da sidebar,
+com duas visões no seletor do topo:
+- **Todos**: grade de cards (avatar, e-mail, projetos, skills, tags) + painel lateral
+  "Skills da equipe" (ranking com barras, clique filtra) e "Tags de função" (com
+  contagem de uso, clique filtra). KPIs: membros, projetos com equipe, skills
+  diferentes, membros sem skills nem tags.
+- **Por projeto**: uma seção por projeto (ícone, nº de membros, times, pilha de
+  avatares, atalho pro Backlog) com tabela Membro | Time | Skills | Tags.
+- Filtros: busca (nome, e-mail, skill, tag), projeto (só na visão Todos), skill, tag.
+
+- **Dados**: membros vêm de `time_membro`/`time` (já sincronizados do DevOps, sem
+  mudança na integração) via a view `v_membros` (consulta única, todos os projetos);
+  `agruparMembros` junta as linhas pessoa × time em uma entrada por pessoa com a
+  lista de projetos e times.
+- **Skills**: texto livre por pessoa, gravado em `skill_tag` (tabela que já existia,
+  pensada no CLAUDE.md §4 pra isso — só ganhou policy de escrita pro gestor). Adicionar
+  usa `<datalist>` com as skills já cadastradas em qualquer pessoa (autocomplete sem
+  travar em lista fixa). Remover é por chip (`×`).
+- **Tags de função**: catálogo novo (`funcao_tag`), **não hardcoded** — o gestor cria
+  quantas quiser pelo próprio card do membro ou pelo botão "Gerenciar tags" (lista
+  todas as tags, permite renomear — afeta todo mundo que usa — e excluir). Associação
+  N:N em `pessoa_funcao_tag`. Cor do chip é determinística por hash do nome da tag
+  (mesmo truque já usado pro avatar em `lib/utils.ts`), sem coluna de cor no banco.
+- **Filtros**: nome, skill, tag — acima da grade de cards.
+- **Perfil do membro**: clique no card/linha abre um painel lateral (fecha com Esc)
+  com nome, e-mail (`unique_name`), projetos/times e os editores: skills com
+  autocomplete, tags existentes como botões "clique para atribuir" e criação de tag
+  nova (se o nome já existir, reaproveita a tag em vez de duplicar). Erros viram toast.
+- **Gerenciar tags**: modal com todas as tags, nº de membros usando cada uma,
+  renomear inline e excluir com confirmação.
+- **Realtime**: `skill_tag`/`funcao_tag`/`pessoa_funcao_tag` entraram na publicação
+  (`realtime.tsx` invalida `membros`/`funcao_tags`/`skills_catalogo` nessas mudanças,
+  mesmo padrão de debounce do resto do app).
+- **Permissões**: ver seção 5 — sem RBAC ainda, escrita liberada pra qualquer
+  `authenticated`.
+- **Principais arquivos**: `supabase/migrations/20261007000400_membros_skills_tags.sql`,
+  `apps/web/src/routes/membros.tsx`, `apps/web/src/routes/projeto-layout.tsx`,
+  `apps/web/src/lib/queries.ts` (hooks `useMembros`/`useSkillsCatalogo`/`useFuncaoTags`
+  + mutations), `apps/web/src/lib/utils.ts` (helpers de avatar/nome extraídos de
+  `projeto.tsx`, agora compartilhados).
 
 ---
 
@@ -169,11 +242,14 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
   - [x] Login (Supabase Auth)
   - [x] Sidebar com projetos, indicador "ao vivo" (status do canal Realtime), horário da última sync
   - [x] **Backlog** em tabela Sprint → Feature → Task via `v_backlog`
-  - [ ] Transformar a página do projeto em abas: **Backlog** (pronta), **Membros**
-        (por time + capacidade por sprint), **Sprints** (datas, status, capacidade)
+  - [x] Seção **Membros** na sidebar (todos / por projeto, skills + tags, ver 2.7)
+  - [ ] Aba/página **Sprints** (datas, status, capacidade por sprint — depende do
+        motor de capacidade do P0, ainda não construído)
   - [x] Realtime `postgres_changes` → invalida queries + destaque ~2s + toast
   - [ ] Página **Sync**: últimos eventos, status da reconciliação, botão de sync completa
   - [x] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
+  - [x] Dark mode (toggle + persistência) e paleta de marca em `#4C516D`
+  - [x] Login redesenhado (card dividido, painel de marca)
   - [ ] ESLint no front (o CI pede lint)
   - [ ] Code-split do bundle (build avisa chunk > 500 kB)
 - [ ] **`deno test`** nas functions (hoje só Vitest cobre `_shared`)
@@ -201,6 +277,19 @@ alertas, agente de IA, caixa de sugestões, executor.
   prefira a ferramenta de escrita de arquivos.
 - Validação visual do front: `puppeteer-core` (instalado só no scratchpad, não no repo) com
   o Chrome local em headless, logando com o usuário de demo.
+- **`AZDO_PROJECTS` limita quais projetos sincronizam.** Vazio = todos os projetos da
+  org. Estava `IportJLKN12` no segredo das Edge Functions, por isso projetos novos
+  criados no DevOps (`IportJLNK`, `Teste`) nunca chegavam ao banco. O código já trata
+  projeto novo sozinho (o reconcile do cron faz a full na primeira vez), basta tirar o
+  filtro: `npx supabase secrets unset AZDO_PROJECTS --project-ref wswcksxvsqhmxxawgwmq`.
+  Os Service Hooks (webhooks) são criados por projeto: depois de liberar, rodar
+  `pnpm devops:hooks create` para os projetos novos (sem eles, mudanças chegam pelo
+  cron em até 5 min).
+- **Permissões (Membros/skills/tags):** o app ainda não tem um segundo papel de usuário
+  — todo `authenticated` é tratado como gestor. Por isso `skill_tag`, `funcao_tag` e
+  `pessoa_funcao_tag` aceitam escrita de qualquer usuário logado, igual ao padrão de
+  leitura já usado nas outras tabelas. Quando existir um usuário "somente leitura",
+  essas policies precisam virar `select`-only pra esse papel.
 - Nomes de responsáveis podem vir em CAIXA ALTA do DevOps; o front normaliza só na exibição.
 - Free tier: wall clock de 150 s nas Edge Functions → orçamento de 110 s no `devops-sync`.
 
@@ -231,3 +320,5 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, CLAUDE.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. Repositório privado criado: github.com/KaueMarini/radar-capacidade. |
 | 2026-10-07 | Front inicial (branch `feat/front-backlog`): login, sidebar ao vivo, tabela Backlog Sprint → Feature → Task com Realtime (destaque + toast); `pnpm demo:user`. Validado com Chrome headless; latência medida ~9 s (8 s são do DevOps). |
 | 2026-10-07 | Branch do front consolidada na `main` (fast-forward, PR #1 marcado como merged, branch apagada). Proteções de limite: debounce de invalidação no front, capacidade só de sprints ativas no reconcile, retenção de 30 dias na tabela evento. Migration aplicada via `db push`, `devops-sync` republicada, reconcile e teste ao vivo validados. |
+| 2026-10-07 | Máquina nova (`npx supabase login` + `link` nesta sessão). Nova aba **Membros**: migration `20261007000400` (`funcao_tag`, `pessoa_funcao_tag`, view `v_membros`, policies de escrita pro gestor), hooks/mutations em `queries.ts`, UI completa em `membros.tsx` (filtros, cards, painel de skills/tags, modal "Gerenciar tags"), Realtime estendido. **Dark mode** (`lib/theme.tsx`, toggle na sidebar, pares `dark:` em todos os componentes). Paleta de marca trocada pra slate-índigo (`#4C516D`). **Login redesenhado** (card dividido + painel de marca). Validado: `pnpm typecheck`/`test`/`build` limpos, navegação headless (login → Backlog → Membros, claro e escuro), adicionar skill + criar/associar tag + reload confirmando persistência no Supabase (depois removidos, eram só do teste), sem erros de console. |
+| 2026-10-07 | Membros saiu da aba do projeto e virou seção própria na sidebar, com visões "Todos" (cards + ranking de skills/tags) e "Por projeto" (tabela por projeto); painel do membro e modal de tags refeitos (animação, Esc, confirmação de exclusão, toasts). Rampa da marca completada (200/300/400/800). Diagnóstico: projetos novos não sincronizavam por causa do segredo `AZDO_PROJECTS=IportJLKN12` (ver seção 5) — remoção do segredo pendente de aprovação do usuário. |

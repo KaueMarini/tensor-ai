@@ -103,6 +103,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "skill_tag" }, () => {
+        invalidar("membros", "skills_catalogo");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "funcao_tag" }, () => {
+        invalidar("membros", "funcao_tags");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "pessoa_funcao_tag" }, () => {
+        invalidar("membros");
+      })
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
           // ao reconectar, recarrega tudo: podemos ter perdido eventos enquanto estava offline

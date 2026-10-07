@@ -35,3 +35,36 @@ export function tempoRelativo(iso: string | null | undefined, agora = Date.now()
   if (h < 24) return `há ${h}h`;
   return `há ${Math.round(h / 24)}d`;
 }
+
+const AVATAR_CORES = ["bg-teal-600", "bg-sky-600", "bg-violet-600", "bg-amber-600", "bg-rose-600", "bg-emerald-600"];
+const MINUSCULAS = new Set(["da", "de", "do", "das", "dos", "e"]);
+
+/** Hash simples e determinístico, usado pra escolher cor de avatar/badge a partir de um texto. */
+export function hashTexto(texto: string): number {
+  let h = 0;
+  for (const c of texto) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h;
+}
+
+/** "KAUÊ NEBOT MARINI" → "Kauê Nebot Marini" (só mexe em nomes todo em maiúsculas). */
+export function normalizarNome(nome: string): string {
+  if (nome !== nome.toUpperCase()) return nome;
+  return nome
+    .toLowerCase()
+    .split(/\s+/)
+    .map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
+export function iniciais(nome: string): string {
+  return nome
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("");
+}
+
+export function corAvatar(nome: string): string {
+  return AVATAR_CORES[hashTexto(nome) % AVATAR_CORES.length]!;
+}

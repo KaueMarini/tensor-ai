@@ -47,6 +47,13 @@ export type Database = {
             referencedRelation: "pessoa"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ausencia_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
         ]
       }
       capacidade_sprint: {
@@ -83,6 +90,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "capacidade_sprint_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
             foreignKeyName: "capacidade_sprint_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
@@ -95,6 +109,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "time"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capacidade_sprint_time_id_fkey"
+            columns: ["time_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["time_id"]
           },
         ]
       }
@@ -132,6 +153,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dias_off_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
             foreignKeyName: "dias_off_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
@@ -144,6 +172,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "time"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dias_off_time_id_fkey"
+            columns: ["time_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["time_id"]
           },
         ]
       }
@@ -210,6 +245,24 @@ export type Database = {
         }
         Relationships: []
       }
+      funcao_tag: {
+        Row: {
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
+      }
       pessoa: {
         Row: {
           atualizado_em: string
@@ -239,6 +292,46 @@ export type Database = {
           unique_name?: string | null
         }
         Relationships: []
+      }
+      pessoa_funcao_tag: {
+        Row: {
+          criado_em: string
+          funcao_tag_id: number
+          pessoa_id: string
+        }
+        Insert: {
+          criado_em?: string
+          funcao_tag_id: number
+          pessoa_id: string
+        }
+        Update: {
+          criado_em?: string
+          funcao_tag_id?: number
+          pessoa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoa_funcao_tag_funcao_tag_id_fkey"
+            columns: ["funcao_tag_id"]
+            isOneToOne: false
+            referencedRelation: "funcao_tag"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_funcao_tag_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_funcao_tag_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+        ]
       }
       projeto: {
         Row: {
@@ -302,6 +395,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pessoa"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_tag_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
           },
         ]
       }
@@ -492,11 +592,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "time_membro_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
             foreignKeyName: "time_membro_time_id_fkey"
             columns: ["time_id"]
             isOneToOne: false
             referencedRelation: "time"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_membro_time_id_fkey"
+            columns: ["time_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["time_id"]
           },
         ]
       }
@@ -604,6 +718,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
             foreignKeyName: "work_item_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
@@ -667,6 +788,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
             foreignKeyName: "work_item_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
@@ -701,6 +829,30 @@ export type Database = {
           tags: string[] | null
         }
         Relationships: []
+      }
+      v_membros: {
+        Row: {
+          ativo: boolean | null
+          horas_semana_base: number | null
+          nome: string | null
+          papel: string | null
+          pessoa_id: string | null
+          projeto_id: string | null
+          skills: Json | null
+          tags: Json | null
+          time_id: string | null
+          time_nome: string | null
+          unique_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
