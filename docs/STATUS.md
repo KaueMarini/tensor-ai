@@ -13,12 +13,17 @@ Fora do escopo desta fase: IA, motor de capacidade, heatmap, sugestões e execut
 
 ## 1. Onde paramos
 
-O **backend de sincronização está completo, publicado e validado em produção**.
-A última ação antes da pausa foi o teste de latência ponta a ponta
-(`pnpm devops:latency 29`), que terminou com sucesso e restaurou o valor original
-da task (RemainingWork de #29 voltou a 6).
+O **backend de sincronização está completo, publicado e validado em produção**, e o
+**front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
+(branch `feat/front-backlog`, ver 2.6). Validado com navegador headless: alteração no
+DevOps aparece na tela sem refresh, com destaque da linha e toast.
 
-Situação verificada em 2026-10-07 ~03:47 UTC:
+**Latência medida:** ~9 s do salvar no DevOps até a tela. Desses, **~8 s são o próprio
+Azure DevOps demorando para disparar o Service Hook** (`System.ChangedDate` →
+`evento.recebido_em`); nosso pipeline (webhook → rebusca → upsert → Realtime) leva ~1 s.
+A meta de < 5 s depende do atraso do DevOps, que não controlamos.
+
+Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 
 | Verificação | Resultado |
 |---|---|
@@ -30,7 +35,7 @@ Situação verificada em 2026-10-07 ~03:47 UTC:
 | `tsc --noEmit` e `deno check` | sem erros |
 | Histórico de migrations remoto | reparado (`migration repair`); `db push` funciona |
 
-**Próximo passo imediato:** criar o front em `apps/web` (seção 4).
+**Próximo passo imediato:** abas Membros e Sprints, página de Sync e CI/CD (seção 4).
 
 ---
 
@@ -99,6 +104,32 @@ Situação verificada em 2026-10-07 ~03:47 UTC:
   cadeia Feature → User Story → Task, task sem estimativa). Idempotente.
 - `pnpm devops:hooks [create|list|delete]`: gerencia subscriptions de Service Hooks. Idempotente.
 - `pnpm devops:latency <id>`: mede latência DevOps → banco e restaura o valor original.
+- `pnpm demo:user`: cria o usuário de demo no Supabase Auth (Admin API, service_role só local).
+  Lê `DEMO_EMAIL`/`DEMO_PASSWORD` do `.env.local`; sem senha, gera e imprime uma.
+  Usuário atual: `demo@radar-capacidade.dev` (senha no `.env.local` da máquina original).
+
+### 2.6 Front (`apps/web`)
+- Vite 8 + React 19 + TS strict + TanStack Router (rotas em código, `src/router.tsx`) +
+  TanStack Query + Tailwind v4 (`@tailwindcss/vite`, tema em `src/index.css`) + supabase-js
+  tipado com `@shared/db.types`. Componentes base estilo shadcn em `src/components/ui`
+  (button, input, badge) — escritos à mão, sem a CLI do shadcn.
+- Aliases: `@/` → `apps/web/src`, `@shared/` → `supabase/functions/_shared`.
+- Rotas: `/login`, `/` (redireciona ao 1º projeto), `/projetos/$projetoId` (Backlog).
+  Guard de sessão no `beforeLoad` da rota `app`.
+- **Sidebar**: projetos, indicador "Ao vivo / Conectando / Desconectado" (status do canal
+  Realtime), "Última reconciliação há X" (sync_state), e-mail + sair.
+- **Backlog** (`src/routes/projeto.tsx`): KPIs (sprints, features, itens, horas restantes,
+  sem estimativa), busca (título, responsável, tag, `#id`), expandir/recolher, tabela
+  Sprint (status atual/futura/encerrada + datas + totais) → Feature → itens em árvore
+  (User Story intermediária aninha as Tasks). Colunas: estado, responsável, horas
+  estimada/restante/concluída, tags; badge "sem estimativa". `#id` abre o item no DevOps
+  se `VITE_AZDO_ORG_URL` estiver definido.
+- Agrupamento puro e testado em `src/lib/backlog.ts` (+ `backlog.test.ts`, roda no Vitest da raiz).
+- **Realtime** (`src/lib/realtime.tsx`): canal único em work_item, sprint e sync_state →
+  invalida queries, destaca a linha ~2 s (`.row-flash`), toast (sonner) agrupando rajadas;
+  ao reconectar, invalida tudo.
+- `apps/web/.env.example`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_AZDO_ORG_URL`.
+- Rodar: `pnpm dev` na raiz → http://localhost:5173
 
 ---
 
@@ -128,18 +159,18 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
 
 ## 4. O que falta (em ordem)
 
-- [ ] **Usuário de demo** no Supabase Auth (e-mail/senha), via script, sem senha no repo
-      (`auth.users` está vazio hoje).
+- [x] **Usuário de demo** no Supabase Auth (`pnpm demo:user`)
 - [ ] **Front `apps/web`**: React 19 + Vite + TanStack Router/Query + Tailwind v4 + shadcn/ui
-  - [ ] Login (Supabase Auth)
-  - [ ] Sidebar com projetos, indicador "ao vivo" (status do canal Realtime), horário da última sync
-  - [ ] Projeto → abas **Membros** (por time + capacidade por sprint), **Sprints**
-        (datas, status atual/futura/passada), **Backlog** em árvore via `v_backlog`
-        (responsável, estado, horas, tags, badge "sem estimativa")
-  - [ ] Realtime `postgres_changes` → invalida queries + destaque ~2s + toast
-        ("Task #123 atualizada no DevOps")
+  - [x] Login (Supabase Auth)
+  - [x] Sidebar com projetos, indicador "ao vivo" (status do canal Realtime), horário da última sync
+  - [x] **Backlog** em tabela Sprint → Feature → Task via `v_backlog`
+  - [ ] Transformar a página do projeto em abas: **Backlog** (pronta), **Membros**
+        (por time + capacidade por sprint), **Sprints** (datas, status, capacidade)
+  - [x] Realtime `postgres_changes` → invalida queries + destaque ~2s + toast
   - [ ] Página **Sync**: últimos eventos, status da reconciliação, botão de sync completa
-  - [ ] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
+  - [x] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
+  - [ ] ESLint no front (o CI pede lint)
+  - [ ] Code-split do bundle (build avisa chunk > 500 kB)
 - [ ] **`deno test`** nas functions (hoje só Vitest cobre `_shared`)
 - [ ] **CI/CD** `.github/`: `ci.yml` (pnpm cache, typecheck, lint, Vitest, deno test, build),
       `deploy-supabase.yml` (db push + functions deploy na main), gitleaks,
@@ -161,6 +192,11 @@ alertas, agente de IA, caixa de sugestões, executor.
 - Migrations foram aplicadas inicialmente via `db query` e depois marcadas com
   `supabase migration repair --status applied`. **Daqui em diante, use só `supabase db push`.**
 - Ao rodar comandos `supabase` no Windows/Git Bash, passe `</dev/null` para evitar prompt travado.
+- Esta máquina Windows **não tem Python**; heredocs grandes com JSX no Git Bash quebraram —
+  prefira a ferramenta de escrita de arquivos.
+- Validação visual do front: `puppeteer-core` (instalado só no scratchpad, não no repo) com
+  o Chrome local em headless, logando com o usuário de demo.
+- Nomes de responsáveis podem vir em CAIXA ALTA do DevOps; o front normaliza só na exibição.
 - Free tier: wall clock de 150 s nas Edge Functions → orçamento de 110 s no `devops-sync`.
 - Delete no DevOps vira soft delete (`deleted_at`); restore limpa `deleted_at` se rev ≥ salvo.
 - Hierarquia do projeto de demo: Sprint → Feature → (User Story) → Task.
@@ -172,4 +208,5 @@ alertas, agente de IA, caixa de sugestões, executor.
 
 | Data | O que aconteceu |
 |---|---|
-| 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, CLAUDE.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. |
+| 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, CLAUDE.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. Repositório privado criado: github.com/KaueMarini/radar-capacidade. |
+| 2026-10-07 | Front inicial (branch `feat/front-backlog`): login, sidebar ao vivo, tabela Backlog Sprint → Feature → Task com Realtime (destaque + toast); `pnpm demo:user`. Validado com Chrome headless; latência medida ~9 s (8 s são do DevOps). |
