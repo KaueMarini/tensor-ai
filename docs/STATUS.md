@@ -25,7 +25,10 @@ seed com Kauê 117% nas semanas de 05 e 12/10 e Julliano de férias com as tasks
 fórmulas em [metodologia.md](metodologia.md)). **Etapa 3 feita** (repositórios psycopg, cliente
 DevOps só-GET com retry/`Retry-After`, backfill `uv run radar-analytics backfill`; 66 testes).
 **Backfill ainda não rodado** (precisa das migrations aplicadas e do `.env` do serviço).
-Próximo: etapa 4 (agente + validador + render).
+**Etapa 4 feita** (agente: entrada pseudonimizada, `AnthropicLLM` com structured outputs,
+validador anti-alucinação, render estrito e fallback por template; 99 testes, LLM sempre
+mockado). **Falta o texto de `prompts/analista-fluxo.v1.md`** (o usuário vai colar; sem ele o
+serviço usa só o template, `usou_fallback=true`). Próximo: etapa 5 (API + triggers).
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -534,6 +537,16 @@ com duas visões no seletor do topo:
 - **DevOps** (`devops/client.py`): só `GET` (`/updates` paginado, `workitems?$expand=relations`
   para dependências). PAT do serviço = **Work Items (Read)**. `backfill.py` + CLI
   `radar-analytics backfill [--projeto ID] [--limite N]`.
+- **Agente** (`agent/`): `entrada.py` (JSON pseudonimizado, guarda `vazamentos` que aborta se um
+  nome/ID real aparecer, `hash_entrada` sem a data de hoje), `llm.py` (`LLMClient` + `AnthropicLLM`:
+  `claude-opus-5-5` por padrão via `LLM_MODEL`, esforço `low`, JSON por `output_config.format` —
+  **não** `tool_choice` forçado, que dá 400 no Opus 5.5 —, fallback server-side contra recusa
+  `fallbacks="default"`, timeout e retries do SDK), `validador.py` (acao_id existente, números
+  dentro da tolerância, tamanhos, termos de desempenho, verbos de ação concluída), `render.py`
+  (markdown 🚨/🛠️/📊 + template de fallback que sempre passa no validador), `prompt_loader.py`
+  (`prompts/analista-fluxo.<versao>.md`), `analista.py` (1 nova tentativa com o erro como
+  feedback → fallback; checa `hash_payload` pendente **antes** de chamar o LLM; IDs reais só em
+  `acao`).
 - **Migrations** (2026-10-09, **pendentes de `db push`**):
   - `20261009000000_work_item_transicao`: histórico de `System.State`/`System.BoardColumn`
     (único por item+campo+rev). Trigger `after insert` em `evento` extrai `oldValue/newValue`
