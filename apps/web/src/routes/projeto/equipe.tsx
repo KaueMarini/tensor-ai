@@ -5,7 +5,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Clock, Gauge, Settings2, TriangleAlert, Users, X } from "lucide-react";
+import { Clock, Gauge, Settings2, TriangleAlert, UserRoundPlus, Users, X } from "lucide-react";
 import type { Celula, StatusCarga } from "@shared/capacidade/motor";
 import { resumirSquad } from "@shared/capacidade/squads";
 import { type PessoaProjeto, useCapacidadeProjeto } from "@/lib/capacidade-projeto";
@@ -19,6 +19,7 @@ import { MedidorCarga, ORIGEM_CAPACIDADE, pct, STATUS_CARGA, StatusCargaTag } fr
 import { CampoRegra } from "@/components/campo-regra";
 import { Card, Stat } from "@/components/ui/card";
 import { PainelMembro } from "@/routes/membros";
+import { EquipeSugeridaPainel } from "@/components/equipe-sugerida";
 
 const GRAVIDADE: Record<StatusCarga, number> = { ok: 0, limite: 1, sobrecarga: 2, "sem-capacidade": 3 };
 
@@ -32,6 +33,7 @@ export function EquipeProjetoPage() {
   const skills = useSkillsCatalogo();
   const [sprintSel, setSprintSel] = useState<string>();
   const [aberto, setAberto] = useState<string | null>(null);
+  const [reforco, setReforco] = useState(false);
   const sprint = cap.sprints.find((s) => s.id === sprintSel) ?? cap.sprintAtual;
 
   const global = useCargaGlobal(useMemo(() => cap.pessoas.map((p) => p.id), [cap.pessoas]));
@@ -100,6 +102,20 @@ export function EquipeProjetoPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {cap.pessoas.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setReforco((v) => !v)}
+              className={cn(
+                "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm shadow-xs",
+                reforco
+                  ? "border-brand-500 bg-brand-50 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
+              )}
+            >
+              <UserRoundPlus className="size-4" /> Sugerir reforço
+            </button>
+          )}
           <LimitesProjeto projetoId={projetoId} regras={regras} />
           {cap.sprints.length > 0 && (
             <select
@@ -126,6 +142,10 @@ export function EquipeProjetoPage() {
         <Stat icone={TriangleAlert} rotulo="Mais ocupados fora daqui" valor={escondidos.length} alerta={escondidos.length > 0} />
       </div>
 
+      {reforco && cap.pessoas.length > 0 && (
+        <EquipeSugeridaPainel projetoId={projetoId} projetoNome={projeto.data?.nome ?? "o projeto"} motivo="Precisa de reforço?" />
+      )}
+
       {escondidos.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
@@ -137,11 +157,7 @@ export function EquipeProjetoPage() {
       )}
 
       {cap.pessoas.length === 0 ? (
-        <Card className="grid place-items-center px-6 py-16 text-center">
-          <Users className="mb-3 size-8 text-slate-300 dark:text-slate-600" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Ninguém neste projeto ainda</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Adicione pessoas ao time do projeto no Azure DevOps.</p>
-        </Card>
+        <EquipeSugeridaPainel projetoId={projetoId} projetoNome={projeto.data?.nome ?? "o projeto"} />
       ) : !sprint ? (
         <Card className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">Este projeto não tem sprints com datas.</Card>
       ) : (

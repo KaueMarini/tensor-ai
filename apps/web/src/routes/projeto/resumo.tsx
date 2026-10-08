@@ -8,6 +8,9 @@ import { AlertTriangle, ArrowRight, BatteryMedium, CalendarRange, Gauge, Grid3x3
 import type { Celula, StatusCarga } from "@shared/capacidade/motor";
 import { useCapacidadeProjeto } from "@/lib/capacidade-projeto";
 import { useCargaGlobal } from "@/lib/carga-global";
+import { precisaDeEquipe } from "@/lib/equipe-sugerida";
+import { useProjeto } from "@/lib/queries";
+import { EquipeSugeridaPainel } from "@/components/equipe-sugerida";
 import { cn, formatData, formatHoras } from "@/lib/utils";
 import { Avatar } from "@/components/avatar";
 import { pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
@@ -30,6 +33,19 @@ interface Alerta {
 
 export function ResumoPage() {
   const { projetoId } = useParams({ strict: false }) as { projetoId: string };
+  const projeto = useProjeto(projetoId);
+  // Projeto novo sem gente: a primeira coisa que o gestor precisa é de quem pode tocar
+  if (precisaDeEquipe(projeto.data))
+    return (
+      <div className="space-y-5">
+        <EquipeSugeridaPainel projetoId={projetoId} projetoNome={projeto.data?.nome ?? "o projeto"} />
+        <ResumoSprint projetoId={projetoId} />
+      </div>
+    );
+  return <ResumoSprint projetoId={projetoId} />;
+}
+
+function ResumoSprint({ projetoId }: { projetoId: string }) {
   const cap = useCapacidadeProjeto(projetoId);
   const [sprintId, setSprintId] = useState<string | null>(null);
   const sprint = cap.sprints.find((s) => s.id === sprintId) ?? cap.sprintAtual;

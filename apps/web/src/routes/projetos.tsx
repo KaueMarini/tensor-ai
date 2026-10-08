@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRight, ChevronLeft, ChevronRight, Clock, FolderSearch, Search } from "lucide-react";
 import { POR_PAGINA, useProjetosPagina, useProjetosPorIds } from "@/lib/queries";
+import { precisaDeEquipe } from "@/lib/equipe-sugerida";
 import { useRecentes } from "@/lib/recentes";
 import { cn, tempoRelativo } from "@/lib/utils";
 import { MarcaProjeto } from "@/components/avatar";
@@ -103,6 +104,11 @@ export function ProjetosPage() {
                 <div className="flex items-center gap-2">
                   <span className="truncate font-medium text-slate-900 dark:text-slate-100">{pr.nome}</span>
                   {pr.processo && <Badge tone="slate" className="hidden sm:inline-flex">{pr.processo}</Badge>}
+                  {precisaDeEquipe(pr) && (
+                    <Badge tone="amber" title="Ainda sem pessoas: abra para ver o squad e as pessoas sugeridas">
+                      Sem equipe
+                    </Badge>
+                  )}
                 </div>
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                   {pr.descricao || `${pr.n_features ?? 0} features`}

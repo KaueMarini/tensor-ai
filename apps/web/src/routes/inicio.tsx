@@ -16,11 +16,13 @@ import {
   Lightbulb,
   OctagonAlert,
   PartyPopper,
+  UserRoundPlus,
   UserRoundSearch,
   UserRoundX,
 } from "lucide-react";
 import { type ItemAtencao, itensDeAtencao } from "@shared/capacidade/atencao";
 import { proximasSemanas, semanas, useOcupacaoEquipe } from "@/lib/ocupacao";
+import { precisaDeEquipe } from "@/lib/equipe-sugerida";
 import { useFuncaoTags, useProjetosPagina, useSemDonoResumo, useSkillsCatalogo } from "@/lib/queries";
 import { cn, formatHoras } from "@/lib/utils";
 import { MarcaProjeto } from "@/components/avatar";
@@ -70,6 +72,7 @@ export function InicioPage() {
       celula: cel,
       nomeProjeto: eq.nomeProjeto,
       semDono,
+      semEquipe: (projetosQ.data?.projetos ?? []).filter(precisaDeEquipe).map((p) => ({ projetoId: p.id!, nome: p.nome ?? "Projeto" })),
       periodo: periodo.rotulo,
     });
     let acima = 0;
@@ -88,7 +91,7 @@ export function InicioPage() {
       SEMANAS_MAPA,
     );
     return { itens, acima, limite, livres, linhas, cel };
-  }, [eq, periodo, semDono]);
+  }, [eq, periodo, semDono, projetosQ.data]);
 
   const totalSemDono = semDono.reduce((n, s) => n + s.tasks, 0);
   const selecionado = eq.membros.find((m) => m.pessoaId === aberto) ?? null;
@@ -248,7 +251,18 @@ export function InicioPage() {
                 })
               : [];
             const sd = semDono.find((s) => s.projetoId === p.id)?.tasks ?? 0;
-            return <CartaoProjeto key={p.id} id={p.id!} nome={p.nome ?? "Projeto"} sprint={p.sprint_atual} pessoas={pessoas.length} acima={acima.map((m) => m.nome)} semDono={sd} />;
+            return (
+              <CartaoProjeto
+                key={p.id}
+                id={p.id!}
+                nome={p.nome ?? "Projeto"}
+                sprint={p.sprint_atual}
+                pessoas={pessoas.length}
+                acima={acima.map((m) => m.nome)}
+                semDono={sd}
+                semEquipe={precisaDeEquipe(p)}
+              />
+            );
           })}
           {projetosQ.isLoading && [0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />)}
         </div>
@@ -326,6 +340,7 @@ const ICONE_ITEM = {
   sobrecarga: { icone: OctagonAlert, cor: STATUS_CARGA.sobrecarga.cor },
   limite: { icone: AlertTriangle, cor: STATUS_CARGA.limite.cor },
   "sem-dono": { icone: UserRoundX, cor: STATUS_CARGA.limite.cor },
+  "sem-equipe": { icone: UserRoundPlus, cor: "var(--color-brand-600)" },
 } as const;
 
 function ItemPendencia({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: string) => void }) {
@@ -342,7 +357,15 @@ function ItemPendencia({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: s
         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.titulo}</p>
         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.detalhe}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.tipo === "sem-dono" ? (
+          {item.tipo === "sem-equipe" ? (
+            <Link
+              to="/projetos/$projetoId/resumo"
+              params={{ projetoId: item.projetoId }}
+              className="inline-flex items-center gap-1 rounded-md bg-brand-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-900 dark:bg-brand-600 dark:hover:bg-brand-500"
+            >
+              <UserRoundPlus className="size-3.5" /> Ver equipe sugerida
+            </Link>
+          ) : item.tipo === "sem-dono" ? (
             <Acao to="/analises" search={item.projetoId ? { projeto: item.projetoId } : {}} primaria>
               <Lightbulb className="size-3.5" /> Ver sugestões
             </Acao>
@@ -397,6 +420,7 @@ function CartaoProjeto({
   pessoas,
   acima,
   semDono,
+  semEquipe,
 }: {
   id: string;
   nome: string;
@@ -404,8 +428,9 @@ function CartaoProjeto({
   pessoas: number;
   acima: string[];
   semDono: number;
+  semEquipe: boolean;
 }) {
-  const ok = acima.length === 0 && semDono === 0;
+  const ok = acima.length === 0 && semDono === 0 && !semEquipe;
   return (
     <Link
       to="/projetos/$projetoId"
@@ -429,6 +454,11 @@ function CartaoProjeto({
           </span>
         ) : (
           <>
+            {semEquipe && (
+              <div className="flex items-center gap-1.5 font-medium text-brand-800 dark:text-brand-200">
+                <UserRoundPlus className="size-3.5 shrink-0" /> Sem equipe · ver squad e pessoas sugeridas
+              </div>
+            )}
             {acima.length > 0 && (
               <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
                 <OctagonAlert className="size-3.5 shrink-0" style={{ color: STATUS_CARGA.sobrecarga.cor }} />
