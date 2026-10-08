@@ -14,7 +14,7 @@ const item = (over: Partial<ItemCarga>): ItemCarga => ({
 
 // 2026-10-05 é segunda; 2026-10-16 é sexta → 10 dias úteis
 const sprint = { id: "s1", inicio: "2026-10-05", fim: "2026-10-16" };
-const pessoa = { id: "p1", horasSemanaBase: 40 };
+const pessoa = { id: "p1", horasDia: 8 };
 
 describe("diasUteis", () => {
   it("conta só segunda a sexta", () => {
@@ -43,6 +43,19 @@ describe("statusDe", () => {
     expect(statusDe(5, 0)).toEqual({ utilizacao: null, status: "sem-capacidade" });
     expect(statusDe(0, 0).status).toBe("ok");
   });
+
+  it("padrão de mercado: atenção acima de 80%, exatamente 80% ainda é folga", () => {
+    expect(statusDe(64, 80).status).toBe("ok");
+    expect(statusDe(65, 80).status).toBe("limite");
+    expect(statusDe(80, 80).status).toBe("limite");
+  });
+
+  it("usa os limites do gestor", () => {
+    const limites = { atencao: 0.9, sobrecarga: 1.1 };
+    expect(statusDe(70, 80, limites).status).toBe("ok");
+    expect(statusDe(85, 80, limites).status).toBe("limite");
+    expect(statusDe(90, 80, limites).status).toBe("sobrecarga");
+  });
 });
 
 describe("calcularCapacidade", () => {
@@ -62,10 +75,10 @@ describe("calcularCapacidade", () => {
       ],
     });
     expect(c).toMatchObject({ diasUteis: 10, capacidadeH: 60, cargaH: 70, livreH: -10, itens: 2, status: "sobrecarga" });
-    expect(c!.capacidadePadrao).toBe(false);
+    expect(c!.origemCapacidade).toBe("devops");
   });
 
-  it("sem Capacity configurada usa horas_semana_base / 5", () => {
+  it("sem Capacity configurada usa as horas produtivas da pessoa", () => {
     const [c] = calcularCapacidade({
       sprints: [sprint],
       pessoas: [pessoa],
@@ -74,7 +87,7 @@ describe("calcularCapacidade", () => {
       feriados: [],
       itens: [],
     });
-    expect(c).toMatchObject({ capacidadeDia: 8, capacidadeH: 80, capacidadePadrao: true, status: "ok" });
+    expect(c).toMatchObject({ capacidadeDia: 8, capacidadeH: 80, origemCapacidade: "padrao", status: "ok" });
   });
 
   it("desconta feriado, folga da pessoa e folga do time", () => {
@@ -104,6 +117,21 @@ describe("calcularCapacidade", () => {
       itens: [item({ horasRestantes: 4 })],
     });
     expect(c).toMatchObject({ capacidadeH: 0, cargaH: 4, utilizacao: null, status: "sem-capacidade" });
+  });
+
+  it("alocação do gestor no projeto vence a Capacity do DevOps; limites do projeto classificam", () => {
+    const [c] = calcularCapacidade({
+      sprints: [sprint],
+      pessoas: [pessoa],
+      capacidades: [{ sprintId: "s1", pessoaId: "p1", capacidadeDia: 6 }],
+      alocacoes: [{ pessoaId: "p1", horasDia: 2 }],
+      limites: { atencao: 0.5, sobrecarga: 0.9 },
+      folgas: [],
+      feriados: [],
+      itens: [item({ horasRestantes: 12 })],
+    });
+    expect(c).toMatchObject({ capacidadeDia: 2, capacidadeH: 20, origemCapacidade: "gestor", status: "limite" });
+    expect(c!.limites).toEqual({ atencao: 0.5, sobrecarga: 0.9 });
   });
 
   it("ignora sprints sem datas", () => {

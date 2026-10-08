@@ -131,8 +131,8 @@ export function recomendarAlocacao(entrada: {
         const capacidadeH = cel?.capacidadeH ?? 0;
         const cargaAntesH = (cel?.cargaH ?? 0) + (extra.get(`${sprintId}|${c.id}`) ?? 0);
         const cargaDepoisH = cargaAntesH + h;
-        const antes = statusDe(cargaAntesH, capacidadeH);
-        const depois = statusDe(cargaDepoisH, capacidadeH);
+        const antes = statusDe(cargaAntesH, capacidadeH, cel?.limites);
+        const depois = statusDe(cargaDepoisH, capacidadeH, cel?.limites);
         const livreDepoisH = capacidadeH - cargaDepoisH;
         const folga = capacidadeH > 0 ? Math.min(1, Math.max(0, livreDepoisH / capacidadeH)) : 0;
         const enc = encaixe(tags, c);

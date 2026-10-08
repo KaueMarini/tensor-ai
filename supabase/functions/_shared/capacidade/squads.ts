@@ -21,6 +21,7 @@ export function resumirSquad(celulas: (Celula | undefined)[]): ResumoSquad {
   let cargaH = 0;
   let itens = 0;
   let pessoas = 0;
+  let limites: Celula["limites"] | undefined;
   for (const c of celulas) {
     if (!c) continue;
     pessoas++;
@@ -28,8 +29,9 @@ export function resumirSquad(celulas: (Celula | undefined)[]): ResumoSquad {
     cargaH += c.cargaH;
     itens += c.itens;
     porStatus[c.status]++;
+    limites ??= c.limites;
   }
-  const { utilizacao, status } = statusDe(cargaH, capacidadeH);
+  const { utilizacao, status } = statusDe(cargaH, capacidadeH, limites);
   return { pessoas, capacidadeH, cargaH, livreH: Math.max(0, capacidadeH - cargaH), utilizacao, status, itens, porStatus };
 }
 

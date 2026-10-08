@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { type CapacidadeTime, cargaGlobal, type FolgaTime, type ItemGlobal } from "./global.ts";
 
 // Sprint 1 de cada projeto: 05/10 a 16/10/2026 = 10 dias úteis
-const S = (id: string, inicio = "2026-10-05", fim = "2026-10-16") => ({ id, inicio, fim });
+const S = (id: string, inicio = "2026-10-05", fim = "2026-10-16", projetoId = `p-${id}`) => ({ id, inicio, fim, projetoId });
 const periodo = { id: "jan", inicio: "2026-10-05", fim: "2026-10-16" };
-const kaue = { id: "kaue", horasSemanaBase: 40 };
+// 8h produtivas/dia para facilitar as contas (o padrão de mercado é 6h, ver regras.ts)
+const kaue = { id: "kaue", horasDia: 8 };
 
 const item = (over: Partial<ItemGlobal>): ItemGlobal => ({
   projetoId: "p1",
@@ -84,10 +85,42 @@ describe("cargaGlobal", () => {
     expect(c.capacidadeH).toBe(60);
   });
 
-  it("sem Capacity em nenhum time usa a jornada e marca como padrão", () => {
+  it("sem Capacity em nenhum time usa as horas produtivas e marca como padrão", () => {
     const c = rodar();
     expect(c.capacidadeH).toBe(80);
-    expect(c.capacidadePadrao).toBe(true);
+    expect(c.origemCapacidade).toBe("padrao");
+  });
+
+  it("alocação do gestor no projeto sobrepõe a Capacity do DevOps daquele projeto", () => {
+    // DevOps: 6h em A e 6h em B (teto 8h). Gestor: só 1h/dia em A → 1 + 6 = 7h/dia
+    const c = rodar({
+      capacidades: [cap("a1", "ta", 6), cap("b1", "tb", 6)],
+      alocacoes: [{ projetoId: "p-a1", pessoaId: "kaue", horasDia: 1 }],
+    });
+    expect(c.capacidadeH).toBe(70);
+    expect(c.origemCapacidade).toBe("gestor");
+  });
+
+  it("alocação do gestor só vale nos dias em que o projeto tem sprint", () => {
+    const c = rodar({
+      sprints: [S("a1", "2026-10-12", "2026-10-16")],
+      alocacoes: [{ projetoId: "p-a1", pessoaId: "kaue", horasDia: 2 }],
+    });
+    // 5 dias sem sprint de A (8h padrão) + 5 dias com A (2h do gestor)
+    expect(c.capacidadeH).toBe(50);
+  });
+
+  it("jornada menor da pessoa vira o teto e limites gerais definem o status", () => {
+    const c = rodar({
+      pessoas: [{ id: "kaue", horasDia: 4, origemHoras: "gestor" }],
+      capacidades: [cap("a1", "ta", 6)],
+      itens: [item({ horasRestantes: 30 })],
+      limites: { atencao: 0.7, sobrecarga: 0.9 },
+    });
+    expect(c.capacidadeH).toBe(40);
+    expect(c.utilizacao).toBe(0.75);
+    expect(c.status).toBe("limite");
+    expect(c.origemCapacidade).toBe("gestor");
   });
 
   it("feriado sai da capacidade", () => {
