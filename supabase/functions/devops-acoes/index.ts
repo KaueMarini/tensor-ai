@@ -186,6 +186,7 @@ async function atribuir(
     .from("time_membro")
     .select("pessoa_id, time!inner(projeto_id)")
     .eq("pessoa_id", pessoaId)
+    .eq("ativo", true) // removido do time no DevOps não conta
     .eq("time.projeto_id", item.projeto_id)
     .limit(1);
   if (e3) throw new Error(e3.message);

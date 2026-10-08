@@ -8,6 +8,7 @@ import hookUpdated from "../__fixtures__/webhook-updated.json" with { type: "jso
 import hookDeleted from "../__fixtures__/webhook-deleted.json" with { type: "json" };
 import type { AzdoClassificationNode, AzdoWorkItem } from "../azdo/types.ts";
 import { normalizeIterationPath, toDateOnly } from "./paths.ts";
+import { lerDescricaoProjeto } from "./projeto.ts";
 import { mapWorkItem, parentId, parseTags } from "./workItem.ts";
 import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff, sprintsAtivas } from "./team.ts";
 import { extractWebhookRef } from "./webhook.ts";
@@ -148,5 +149,17 @@ describe("sprintsAtivas", () => {
       "2026-10-07",
     );
     expect([...ativas].sort()).toEqual(["atual", "futura", "sem-data", "termina-hoje"]);
+  });
+});
+
+describe("lerDescricaoProjeto", () => {
+  it("separa a linha Tags da descrição", () => {
+    const r = lerDescricaoProjeto("Plataforma de agendamento.\n\nTags: Agendamento, patio; tempo-real , agendamento");
+    expect(r.descricao).toBe("Plataforma de agendamento.");
+    expect(r.tags).toEqual(["agendamento", "patio", "tempo-real"]);
+  });
+  it("sem linha de tags e sem descrição", () => {
+    expect(lerDescricaoProjeto("Só texto")).toEqual({ descricao: "Só texto", tags: [] });
+    expect(lerDescricaoProjeto(undefined)).toEqual({ descricao: null, tags: [] });
   });
 });

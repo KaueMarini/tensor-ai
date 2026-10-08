@@ -7,6 +7,7 @@ import type { AzdoProject, AzdoWorkItem } from "../_shared/azdo/types.ts";
 import { errorMessage, log } from "../_shared/log.ts";
 import { flattenIterations, mapCapacities, mapMembers, mapTeamDaysOff, sprintsAtivas } from "../_shared/mappers/team.ts";
 import { mapWorkItem } from "../_shared/mappers/workItem.ts";
+import { mapProjeto } from "../_shared/mappers/projeto.ts";
 import { extractWebhookRef } from "../_shared/mappers/webhook.ts";
 import type { AzdoServiceHookPayload } from "../_shared/azdo/types.ts";
 import type { AzdoClient } from "../_shared/azdo/client.ts";
@@ -111,22 +112,52 @@ async function allIds(ctx: SyncCtx, projetoId: string): Promise<number[]> {
 // Projetos, sprints, times, membros, capacidade
 // ---------------------------------------------------------------------------
 
+/**
+ * Projetos: cria/atualiza (nome, descrição, tags da descrição, processo), acompanha
+ * renomeação (caminhos dos work items), arquiva os excluídos no DevOps e reativa os
+ * restaurados (forçando uma carga completa).
+ */
 export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   const todos = await ctx.azdo.listProjects();
   const alvo = todos.filter(
     (p) => ctx.filtro.length === 0 || ctx.filtro.includes(p.name.toLowerCase()) || ctx.filtro.includes(p.id),
   );
   const detalhados = await Promise.all(alvo.map((p) => ctx.azdo.getProject(p.id)));
-  const existentes = rows(await ctx.db.from("projeto").select("id, nome, descricao, processo"), "ler projetos");
-  const mudou = detalhados
-    .map((p) => ({
-      id: p.id,
-      nome: p.name,
-      descricao: p.description ?? null,
-      processo: p.capabilities?.processTemplate?.templateName ?? null,
-    }))
-    .filter((p) => canon(p) !== canon(existentes.find((e) => e.id === p.id)));
+  const existentes = rows(
+    await ctx.db.from("projeto").select("id, nome, descricao, tags_requeridas, processo, deleted_at"),
+    "ler projetos",
+  );
+
+  const mudou = [];
+  for (const p of detalhados) {
+    const novo = mapProjeto(p);
+    const atual = existentes.find((e) => e.id === p.id);
+    if (atual && atual.nome !== novo.nome) {
+      const n = must(
+        await ctx.db.rpc("renomear_paths_projeto", { p_projeto_id: p.id, p_antigo: atual.nome, p_novo: novo.nome }),
+        "renomear paths",
+      );
+      log("info", "projeto renomeado no DevOps", { projeto_id: p.id, de: atual.nome, para: novo.nome, work_items: n });
+    }
+    if (atual?.deleted_at) {
+      // Restaurado da lixeira do DevOps: volta e refaz a carga completa (itens estavam arquivados)
+      must(await ctx.db.from("sync_state").delete().eq("projeto_id", p.id), "reiniciar sync_state");
+      log("info", "projeto restaurado no DevOps", { projeto_id: p.id, nome: novo.nome });
+    }
+    const { deleted_at: _d, ...comparavel } = atual ?? {};
+    if (atual?.deleted_at || canon(novo) !== canon(comparavel)) mudou.push({ ...novo, deleted_at: null });
+  }
   if (mudou.length) must(await ctx.db.from("projeto").upsert(mudou), "upsert projeto");
+
+  // Excluídos no DevOps (não aparecem mais na lista da org) → arquivar.
+  // Lista vazia é tratada como falha da API, nunca como "a org não tem projetos".
+  if (todos.length > 0) {
+    const vivos = new Set(todos.map((p) => p.id));
+    for (const e of existentes.filter((e) => !e.deleted_at && !vivos.has(e.id))) {
+      must(await ctx.db.rpc("arquivar_projeto", { p_projeto_id: e.id }), "arquivar projeto");
+      log("info", "projeto excluído no DevOps: arquivado", { projeto_id: e.id, nome: e.nome });
+    }
+  }
   return detalhados;
 }
 
@@ -158,6 +189,13 @@ export async function syncMeta(ctx: SyncCtx, projetoId: string, { apenasAtivas =
     .map((t) => ({ id: t.id, projeto_id: projetoId, nome: t.name }))
     .filter((t) => canon(t) !== canon(timesAtuais.find((a) => a.id === t.id)));
   if (timesMudaram.length) must(await ctx.db.from("time").upsert(timesMudaram), "upsert time");
+  // Time excluído no DevOps: sai daqui (membros, capacidade e folgas dele vão junto, em cascata)
+  const idsTimes = new Set(times.map((t) => t.id));
+  const timesSumiram = timesAtuais.filter((t) => !idsTimes.has(t.id)).map((t) => t.id);
+  if (times.length > 0 && timesSumiram.length) {
+    must(await ctx.db.from("time").delete().in("id", timesSumiram), "excluir times");
+    log("info", "times excluídos no DevOps", { projeto_id: projetoId, times: timesSumiram, run_id: ctx.runId });
+  }
 
   for (const time of times) {
     const membros = mapMembers(await ctx.azdo.listTeamMembers(projetoId, time.id));
