@@ -20,6 +20,11 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (2ª parte): **skills automáticas** — o banco sugere skills para cada
+pessoa a partir das tags das tasks dela (e da Feature pai), sozinho, a cada task nova ou
+alterada; o gestor confirma/descarta no perfil (ver 2.7). 38 sugestões geradas na carga
+inicial para 7 pessoas.
+
 Sessão de 2026-10-08: **Membros ganhou a visão "Squads"** (substitui a tabela "Por
 projeto"): um bloco por projeto com um card por squad (time do DevOps) mostrando a
 utilização da sprint atual pelo motor, carga de cada pessoa e skills do squad — ver 2.7.
@@ -77,6 +82,8 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
 | `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
 | `20261007000500_projetos_kanban.sql` | `pg_trgm` + índice GIN em `projeto.nome` (busca), view `v_projeto_resumo` (lista paginada: itens, features, membros, sprint atual, última sync), `v_membros` ganha `projeto_nome`, tabela `acao` (auditoria de ações no DevOps), `sync_origem` aceita `app` |
+| `20261008000100_skills_automaticas.sql` | `skill_tag` ganha origem `tasks`, `evidencias`, `horas`, `rejeitada`, `atualizado_em`; `unaccent`; `skill_chave`; `recalcular_skills`; triggers por comando em `work_item`; `v_membros.skills` com origem/confirmada/rejeitada/evidencias; carga inicial |
+| `20261008000200_skills_grafia_unica.sql` | sugestão nova usa a grafia mais comum da skill no time; normaliza as existentes |
 | `20261008000000_hierarquia_epic_basic.sql` | `feature_ancestral` prefere Feature e cai para Epic (processo Basic: Epic → Task); `v_backlog` mostra Epic sem filhos como requisito vazio; recalcula todos os itens |
 | `20261007000400_membros_skills_tags.sql` | `funcao_tag` + `pessoa_funcao_tag` (catálogo de tags de função) + policies de escrita pro gestor em `skill_tag`/`funcao_tag`/`pessoa_funcao_tag` + view `v_membros` |
 
@@ -245,6 +252,27 @@ com duas visões no seletor do topo:
   pensada no CLAUDE.md §4 pra isso — só ganhou policy de escrita pro gestor). Adicionar
   usa `<datalist>` com as skills já cadastradas em qualquer pessoa (autocomplete sem
   travar em lista fixa). Remover é por chip (`×`).
+- **Skills automáticas (2026-10-08)** — migrations `20261008000100` e `20261008000200`:
+  - `recalcular_skills(pessoas[])` (SQL, sem IA): evidência = tags da task + tags da
+    Feature/Epic pai, em tasks atribuídas à pessoa (abertas e fechadas), ignorando tags
+    `seed-*`. Variações viram a mesma skill (`skill_chave`: minúsculas, sem acento, sem
+    hífen/espaço → "back-end" = "backend"), e a grafia exibida é a mais usada no time.
+    Com **2+ tasks** vira sugestão: `origem='tasks'`, `confirmada=false`, `confianca` =
+    min(1, n/5), `evidencias` (nº de tasks) e `horas`.
+  - **Automático por trigger** em `work_item` (por comando, com transition tables): ao
+    inserir ou mudar responsável, tags, tipo, Feature pai, exclusão ou horas, recalcula as
+    pessoas afetadas (antes e depois); tag mudando na Feature recalcula quem tem task
+    embaixo. Vale para webhook, reconcile, sync completa e Kanban. Sugestão que perde a
+    evidência some; confirmadas e skills do gestor ficam (com `evidencias` atualizado).
+  - **Descartar** = `rejeitada=true` (a linha fica para a inferência não sugerir de novo).
+    No app: chips sugeridos tracejados com ✨; no perfil, bloco "Sugeridas pelas tasks"
+    (nº de tasks, ✓ confirmar, × descartar, "Confirmar todas") e "Descartadas" com
+    restaurar; aviso no topo de Membros com o total pendente. Digitar uma skill já
+    sugerida confirma ela. Front lê o jsonb via `lib/skills.ts` (`lerSkills`, testado);
+    `Membro`/`PessoaProjeto` ganharam `skillsInfo`.
+  - **Tags de função continuam manuais** (função não se deduz das tasks).
+  - Sinônimos de palavras diferentes ("realtime" × "tempo-real") e leitura do descritivo /
+    descrição da Feature ficam para o agente de IA (P1).
 - **Tags de função**: catálogo novo (`funcao_tag`), **não hardcoded** — o gestor cria
   quantas quiser pelo próprio card do membro ou pelo botão "Gerenciar tags" (lista
   todas as tags, permite renomear — afeta todo mundo que usa — e excluir). Associação
@@ -446,3 +474,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-07 | Membros saiu da aba do projeto e virou seção própria na sidebar, com visões "Todos" (cards + ranking de skills/tags) e "Por projeto" (tabela por projeto); painel do membro e modal de tags refeitos (animação, Esc, confirmação de exclusão, toasts). Rampa da marca completada (200/300/400/800). Diagnóstico: projetos novos não sincronizavam por causa do segredo `AZDO_PROJECTS=IportJLKN12` (ver seção 5) — remoção do segredo pendente de aprovação do usuário. |
 | 2026-10-07 | Usuário removeu `AZDO_PROJECTS`; 3 projetos novos importados (um deles disparado na hora via `devops-sync`). Navegação refeita para muitos projetos: página Projetos (busca trigram + paginação no banco, `v_projeto_resumo`), recentes na sidebar. Cada projeto com 5 telas: **Kanban** (arrastar muda o estado no DevOps via nova Edge Function `devops-acoes`, auditoria na nova tabela `acao`), **Cronograma** (Gantt), **Squad**, **Métricas**, **Análises** (mapa de utilização + alertas). **Motor de capacidade** puro em `_shared/capacidade/motor.ts` com 9 testes. Migration `20261007000500` aplicada, `devops-acoes` publicada. Validado no Chrome headless (claro/escuro) e com um movimento real no DevOps (#10 New → Active → New). |
 | 2026-10-08 | Membros: visão **Squads** (cards por squad dentro de cada projeto, carga da sprint atual pelo motor, mini-medidor por pessoa, skills do squad, carregamento sob demanda) no lugar da tabela "Por projeto"; `resumirSquad` em `_shared/capacidade/squads.ts` (+ testes). Migration `20261008000000` (Epic como requisito no Basic) aplicada. `pnpm devops:popular` criou 82 itens nos 3 projetos sem dados (sprints datadas, capacidade, requisitos, tasks) e o reconcile trouxe tudo; webhooks criados para os 3 projetos. PAT sem Graph API → squads novos só pela UI do DevOps. Usuário `qa-headless` criado para testes (senha de demo local estava desatualizada). Validado: 39 testes, typecheck, build e Chrome headless claro/escuro sem erros. |
+| 2026-10-08 | **Skills automáticas** a partir das tasks (migrations `20261008000100`/`0200`: `recalcular_skills` + triggers em `work_item`, sugestão até o gestor confirmar, descarte que não volta, grafia única). Front: chips sugeridos, revisão no perfil, aviso de pendentes. Validado: teste SQL com rollback (sugere / descartada não volta / some sem evidência) e ponta a ponta real — tag `kotlin` em 2 tasks do Aaron no DevOps apareceu como sugestão no perfil em 8,6 s sem refresh; confirmar/descartar conferidos no banco; tudo desfeito. 42 testes, typecheck limpos. Time do projeto Teste ganhou 6 pessoas no DevOps (13 membros no total). |
