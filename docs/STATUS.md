@@ -20,6 +20,16 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (5ª parte): **ciclo de vida de projetos/times/membros**. A sync
+agora trata projeto **excluído** no DevOps (arquiva: some do app e da carga global;
+restaurado volta com carga completa), **renomeado** (caminhos de sprints e tasks
+acompanham, sem perder o vínculo com a sprint), **time excluído** e **membro removido**
+(views e a ação "atribuir" ignoram inativos), e lê **descrição + linha "Tags:"** do projeto
+(`tags_requeridas`, mostradas no cabeçalho do projeto). Testado no banco com transação
+desfeita. **PENDENTE:** renomear para nomes fictícios, descrever e excluir o IportJLNK no
+DevOps — `pnpm devops:projetos --excluir` está pronto, mas o PAT atual devolve **401**
+(falta o escopo *Project and Team: Read, write & manage*). Ver seção 5, "PAT".
+
 Sessão de 2026-10-08 (4ª parte): **carga global** e **empresa organizada**. As sugestões
 agora usam a ocupação da pessoa em **todos os projetos** (`_shared/capacidade/global.ts`:
 capacidade única limitada à jornada × tasks de qualquer projeto) — antes cada projeto via
@@ -184,6 +194,13 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   cadeia Feature → User Story → Task, task sem estimativa). Idempotente.
 - `pnpm devops:hooks [create|list|delete]`: gerencia subscriptions de Service Hooks. Idempotente.
 - `pnpm devops:latency <id>`: mede latência DevOps → banco e restaura o valor original.
+- `pnpm devops:projetos [--dry] [--excluir]` (2026-10-08): nomes fictícios + descrição com
+  linha `Tags:` por projeto (contexto para o agente), chaveado por ID. Planejado:
+  IportJLKN12 → **Atlântico Docas**, Eu amo a Laryssa → **Rota Certa**, Teste →
+  **Maré Assistente**; `--excluir` exclui o IportJLNK (lixeira do DevOps, 28 dias).
+  Exige PAT com *Project and Team (Read, write & manage)* — **ainda não rodou** (401).
+  Os scripts `devops-popular`, `devops-organizar` e `devops-seed` passaram a usar o **ID**
+  do projeto (renomear não quebra; `SEED_PROJETO` sobrescreve o do seed).
 - `pnpm devops:organizar [--dry]` (2026-10-08): organiza a org como empresa. `PERFIL`
   (função + skills principais por pessoa), `ALOCACAO` (h/dia por projeto; padrão 6) e
   `RESPONSAVEIS` (devops_id → pessoa; `null` = deixar sem dono). Ajusta Capacity no DevOps
@@ -497,6 +514,22 @@ e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
   precisa rodar `pnpm devops:hooks create` — atenção: o `.env.local` desta máquina ainda
   tem `AZDO_PROJECTS=IportJLKN12`, que o script usa como filtro; rode com
   `AZDO_PROJECTS="," pnpm devops:hooks create` para cobrir todos.
+- **Ciclo de vida (migrations `20261008000400`–`0600`)**: `projeto.deleted_at`;
+  `arquivar_projeto` (projeto + work items + sprints em soft delete, membros inativos);
+  `renomear_paths_projeto` (troca o prefixo `Antigo\` → `Novo\` nas **sprints primeiro** e
+  depois nos work items — na ordem inversa o trigger de sprint desvinculava as tasks);
+  views `v_projeto_resumo` (+ coluna `tags`), `v_membros` e `v_sem_dono_resumo` ignoram
+  projetos arquivados e membros `ativo=false`; `projeto` no Realtime. `syncProjetos`:
+  detecta renomeação, arquiva quem sumiu da lista da org (lista vazia = falha, nunca
+  arquiva tudo), reativa restaurados apagando o `sync_state` (força carga completa).
+  `syncMeta`: apaga times que sumiram (cascata em membros/capacidade/folgas).
+  `devops-acoes atribuir` exige membro ativo. Mapper `_shared/mappers/projeto.ts`
+  (`lerDescricaoProjeto`: linha `Tags: a, b` → `tags_requeridas`, testado).
+- **PAT — escopos necessários** para tudo funcionar: Work Items (Read, write & manage),
+  Project and Team (Read, write & manage), Service Hooks (Read, write & manage) e, para
+  criar squads com pessoas, Graph (Read & manage). O PAT atual só tem Work Items e
+  Service Hooks. Trocar em `.env.local` **e** `supabase/.env.functions` + `npx supabase
+  secrets set --env-file supabase/.env.functions`.
 - **Squads novos no DevOps exigem Graph API**: o PAT atual **não** tem escopo de Graph
   (`vssps.../_apis/graph` → 401), então o sistema não consegue criar times nem colocar
   pessoas neles. Criar squads pela UI do DevOps (Project settings → Teams) funciona: a
@@ -554,3 +587,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Skills automáticas** a partir das tasks (migrations `20261008000100`/`0200`: `recalcular_skills` + triggers em `work_item`, sugestão até o gestor confirmar, descarte que não volta, grafia única). Front: chips sugeridos, revisão no perfil, aviso de pendentes. Validado: teste SQL com rollback (sugere / descartada não volta / some sem evidência) e ponta a ponta real — tag `kotlin` em 2 tasks do Aaron no DevOps apareceu como sugestão no perfil em 8,6 s sem refresh; confirmar/descartar conferidos no banco; tudo desfeito. 42 testes, typecheck limpos. Time do projeto Teste ganhou 6 pessoas no DevOps (13 membros no total). |
 | 2026-10-08 | **Análises** na sidebar: sugestões de responsável para tasks sem dono (motor `recomendarAlocacao` em `_shared/capacidade/recomendacao.ts`, 9 testes: encaixe de skills/tags + folga na sprint, penalidades por carga, distribuição sequencial), botão **Atribuir** → nova ação `atribuir` em `devops-acoes` (publicada) com auditoria e motivo em `acao`. Migration `20261008000300` (`feature_tags` na `v_backlog`, `v_sem_dono_resumo`). `QuandoVisivel` virou componente compartilhado. Validado: 51 testes, typecheck, build, Chrome headless claro/escuro e atribuição real da #38 (DevOps + auditoria conferidos, depois desfeita). |
 | 2026-10-08 | **Carga global** nas sugestões (`_shared/capacidade/global.ts` + `lib/carga-global.ts`): capacidade única por pessoa limitada à jornada × tasks em todos os projetos — corrige o Kauê sendo sugerido para tudo (cada projeto o via com 6h/dia exclusivas). **Org reorganizada** com `pnpm devops:organizar` (120 mudanças: Capacity realista, tasks pelo foco de cada pessoa, 10 funções e skills confirmadas no app); descoberto que `add` em `System.Tags` acrescenta (usar `replace`). Resultado validado no headless: Teste #57→Abigail, #54→Arão, #59→Valeria; IportJLNK → Kauê com ocupação real (46h de 80h) e aviso de time com 1 pessoa. 58 testes, typecheck e build limpos. |
+| 2026-10-08 | **Ciclo de vida**: sync trata projeto excluído (arquiva), renomeado (paths de sprints e tasks; bug de desvínculo da sprint achado no teste e corrigido em `20261008000600`), time excluído e membro removido (views e `atribuir` ignoram inativos); descrição + `Tags:` do projeto viram `tags_requeridas` e aparecem no cabeçalho; `projeto` no Realtime. Functions `devops-sync`/`webhook`/`acoes` republicadas. Testes SQL com rollback dos 4 cenários (Kauê cai de 126h para 22h abertas e de 10 para 7 skills inferidas ao arquivar o IportJLNK). Scripts por ID. `pnpm devops:projetos` pronto, **bloqueado por 401** (PAT sem Project and Team). 60 testes, typecheck e build limpos. |
