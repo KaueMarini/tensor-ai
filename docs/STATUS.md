@@ -26,9 +26,11 @@ restaurado volta com carga completa), **renomeado** (caminhos de sprints e tasks
 acompanham, sem perder o vínculo com a sprint), **time excluído** e **membro removido**
 (views e a ação "atribuir" ignoram inativos), e lê **descrição + linha "Tags:"** do projeto
 (`tags_requeridas`, mostradas no cabeçalho do projeto). Testado no banco com transação
-desfeita. **PENDENTE:** renomear para nomes fictícios, descrever e excluir o IportJLNK no
-DevOps — `pnpm devops:projetos --excluir` está pronto, mas o PAT atual devolve **401**
-(falta o escopo *Project and Team: Read, write & manage*). Ver seção 5, "PAT".
+desfeita e **aplicado de verdade no DevOps** com PAT de acesso total: IportJLKN12 →
+**Atlântico Docas**, Eu amo a Laryssa → **Rota Certa**, Teste → **Maré Assistente** (com
+descrição e tags), **IportJLNK excluído** (lixeira do DevOps) e arquivado no app. Validado
+no banco (0 caminhos antigos, 0 tasks sem sprint) e no headless (nomes, tags no cabeçalho,
+IportJLNK fora de Projetos/Membros/Análises).
 
 Sessão de 2026-10-08 (4ª parte): **carga global** e **empresa organizada**. As sugestões
 agora usam a ocupação da pessoa em **todos os projetos** (`_shared/capacidade/global.ts`:
@@ -198,7 +200,8 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   linha `Tags:` por projeto (contexto para o agente), chaveado por ID. Planejado:
   IportJLKN12 → **Atlântico Docas**, Eu amo a Laryssa → **Rota Certa**, Teste →
   **Maré Assistente**; `--excluir` exclui o IportJLNK (lixeira do DevOps, 28 dias).
-  Exige PAT com *Project and Team (Read, write & manage)* — **ainda não rodou** (401).
+  Exige PAT com *Project and Team (Read, write & manage)*. **Rodado em 2026-10-08**
+  (idempotente: rodar de novo só confirma "já está certo").
   Os scripts `devops-popular`, `devops-organizar` e `devops-seed` passaram a usar o **ID**
   do projeto (renomear não quebra; `SEED_PROJETO` sobrescreve o do seed).
 - `pnpm devops:organizar [--dry]` (2026-10-08): organiza a org como empresa. `PERFIL`
@@ -506,14 +509,17 @@ e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
   prefira a ferramenta de escrita de arquivos.
 - Validação visual do front: `puppeteer-core` (instalado só no scratchpad, não no repo) com
   o Chrome local em headless, logando com o usuário de demo.
-- **`AZDO_PROJECTS` limita quais projetos sincronizam** (vazio = todos). Estava
+- **`AZDO_PROJECTS` limita quais projetos sincronizam** (vazio = todos). Filtra por **nome
+  ou ID** — use **ID**, porque nome quebra ao renomear o projeto. Hoje está **comentado**
+  em `.env.local` e `supabase/.env.functions` e **não existe** nos segredos: cuidado, o
+  `secrets set --env-file` envia o arquivo inteiro (em 2026-10-08 isso recolocou o filtro
+  antigo por engano e o reconcile parou de ver os projetos renomeados; corrigido com
+  `secrets unset AZDO_PROJECTS`). Estava
   `IportJLKN12` no segredo das Edge Functions e barrava projetos novos; **foi removido**
   (2026-10-07) e `IportJLNK`, `Teste` e `Eu amo a Laryssa` foram importados. Projeto novo
   no DevOps aparece em até 5 min (cron do reconcile faz a full na 1ª vez).
 - **Webhooks: os 4 projetos têm** (criados em 2026-10-08, 4 eventos cada). Projeto novo
-  precisa rodar `pnpm devops:hooks create` — atenção: o `.env.local` desta máquina ainda
-  tem `AZDO_PROJECTS=IportJLKN12`, que o script usa como filtro; rode com
-  `AZDO_PROJECTS="," pnpm devops:hooks create` para cobrir todos.
+  precisa rodar `pnpm devops:hooks create` (sem `AZDO_PROJECTS`, cobre todos).
 - **Ciclo de vida (migrations `20261008000400`–`0600`)**: `projeto.deleted_at`;
   `arquivar_projeto` (projeto + work items + sprints em soft delete, membros inativos);
   `renomear_paths_projeto` (troca o prefixo `Antigo\` → `Novo\` nas **sprints primeiro** e
@@ -527,8 +533,8 @@ e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
   (`lerDescricaoProjeto`: linha `Tags: a, b` → `tags_requeridas`, testado).
 - **PAT — escopos necessários** para tudo funcionar: Work Items (Read, write & manage),
   Project and Team (Read, write & manage), Service Hooks (Read, write & manage) e, para
-  criar squads com pessoas, Graph (Read & manage). O PAT atual só tem Work Items e
-  Service Hooks. Trocar em `.env.local` **e** `supabase/.env.functions` + `npx supabase
+  criar squads com pessoas, Graph (Read & manage). **O PAT atual (2026-10-08) tem acesso
+  total.** Trocar em `.env.local` **e** `supabase/.env.functions` + `npx supabase
   secrets set --env-file supabase/.env.functions`.
 - **Squads novos no DevOps exigem Graph API**: o PAT atual **não** tem escopo de Graph
   (`vssps.../_apis/graph` → 401), então o sistema não consegue criar times nem colocar
@@ -588,3 +594,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Análises** na sidebar: sugestões de responsável para tasks sem dono (motor `recomendarAlocacao` em `_shared/capacidade/recomendacao.ts`, 9 testes: encaixe de skills/tags + folga na sprint, penalidades por carga, distribuição sequencial), botão **Atribuir** → nova ação `atribuir` em `devops-acoes` (publicada) com auditoria e motivo em `acao`. Migration `20261008000300` (`feature_tags` na `v_backlog`, `v_sem_dono_resumo`). `QuandoVisivel` virou componente compartilhado. Validado: 51 testes, typecheck, build, Chrome headless claro/escuro e atribuição real da #38 (DevOps + auditoria conferidos, depois desfeita). |
 | 2026-10-08 | **Carga global** nas sugestões (`_shared/capacidade/global.ts` + `lib/carga-global.ts`): capacidade única por pessoa limitada à jornada × tasks em todos os projetos — corrige o Kauê sendo sugerido para tudo (cada projeto o via com 6h/dia exclusivas). **Org reorganizada** com `pnpm devops:organizar` (120 mudanças: Capacity realista, tasks pelo foco de cada pessoa, 10 funções e skills confirmadas no app); descoberto que `add` em `System.Tags` acrescenta (usar `replace`). Resultado validado no headless: Teste #57→Abigail, #54→Arão, #59→Valeria; IportJLNK → Kauê com ocupação real (46h de 80h) e aviso de time com 1 pessoa. 58 testes, typecheck e build limpos. |
 | 2026-10-08 | **Ciclo de vida**: sync trata projeto excluído (arquiva), renomeado (paths de sprints e tasks; bug de desvínculo da sprint achado no teste e corrigido em `20261008000600`), time excluído e membro removido (views e `atribuir` ignoram inativos); descrição + `Tags:` do projeto viram `tags_requeridas` e aparecem no cabeçalho; `projeto` no Realtime. Functions `devops-sync`/`webhook`/`acoes` republicadas. Testes SQL com rollback dos 4 cenários (Kauê cai de 126h para 22h abertas e de 10 para 7 skills inferidas ao arquivar o IportJLNK). Scripts por ID. `pnpm devops:projetos` pronto, **bloqueado por 401** (PAT sem Project and Team). 60 testes, typecheck e build limpos. |
+| 2026-10-08 | PAT novo com acesso total (local + segredos das functions). `pnpm devops:projetos --excluir` aplicado: 3 projetos renomeados para nomes fictícios com descrição + `Tags:`, IportJLNK excluído no DevOps. Reconcile refletiu tudo (arquivamento, renomeação de caminhos sem perder sprint, tags). Achado: `secrets set --env-file` recolocou `AZDO_PROJECTS=IportJLKN12` (filtro por nome → 0 projetos após renomear); removido do segredo e comentado nos arquivos locais. Validado no banco e no headless. |
