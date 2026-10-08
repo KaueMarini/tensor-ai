@@ -1,10 +1,10 @@
-// Análises (sidebar): sugestões de responsável para tasks abertas sem dono, em todos os projetos.
+// Sugestões (sidebar): sugestões de responsável para tasks abertas sem dono, em todos os projetos.
 // O ranking vem do motor determinístico (@shared/capacidade/recomendacao): encaixe de skills e
 // tags de função + horas livres na sprint (motor de capacidade). O gestor aprova com "Atribuir"
 // e a task é reatribuída no Azure DevOps (auditado em `acao`). Nada muda sem o clique.
 
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -41,7 +41,8 @@ const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.
 
 export function AnalisesPage() {
   const resumo = useSemDonoResumo();
-  const [projeto, setProjeto] = useState("");
+  const { projeto: projetoInicial } = useSearch({ from: "/app/analises" });
+  const [projeto, setProjeto] = useState(projetoInicial ?? "");
   const [busca, setBusca] = useState("");
 
   const projetos = resumo.data ?? [];
@@ -52,7 +53,7 @@ export function AnalisesPage() {
   return (
     <div className="mx-auto max-w-[1300px] px-6 py-6">
       <header className="mb-6">
-        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Análises</div>
+        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Sugestões</div>
         <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Sugestões de alocação</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
           Tasks abertas sem responsável e quem melhor pode assumir cada uma, pelo encaixe de skills e tags e pelo tempo

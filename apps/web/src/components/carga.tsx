@@ -15,7 +15,7 @@ export const STATUS_CARGA: Record<StatusCarga, { rotulo: string; icone: LucideIc
 
 /** De onde veio a capacidade (o gestor sabe onde mexer). */
 export const ORIGEM_CAPACIDADE: Record<OrigemCapacidade, { rotulo: string; detalhe: string }> = {
-  gestor: { rotulo: "Gestor", detalhe: "definida pelo gestor no painel de Capacidade" },
+  gestor: { rotulo: "Gestor", detalhe: "definida pelo gestor (Regras de capacidade ou aba Equipe do projeto)" },
   devops: { rotulo: "DevOps", detalhe: "Capacity configurada no Azure DevOps" },
   padrao: { rotulo: "Padrão", detalhe: "regra geral (padrão de mercado se ninguém mudou)" },
 };

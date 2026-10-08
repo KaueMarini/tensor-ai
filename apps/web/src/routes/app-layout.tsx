@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FolderKanban, Lightbulb, LogOut, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
+import { FolderKanban, House, Lightbulb, LogOut, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjetosPorIds, useSemDonoResumo, useSyncState } from "@/lib/queries";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
@@ -48,22 +48,22 @@ function Sidebar() {
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-2 py-4">
         <div className="space-y-0.5">
-          <Link to="/projetos" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <FolderKanban className="size-4 shrink-0 opacity-70" /> Projetos
+          <Link to="/inicio" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <House className="size-4 shrink-0 opacity-70" /> Início
           </Link>
-          <Link to="/membros" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <Users className="size-4 shrink-0 opacity-70" /> Membros
-          </Link>
-          <Link to="/analises" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <Lightbulb className="size-4 shrink-0 opacity-70" /> Análises
+          <Link to="/analises" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <Lightbulb className="size-4 shrink-0 opacity-70" /> Sugestões
             {semDono > 0 && (
               <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold tabular-nums text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" title="Tasks abertas sem responsável">
                 {semDono}
               </span>
             )}
           </Link>
-          <Link to="/capacidade" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <SlidersHorizontal className="size-4 shrink-0 opacity-70" /> Capacidade
+          <Link to="/membros" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <Users className="size-4 shrink-0 opacity-70" /> Equipe
+          </Link>
+          <Link to="/projetos" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <FolderKanban className="size-4 shrink-0 opacity-70" /> Projetos
           </Link>
         </div>
 
@@ -86,6 +86,12 @@ function Sidebar() {
             </div>
           </div>
         )}
+        <div>
+          <div className={GRUPO}>Ajustes</div>
+          <Link to="/capacidade" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <SlidersHorizontal className="size-4 shrink-0 opacity-70" /> Regras de capacidade
+          </Link>
+        </div>
       </nav>
 
       <StatusSync />

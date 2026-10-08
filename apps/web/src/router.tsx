@@ -3,17 +3,17 @@ import { Toaster } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
+import { InicioPage } from "@/routes/inicio";
 import { ProjetosPage } from "@/routes/projetos";
 import { MembrosPage } from "@/routes/membros";
 import { AnalisesPage as SugestoesAlocacaoPage } from "@/routes/analises";
+import { CapacidadePage as RegrasPage } from "@/routes/capacidade";
 import { ProjetoLayout } from "@/routes/projeto/layout";
+import { ResumoPage } from "@/routes/projeto/resumo";
 import { CronogramaPage } from "@/routes/projeto/cronograma";
-import { SquadPage } from "@/routes/projeto/squad";
+import { EquipeProjetoPage } from "@/routes/projeto/equipe";
 import { KanbanPage } from "@/routes/projeto/kanban";
 import { MetricasPage } from "@/routes/projeto/metricas";
-import { AnalisesPage } from "@/routes/projeto/analises";
-import { CapacidadePage } from "@/routes/capacidade";
-import { CapacidadeProjetoPage } from "@/routes/projeto/capacidade";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -28,6 +28,8 @@ async function temSessao() {
   const { data } = await supabase.auth.getSession();
   return !!data.session;
 }
+
+const texto = (v: unknown) => (typeof v === "string" && v ? v : undefined);
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -47,13 +49,15 @@ const appRoute = createRoute({
   component: AppLayout,
 });
 
-const inicioRoute = createRoute({
+const raizRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/projetos" });
+    throw redirect({ to: "/inicio" });
   },
 });
+
+const inicioRoute = createRoute({ getParentRoute: () => appRoute, path: "/inicio", component: InicioPage });
 
 const projetosRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -65,26 +69,23 @@ const projetosRoute = createRoute({
   component: ProjetosPage,
 });
 
+/** Equipe: ocupação (padrão), skills e tags, squads. "projeto" é o nome antigo de squads. */
 const membrosRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/membros",
-  // "projeto" é o nome antigo da visão de squads (links salvos continuam funcionando)
-  validateSearch: (s: Record<string, unknown>): { visao?: "squads" } =>
-    s.visao === "squads" || s.visao === "projeto" ? { visao: "squads" } : {},
+  validateSearch: (s: Record<string, unknown>): { visao?: "squads" | "skills" } =>
+    s.visao === "squads" || s.visao === "projeto" ? { visao: "squads" } : s.visao === "skills" ? { visao: "skills" } : {},
   component: MembrosPage,
 });
 
 const sugestoesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/analises",
+  validateSearch: (s: Record<string, unknown>): { projeto?: string } => (texto(s.projeto) ? { projeto: texto(s.projeto) } : {}),
   component: SugestoesAlocacaoPage,
 });
 
-const capacidadeRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/capacidade",
-  component: CapacidadePage,
-});
+const regrasRoute = createRoute({ getParentRoute: () => appRoute, path: "/capacidade", component: RegrasPage });
 
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -92,45 +93,51 @@ const projetoRoute = createRoute({
   component: ProjetoLayout,
 });
 
-const projetoIndexRoute = createRoute({
-  getParentRoute: () => projetoRoute,
-  path: "/",
-  beforeLoad: ({ params }) => {
-    throw redirect({ to: "/projetos/$projetoId/kanban", params });
-  },
-});
+const paraAba =
+  (aba: "resumo" | "equipe") =>
+  ({ params }: { params: { projetoId: string } }) => {
+    throw redirect({ to: aba === "resumo" ? "/projetos/$projetoId/resumo" : "/projetos/$projetoId/equipe", params });
+  };
 
-const cronogramaRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/cronograma", component: CronogramaPage });
-const squadRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/squad", component: SquadPage });
+const projetoIndexRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/", beforeLoad: paraAba("resumo") });
+const resumoRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/resumo", component: ResumoPage });
 const kanbanRoute = createRoute({
   getParentRoute: () => projetoRoute,
   path: "/kanban",
-  validateSearch: (s: Record<string, unknown>): { modo?: "lista"; sprint?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { modo?: "lista"; sprint?: string; resp?: string } => ({
     ...(s.modo === "lista" ? { modo: "lista" as const } : {}),
-    ...(typeof s.sprint === "string" && s.sprint ? { sprint: s.sprint } : {}),
+    ...(texto(s.sprint) ? { sprint: texto(s.sprint) } : {}),
+    ...(texto(s.resp) ? { resp: texto(s.resp) } : {}),
   }),
   component: KanbanPage,
 });
+const cronogramaRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/cronograma", component: CronogramaPage });
+const equipeRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/equipe", component: EquipeProjetoPage });
 const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: MetricasPage });
-const analisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", component: AnalisesPage });
-const capacidadeProjetoRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/capacidade", component: CapacidadeProjetoPage });
+// Abas antigas (links salvos continuam funcionando)
+const antigaAnalisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", beforeLoad: paraAba("resumo") });
+const antigaSquadRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/squad", beforeLoad: paraAba("equipe") });
+const antigaCapacidadeRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/capacidade", beforeLoad: paraAba("equipe") });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
+    raizRoute,
     inicioRoute,
     projetosRoute,
     membrosRoute,
     sugestoesRoute,
-    capacidadeRoute,
+    regrasRoute,
     projetoRoute.addChildren([
       projetoIndexRoute,
-      cronogramaRoute,
-      squadRoute,
+      resumoRoute,
       kanbanRoute,
+      cronogramaRoute,
+      equipeRoute,
       metricasRoute,
-      analisesRoute,
-      capacidadeProjetoRoute,
+      antigaAnalisesRoute,
+      antigaSquadRoute,
+      antigaCapacidadeRoute,
     ]),
   ]),
 ]);

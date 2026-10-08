@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Outlet, useParams } from "@tanstack/react-router";
-import { BarChart3, CalendarRange, ChevronRight, ExternalLink, Gauge, KanbanSquare, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, CalendarRange, ChevronRight, ExternalLink, Gauge, KanbanSquare, Users, type LucideIcon } from "lucide-react";
 import { useProjeto } from "@/lib/queries";
 import { registrarRecente } from "@/lib/recentes";
 import { MarcaProjeto } from "@/components/avatar";
@@ -10,23 +10,22 @@ const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.
 
 type Aba = {
   to:
-    | "/projetos/$projetoId/cronograma"
-    | "/projetos/$projetoId/squad"
+    | "/projetos/$projetoId/resumo"
     | "/projetos/$projetoId/kanban"
-    | "/projetos/$projetoId/metricas"
-    | "/projetos/$projetoId/analises"
-    | "/projetos/$projetoId/capacidade";
+    | "/projetos/$projetoId/cronograma"
+    | "/projetos/$projetoId/equipe"
+    | "/projetos/$projetoId/metricas";
   rotulo: string;
   icone: LucideIcon;
 };
 
+// Resumo primeiro: é o que o gestor quer ver ao abrir um projeto
 const ABAS: Aba[] = [
+  { to: "/projetos/$projetoId/resumo", rotulo: "Resumo", icone: Gauge },
   { to: "/projetos/$projetoId/kanban", rotulo: "Kanban", icone: KanbanSquare },
   { to: "/projetos/$projetoId/cronograma", rotulo: "Cronograma", icone: CalendarRange },
-  { to: "/projetos/$projetoId/squad", rotulo: "Squad", icone: Users },
+  { to: "/projetos/$projetoId/equipe", rotulo: "Equipe", icone: Users },
   { to: "/projetos/$projetoId/metricas", rotulo: "Métricas", icone: BarChart3 },
-  { to: "/projetos/$projetoId/analises", rotulo: "Análises", icone: Gauge },
-  { to: "/projetos/$projetoId/capacidade", rotulo: "Capacidade", icone: SlidersHorizontal },
 ];
 
 export function ProjetoLayout() {

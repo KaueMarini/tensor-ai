@@ -1,5 +1,5 @@
 // Carregamento sob demanda: renderiza os filhos só quando o bloco chega perto da tela.
-// Usado nas listas por projeto (Squads, Análises) para escalar a muitos projetos.
+// Usado nas listas por projeto (Squads, Sugestões) para escalar a muitos projetos.
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 

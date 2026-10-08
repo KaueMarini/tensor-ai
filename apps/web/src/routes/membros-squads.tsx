@@ -1,6 +1,6 @@
 // Visão "Squads" da seção Membros: um bloco por projeto e, dentro, um card por squad
 // (time do Azure DevOps) com a carga da sprint atual — números do motor de capacidade,
-// os mesmos das telas Squad e Análises do projeto.
+// os mesmos das abas Resumo e Equipe do projeto.
 //
 // Pensado para muitos projetos: cada projeto só busca os dados de capacidade quando o
 // bloco entra na tela (IntersectionObserver).

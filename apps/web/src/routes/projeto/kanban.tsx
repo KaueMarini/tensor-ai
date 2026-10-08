@@ -29,7 +29,7 @@ const SEM_SPRINT = "sem-sprint";
 
 export function KanbanPage() {
   const { projetoId } = useParams({ strict: false }) as { projetoId: string };
-  const { modo, sprint } = useSearch({ from: "/app/projetos/$projetoId/kanban" });
+  const { modo, sprint, resp } = useSearch({ from: "/app/projetos/$projetoId/kanban" });
 
   return (
     <div>
@@ -41,7 +41,7 @@ export function KanbanPage() {
           </p>
         )}
       </div>
-      {modo === "lista" ? <BacklogLista /> : <Quadro projetoId={projetoId} sprintParam={sprint} />}
+      {modo === "lista" ? <BacklogLista /> : <Quadro key={resp ?? ""} projetoId={projetoId} sprintParam={sprint} respParam={resp} />}
     </div>
   );
 }
@@ -72,7 +72,7 @@ function AlternarModo({ projetoId, lista, sprint }: { projetoId: string; lista: 
   );
 }
 
-function Quadro({ projetoId, sprintParam }: { projetoId: string; sprintParam?: string }) {
+function Quadro({ projetoId, sprintParam, respParam }: { projetoId: string; sprintParam?: string; respParam?: string }) {
   const navigate = useNavigate({ from: "/projetos/$projetoId/kanban" });
   const sprints = useSprints(projetoId);
   const backlog = useBacklog(projetoId);
@@ -81,7 +81,8 @@ function Quadro({ projetoId, sprintParam }: { projetoId: string; sprintParam?: s
   const { destacados } = useRealtime();
 
   const [busca, setBusca] = useState("");
-  const [responsavel, setResponsavel] = useState("");
+  // vindo de "Ver tasks" (Início/Equipe): já filtra a pessoa, em todas as sprints
+  const [responsavel, setResponsavel] = useState(respParam ?? "");
   const [tiposOcultos, setTiposOcultos] = useState<ReadonlySet<string>>(new Set());
   const [overrides, setOverrides] = useState<ReadonlyMap<number, Categoria>>(new Map());
   const [pendentes, setPendentes] = useState<ReadonlySet<number>>(new Set());
@@ -95,7 +96,7 @@ function Quadro({ projetoId, sprintParam }: { projetoId: string; sprintParam?: s
       lista.find((s) => sprintStatus(s.inicio, s.fim) === "futura")
     );
   }, [sprints.data]);
-  const sprintSel = sprintParam ?? sprintAtual?.id ?? TODAS;
+  const sprintSel = sprintParam ?? (respParam ? TODAS : sprintAtual?.id ?? TODAS);
 
   const todos = useMemo(
     () => (backlog.data ?? []).filter((r) => r.item_id !== null && !TIPOS_FORA_DO_KANBAN.has(r.item_tipo ?? "")),

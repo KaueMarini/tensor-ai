@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   FolderKanban,
+  Grid3x3,
   LayoutGrid,
   Pencil,
   Plus,
@@ -24,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import {
-  type MembroRow,
+
   useAdicionarSkill,
   useAssociarFuncaoTag,
   useCriarFuncaoTag,
@@ -37,9 +38,14 @@ import {
   useRevisarSkills,
   useSkillsCatalogo,
 } from "@/lib/queries";
-import { cn, hashTexto, normalizarNome } from "@/lib/utils";
-import { lerSkills, type SkillsPessoa } from "@/lib/skills";
+import { cn, hashTexto } from "@/lib/utils";
+import { agruparMembros, type FuncaoTag, type Membro } from "@/lib/membros";
+import type { SkillsPessoa } from "@/lib/skills";
+
+export type { FuncaoTag, Membro };
 import { VisaoSquads } from "./membros-squads";
+import { OcupacaoMembro } from "@/components/ocupacao-membro";
+import { OcupacaoEquipe } from "./equipe-ocupacao";
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,58 +54,6 @@ import { Input } from "@/components/ui/input";
 // ---------------------------------------------------------------------------
 // Dados
 // ---------------------------------------------------------------------------
-
-export interface FuncaoTag {
-  id: number;
-  nome: string;
-}
-
-interface ProjetoDoMembro {
-  id: string;
-  nome: string;
-  times: string[];
-}
-
-export interface Membro {
-  pessoaId: string;
-  nome: string;
-  uniqueName: string | null;
-  projetos: ProjetoDoMembro[];
-  /** Visíveis: confirmadas + sugeridas pela inferência das tasks. */
-  skills: string[];
-  skillsInfo: SkillsPessoa;
-  tags: FuncaoTag[];
-}
-
-/** v_membros tem uma linha por pessoa × time; aqui vira uma entrada por pessoa. */
-function agruparMembros(rows: MembroRow[]): Membro[] {
-  const porPessoa = new Map<string, Membro>();
-  for (const r of rows) {
-    if (!r.pessoa_id) continue;
-    let m = porPessoa.get(r.pessoa_id);
-    if (!m) {
-      const skillsInfo = lerSkills(r.skills);
-      m = {
-        pessoaId: r.pessoa_id,
-        nome: normalizarNome(r.nome ?? "Sem nome"),
-        uniqueName: r.unique_name,
-        projetos: [],
-        skills: skillsInfo.skills,
-        skillsInfo,
-        tags: (r.tags as unknown as FuncaoTag[] | null) ?? [],
-      };
-      porPessoa.set(r.pessoa_id, m);
-    }
-    if (!r.projeto_id) continue;
-    let p = m.projetos.find((x) => x.id === r.projeto_id);
-    if (!p) {
-      p = { id: r.projeto_id, nome: r.projeto_nome ?? "Projeto", times: [] };
-      m.projetos.push(p);
-    }
-    if (r.time_nome && !p.times.includes(r.time_nome)) p.times.push(r.time_nome);
-  }
-  return [...porPessoa.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-}
 
 interface Filtros {
   busca: string;
@@ -155,6 +109,8 @@ async function tentar(acao: () => Promise<unknown>, sucesso?: string) {
 export function MembrosPage() {
   const { visao } = useSearch({ from: "/app/membros" });
   const porSquad = visao === "squads";
+  const porSkills = visao === "skills";
+  const ocupacao = !porSquad && !porSkills;
 
   const membrosQ = useMembros();
   const funcaoTags = useFuncaoTags();
@@ -189,20 +145,26 @@ export function MembrosPage() {
     <div className="mx-auto max-w-[1500px] px-6 py-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Equipe</div>
-          <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Membros</h1>
+          <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Equipe</h1>
           <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
-            Pessoas dos times sincronizados do Azure DevOps, com as skills e funções definidas pelo gestor.
+            {ocupacao
+              ? "Quem está ocupado, em quais semanas e por causa de qual projeto."
+              : porSquad
+                ? "Os squads de cada projeto (times do Azure DevOps) e a carga de cada um."
+                : "Skills e funções de cada pessoa. As sugeridas vêm sozinhas das tasks; você confirma."}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <AlternarVisao porSquad={porSquad} />
-          <Button variant="outline" onClick={() => setGerenciarTags(true)}>
-            <Settings2 className="size-4" /> Gerenciar tags
-          </Button>
+          <AlternarVisao aba={ocupacao ? "ocupacao" : porSquad ? "squads" : "skills"} />
+          {porSkills && (
+            <Button variant="outline" onClick={() => setGerenciarTags(true)}>
+              <Settings2 className="size-4" /> Gerenciar tags
+            </Button>
+          )}
         </div>
       </header>
 
+      {porSkills && (
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icone={Users} rotulo="Membros" valor={membros.length} />
         <Kpi
@@ -218,8 +180,9 @@ export function MembrosPage() {
           alerta
         />
       </div>
+      )}
 
-      {sugestoesPendentes.pessoas > 0 && (
+      {porSkills && sugestoesPendentes.pessoas > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-brand-400/60 bg-brand-50/60 px-4 py-3 text-sm dark:border-brand-400/40 dark:bg-brand-900/20">
           <Sparkles className="size-4 shrink-0 text-brand-600 dark:text-brand-300" />
           <span className="text-slate-700 dark:text-slate-200">
@@ -284,6 +247,8 @@ export function MembrosPage() {
 
       {carregando ? (
         <Esqueleto />
+      ) : ocupacao ? (
+        <OcupacaoEquipe membros={filtrados} onAbrir={setAberto} />
       ) : porSquad ? (
         <VisaoSquads projetos={projetos} membros={filtrados} temFiltro={temFiltro} onAbrir={setAberto} />
       ) : (
@@ -329,16 +294,19 @@ export function MembrosPage() {
 // Cabeçalho, KPIs, filtros
 // ---------------------------------------------------------------------------
 
-function AlternarVisao({ porSquad }: { porSquad: boolean }) {
+function AlternarVisao({ aba }: { aba: "ocupacao" | "skills" | "squads" }) {
   const base = "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors";
   const ativo = "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white";
   const inativo = "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200";
   return (
     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/60">
-      <Link to="/membros" search={{}} className={cn(base, porSquad ? inativo : ativo)}>
-        <LayoutGrid className="size-4" /> Todos
+      <Link to="/membros" search={{}} className={cn(base, aba === "ocupacao" ? ativo : inativo)}>
+        <Grid3x3 className="size-4" /> Ocupação
       </Link>
-      <Link to="/membros" search={{ visao: "squads" }} className={cn(base, porSquad ? ativo : inativo)}>
+      <Link to="/membros" search={{ visao: "skills" }} className={cn(base, aba === "skills" ? ativo : inativo)}>
+        <LayoutGrid className="size-4" /> Skills e tags
+      </Link>
+      <Link to="/membros" search={{ visao: "squads" }} className={cn(base, aba === "squads" ? ativo : inativo)}>
         <UsersRound className="size-4" /> Squads
       </Link>
     </div>
@@ -640,11 +608,14 @@ export function PainelMembro({
   funcaoTags,
   skillsCatalogo,
   onClose,
+  nomeProjeto,
 }: {
   membro: Membro;
   funcaoTags: FuncaoTag[];
   skillsCatalogo: string[];
   onClose: () => void;
+  /** Nome de qualquer projeto (a carga pode vir de projetos fora de membro.projetos). */
+  nomeProjeto?: (id: string) => string;
 }) {
   useEsc(onClose);
   const adicionarSkill = useAdicionarSkill();
@@ -743,6 +714,11 @@ export function PainelMembro({
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+          <OcupacaoMembro
+            pessoaId={membro.pessoaId}
+            nomeProjeto={nomeProjeto ?? ((id) => membro.projetos.find((p) => p.id === id)?.nome ?? "Outro projeto")}
+            onNavegar={onClose}
+          />
           <Bloco
             icone={Sparkles}
             titulo="Skills"
