@@ -4,7 +4,7 @@
 > **atualize ao final de cada etapa**: o que foi feito, onde parou e o que vem a seguir.
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
-**Última atualização:** 2026-10-07
+**Última atualização:** 2026-10-08
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, navegação para muitos projetos,
 telas do projeto (Kanban que escreve no DevOps, Cronograma, Squad, Métricas, Análises),
 **motor de capacidade** e mapa de utilização. Ainda fora: IA, sugestões, cadastro de
@@ -20,7 +20,14 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
-Última sessão: **cada projeto ganhou 5 telas** (Kanban, Cronograma, Squad, Métricas,
+Sessão de 2026-10-08: **Membros ganhou a visão "Squads"** (substitui a tabela "Por
+projeto"): um bloco por projeto com um card por squad (time do DevOps) mostrando a
+utilização da sprint atual pelo motor, carga de cada pessoa e skills do squad — ver 2.7.
+**Todos os 4 projetos do DevOps foram populados** (`pnpm devops:popular`, ver 2.5) e
+**ganharam webhooks**. Hierarquia generalizada para o processo Basic (Epic como
+requisito, migration `20261008000000`).
+
+Sessão anterior: **cada projeto ganhou 5 telas** (Kanban, Cronograma, Squad, Métricas,
 Análises — ver 2.8), a navegação foi refeita para escalar a muitos projetos (página
 Projetos com busca/paginação no banco + recentes na sidebar), o **Kanban muda o estado
 no Azure DevOps** ao arrastar (Edge Function `devops-acoes`, com auditoria em `acao`) e
@@ -70,6 +77,7 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
 | `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
 | `20261007000500_projetos_kanban.sql` | `pg_trgm` + índice GIN em `projeto.nome` (busca), view `v_projeto_resumo` (lista paginada: itens, features, membros, sprint atual, última sync), `v_membros` ganha `projeto_nome`, tabela `acao` (auditoria de ações no DevOps), `sync_origem` aceita `app` |
+| `20261008000000_hierarquia_epic_basic.sql` | `feature_ancestral` prefere Feature e cai para Epic (processo Basic: Epic → Task); `v_backlog` mostra Epic sem filhos como requisito vazio; recalcula todos os itens |
 | `20261007000400_membros_skills_tags.sql` | `funcao_tag` + `pessoa_funcao_tag` (catálogo de tags de função) + policies de escrita pro gestor em `skill_tag`/`funcao_tag`/`pessoa_funcao_tag` + view `v_membros` |
 
 - **Tabelas:** projeto, time, pessoa, time_membro, sprint, capacidade_sprint, dias_off,
@@ -150,9 +158,23 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   cadeia Feature → User Story → Task, task sem estimativa). Idempotente.
 - `pnpm devops:hooks [create|list|delete]`: gerencia subscriptions de Service Hooks. Idempotente.
 - `pnpm devops:latency <id>`: mede latência DevOps → banco e restaura o valor original.
+- `pnpm devops:popular [--reset] [--projeto "Nome"]`: popula **todos** os projetos (menos
+  IportJLKN12, que é do `devops:seed`) com Sprint 1..3 datadas (associadas ao time),
+  capacidade 6h/dia por membro, 5 requisitos por tema (Feature; **Epic** no processo
+  Basic) e 4–6 tasks cada, com tags, horas (algumas sem estimativa), estado (algumas
+  Active/Closed na Sprint 1) e responsável escolhido entre quem **já está no time**
+  (sem ninguém compatível, fica sem dono). Temas em `TEMAS` (Teste = bot Copilot Studio,
+  Eu amo a Laryssa = app do motorista, IportJLNK = fiscal/faturamento). Idempotente
+  (procura pelo título), tag `seed-popular`; `--reset` manda os itens para a lixeira.
+  Rodado em 2026-10-08: 82 itens criados (15 requisitos + 67 tasks).
 - `pnpm demo:user`: cria o usuário de demo no Supabase Auth (Admin API, service_role só local).
   Lê `DEMO_EMAIL`/`DEMO_PASSWORD` do `.env.local`; sem senha, gera e imprime uma.
-  Usuário atual: `demo@radar-capacidade.dev` (senha no `.env.local` da máquina original).
+  Usuário atual: `demo@radar-capacidade.dev` (senha no `.env.local` da máquina original;
+  em 2026-10-08 o `DEMO_PASSWORD` desta máquina já não batia — a senha foi trocada em
+  outra sessão). Para testes automáticos existe um usuário separado,
+  `qa-headless@radar-capacidade.dev` (`QA_EMAIL`/`QA_PASSWORD` no `.env.local`), criado
+  com o mesmo script (`DEMO_EMAIL=... DEMO_PASSWORD=... pnpm demo:user`) para não mexer na
+  senha do usuário de demo.
 
 ### 2.6 Front (`apps/web`)
 - Vite 8 + React 19 + TS strict + TanStack Router (rotas em código, `src/router.tsx`) +
@@ -200,8 +222,19 @@ com duas visões no seletor do topo:
   "Skills da equipe" (ranking com barras, clique filtra) e "Tags de função" (com
   contagem de uso, clique filtra). KPIs: membros, projetos com equipe, skills
   diferentes, membros sem skills nem tags.
-- **Por projeto**: uma seção por projeto (ícone, nº de membros, times, pilha de
-  avatares, atalho pro Backlog) com tabela Membro | Time | Skills | Tags.
+- **Squads** (`routes/membros-squads.tsx`, URL `?visao=squads`; o antigo `?visao=projeto`
+  redireciona para cá): substituiu a tabela "Por projeto". Grade de blocos por projeto
+  (projeto com 1 squad ocupa 1 coluna, até 3 por linha; com 2+ squads ocupa a linha
+  toda). Cabeçalho do projeto: marca, nº de squads/pessoas, sprint atual, status de carga
+  do projeto, "N sem dono", link para a aba Squad. **Card do squad** (= time do DevOps;
+  o time padrão "<Projeto> Team" aparece como "Squad principal"): faixa de cor estável
+  pelo nome, % de utilização na sprint atual + horas carga/capacidade/livres + barra,
+  aviso quando alguém está sobrecarregado mesmo com o squad ok, lista de pessoas com
+  mini-medidor e % (clique abre o painel de skills/tags), skills do squad (×N pessoas).
+  Card tracejado "Fora dos squads" para quem tem task mas não está em time. Números do
+  motor via `useCapacidadeProjeto` (iguais aos das abas Squad/Análises) + agregação pura
+  `resumirSquad` em `_shared/capacidade/squads.ts` (testada). **Escala:** cada bloco só
+  busca dados quando chega perto da tela (`IntersectionObserver`, `QuandoVisivel`).
 - Filtros: busca (nome, e-mail, skill, tag), projeto (só na visão Todos), skill, tag.
 
 - **Dados**: membros vêm de `time_membro`/`time` (já sincronizados do DevOps, sem
@@ -355,10 +388,17 @@ sugestões, executor de sugestões (reaproveitar `devops-acoes` + `acao`).
   `IportJLKN12` no segredo das Edge Functions e barrava projetos novos; **foi removido**
   (2026-10-07) e `IportJLNK`, `Teste` e `Eu amo a Laryssa` foram importados. Projeto novo
   no DevOps aparece em até 5 min (cron do reconcile faz a full na 1ª vez).
-- **Webhooks dos projetos novos ainda não existem**: Service Hooks são por projeto e só
-  o `IportJLKN12` tem. Nos outros, mudanças chegam pelo cron (até 5 min). Para criar:
-  `pnpm devops:hooks create`, que precisa de `supabase/.env.functions` (credenciais do
-  webhook) — o arquivo só existe na máquina original.
+- **Webhooks: os 4 projetos têm** (criados em 2026-10-08, 4 eventos cada). Projeto novo
+  precisa rodar `pnpm devops:hooks create` — atenção: o `.env.local` desta máquina ainda
+  tem `AZDO_PROJECTS=IportJLKN12`, que o script usa como filtro; rode com
+  `AZDO_PROJECTS="," pnpm devops:hooks create` para cobrir todos.
+- **Squads novos no DevOps exigem Graph API**: o PAT atual **não** tem escopo de Graph
+  (`vssps.../_apis/graph` → 401), então o sistema não consegue criar times nem colocar
+  pessoas neles. Criar squads pela UI do DevOps (Project settings → Teams) funciona: a
+  sync traz em até 5 min e a visão Squads se ajusta. Para automatizar, gerar PAT com
+  **Graph (Read & manage)** + **Project and Team (Read, write & manage)**.
+- **Processo Basic** (IportJLNK): não tem Feature; o requisito é o **Epic** (Epic → Task).
+  Estados da Task no Basic: To Do / Doing / Done.
 - **Kanban escreve no DevOps** por gesto explícito do gestor (decisão do usuário): vale
   para qualquer tipo exceto Feature/Epic (regra do CLAUDE.md: Features nunca mudam).
   Toda tentativa fica em `acao`. Sugestões da IA continuam exigindo aprovação.
@@ -405,3 +445,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-07 | Máquina nova (`npx supabase login` + `link` nesta sessão). Nova aba **Membros**: migration `20261007000400` (`funcao_tag`, `pessoa_funcao_tag`, view `v_membros`, policies de escrita pro gestor), hooks/mutations em `queries.ts`, UI completa em `membros.tsx` (filtros, cards, painel de skills/tags, modal "Gerenciar tags"), Realtime estendido. **Dark mode** (`lib/theme.tsx`, toggle na sidebar, pares `dark:` em todos os componentes). Paleta de marca trocada pra slate-índigo (`#4C516D`). **Login redesenhado** (card dividido + painel de marca). Validado: `pnpm typecheck`/`test`/`build` limpos, navegação headless (login → Backlog → Membros, claro e escuro), adicionar skill + criar/associar tag + reload confirmando persistência no Supabase (depois removidos, eram só do teste), sem erros de console. |
 | 2026-10-07 | Membros saiu da aba do projeto e virou seção própria na sidebar, com visões "Todos" (cards + ranking de skills/tags) e "Por projeto" (tabela por projeto); painel do membro e modal de tags refeitos (animação, Esc, confirmação de exclusão, toasts). Rampa da marca completada (200/300/400/800). Diagnóstico: projetos novos não sincronizavam por causa do segredo `AZDO_PROJECTS=IportJLKN12` (ver seção 5) — remoção do segredo pendente de aprovação do usuário. |
 | 2026-10-07 | Usuário removeu `AZDO_PROJECTS`; 3 projetos novos importados (um deles disparado na hora via `devops-sync`). Navegação refeita para muitos projetos: página Projetos (busca trigram + paginação no banco, `v_projeto_resumo`), recentes na sidebar. Cada projeto com 5 telas: **Kanban** (arrastar muda o estado no DevOps via nova Edge Function `devops-acoes`, auditoria na nova tabela `acao`), **Cronograma** (Gantt), **Squad**, **Métricas**, **Análises** (mapa de utilização + alertas). **Motor de capacidade** puro em `_shared/capacidade/motor.ts` com 9 testes. Migration `20261007000500` aplicada, `devops-acoes` publicada. Validado no Chrome headless (claro/escuro) e com um movimento real no DevOps (#10 New → Active → New). |
+| 2026-10-08 | Membros: visão **Squads** (cards por squad dentro de cada projeto, carga da sprint atual pelo motor, mini-medidor por pessoa, skills do squad, carregamento sob demanda) no lugar da tabela "Por projeto"; `resumirSquad` em `_shared/capacidade/squads.ts` (+ testes). Migration `20261008000000` (Epic como requisito no Basic) aplicada. `pnpm devops:popular` criou 82 itens nos 3 projetos sem dados (sprints datadas, capacidade, requisitos, tasks) e o reconcile trouxe tudo; webhooks criados para os 3 projetos. PAT sem Graph API → squads novos só pela UI do DevOps. Usuário `qa-headless` criado para testes (senha de demo local estava desatualizada). Validado: 39 testes, typecheck, build e Chrome headless claro/escuro sem erros. |
