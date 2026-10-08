@@ -28,7 +28,10 @@ DevOps só-GET com retry/`Retry-After`, backfill `uv run radar-analytics backfil
 **Etapa 4 feita** (agente: entrada pseudonimizada, `AnthropicLLM` com structured outputs,
 validador anti-alucinação, render estrito e fallback por template; 99 testes, LLM sempre
 mockado). **Falta o texto de `prompts/analista-fluxo.v1.md`** (o usuário vai colar; sem ele o
-serviço usa só o template, `usou_fallback=true`). Próximo: etapa 5 (API + triggers).
+serviço usa só o template, `usou_fallback=true`). **Etapa 5 feita** (FastAPI `/analyze/event` com
+debounce por item, `/analyze/sweep` em segundo plano, `/health`; migration `20261009000300`
+com trigger pg_net + cron de 15 min; CLI `analisar`/`sweep`; contrato em
+[contratos-backend.md](contratos-backend.md); 113 testes). Próximo: etapa 6 (deploy + CI).
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -547,6 +550,15 @@ com duas visões no seletor do topo:
   (`prompts/analista-fluxo.<versao>.md`), `analista.py` (1 nova tentativa com o erro como
   feedback → fallback; checa `hash_payload` pendente **antes** de chamar o LLM; IDs reais só em
   `acao`).
+- **API e disparo**: `servico.py` (projeto → snapshot → análise → sugestão; por item relê as
+  dependências dele no DevOps; sweep segue mesmo se um projeto falhar), `api/main.py`
+  (`uvicorn radar_analytics.api.main:criar_app --factory`; `x-analytics-secret` com
+  `hmac.compare_digest`; debounce em memória — 1 instância, o sweep cobre reinícios),
+  `bootstrap.py` (sem `ANTHROPIC_API_KEY` ou sem prompt → template). Migration
+  `20261009000300_disparo_analytics`: `chamar_analytics()` lê `radar_analytics_url` e
+  `radar_analytics_secret` do **Vault** (criar à mão; sem eles é no-op), trigger quando
+  `evento.status` vira `processado` (created/updated) e cron `radar-analytics-sweep`
+  (`*/15 * * * *`). Não altera `devops-sync`/`devops-webhook`.
 - **Migrations** (2026-10-09, **pendentes de `db push`**):
   - `20261009000000_work_item_transicao`: histórico de `System.State`/`System.BoardColumn`
     (único por item+campo+rev). Trigger `after insert` em `evento` extrai `oldValue/newValue`
