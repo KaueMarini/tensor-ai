@@ -14,6 +14,7 @@
     "db:apply": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f",
     "db:test": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f supabase/tests/idempotencia_rev.sql",
     "functions:deploy": "supabase functions deploy devops-sync --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-webhook --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-acoes --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq",
+    "devops:popular": "tsx --env-file=.env.local scripts/devops-popular.ts",
     "demo:user": "tsx --env-file=.env.local scripts/demo-user.ts",
     "devops:latency": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-latency.ts"
   },
