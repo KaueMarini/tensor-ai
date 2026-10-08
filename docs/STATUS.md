@@ -22,7 +22,10 @@ não aplicadas**: esta máquina não tinha `.env.local`, `supabase/.env.function
 `supabase login` — rodar `npx supabase login` e `npx supabase db push </dev/null`.
 **Etapa 2 feita** (`domain/` puro + testes: 58 testes, 98,8% de cobertura no domínio, golden do
 seed com Kauê 117% nas semanas de 05 e 12/10 e Julliano de férias com as tasks 116/117;
-fórmulas em [metodologia.md](metodologia.md)). Próximo: etapa 3 (repositórios + backfill).
+fórmulas em [metodologia.md](metodologia.md)). **Etapa 3 feita** (repositórios psycopg, cliente
+DevOps só-GET com retry/`Retry-After`, backfill `uv run radar-analytics backfill`; 66 testes).
+**Backfill ainda não rodado** (precisa das migrations aplicadas e do `.env` do serviço).
+Próximo: etapa 4 (agente + validador + render).
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -522,6 +525,15 @@ com duas visões no seletor do topo:
   simulados no motor; só Tasks), `anonimizacao.py`, `analise.py` (junta tudo por projeto).
   Testes: `tests/unit`, `tests/property` (hypothesis), `tests/golden` (cenário do seed;
   `UPDATE_GOLDEN=1` regenera `seed_esperado.json`).
+- **Repositórios** (`repositories/`): `snapshot.py` (SQL de leitura: projeto + carga global das
+  pessoas dele, mesmo recorte de `lib/carga-global.ts`; `criado_em` real vem da transição de
+  criação do backfill), `escrita.py` (sugestão idempotente por `hash_payload`, transições,
+  cache de dependências), `mapeamento.py` (linha → modelo, puro e testado), `db.py` (pool com
+  `prepare_threshold=None` por causa do pooler do Supabase). `tests/integracao` roda o SQL de
+  verdade quando há `SUPABASE_DB_URL`.
+- **DevOps** (`devops/client.py`): só `GET` (`/updates` paginado, `workitems?$expand=relations`
+  para dependências). PAT do serviço = **Work Items (Read)**. `backfill.py` + CLI
+  `radar-analytics backfill [--projeto ID] [--limite N]`.
 - **Migrations** (2026-10-09, **pendentes de `db push`**):
   - `20261009000000_work_item_transicao`: histórico de `System.State`/`System.BoardColumn`
     (único por item+campo+rev). Trigger `after insert` em `evento` extrai `oldValue/newValue`

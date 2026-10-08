@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     supabase_db_url: SecretStr
     devops_org: str = Field(description="URL da organização, ex: https://dev.azure.com/JLNK")
     devops_pat_read: SecretStr = Field(description="PAT com escopo Work Items (Read) apenas")
-    anthropic_api_key: SecretStr
+    anthropic_api_key: SecretStr | None = None  # obrigatório só para chamar o LLM
     llm_model: str = "claude-sonnet-5-5"
-    analytics_shared_secret: SecretStr
+    analytics_shared_secret: SecretStr | None = None  # obrigatório só para a API
 
     llm_timeout_s: float = 30.0
     llm_max_tentativas: int = 3
