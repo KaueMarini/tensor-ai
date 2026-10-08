@@ -40,6 +40,9 @@ export function ProjetoLayout() {
       <div className="grid h-full place-items-center p-8 text-center">
         <div>
           <p className="font-medium text-slate-800 dark:text-slate-200">Projeto não encontrado</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Ele pode ter sido excluído no Azure DevOps — projetos excluídos lá saem daqui na próxima sincronização.
+          </p>
           <Link to="/projetos" className="mt-2 inline-block text-sm text-brand-700 hover:underline dark:text-brand-300">
             Voltar para Projetos
           </Link>
@@ -70,9 +73,18 @@ export function ProjetoLayout() {
                 {projeto?.processo && <Badge tone="slate">{projeto.processo}</Badge>}
                 {projeto?.sprint_atual && <Badge tone="teal">Sprint atual: {projeto.sprint_atual}</Badge>}
               </div>
-              <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 line-clamp-2 text-sm text-slate-500 dark:text-slate-400" title={projeto?.descricao ?? undefined}>
                 {projeto?.descricao || "Sem descrição no Azure DevOps."}
               </p>
+              {(projeto?.tags?.length ?? 0) > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1" title="Tags do projeto (linha “Tags:” na descrição do Azure DevOps)">
+                  {projeto!.tags!.map((t) => (
+                    <Badge key={t} tone="slate" className="font-normal">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             {AZDO_ORG_URL && projeto?.nome && (
               <a

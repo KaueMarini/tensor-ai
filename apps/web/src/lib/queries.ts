@@ -78,7 +78,8 @@ export function useProjetosPorIds(ids: string[]) {
   return useQuery({
     queryKey: keys.projetosPorIds(ids),
     enabled: ids.length > 0,
-    queryFn: async () => unwrap(await supabase.from("projeto").select("id, nome").in("id", ids)),
+    // arquivados (excluídos no DevOps) somem dos recentes
+    queryFn: async () => unwrap(await supabase.from("projeto").select("id, nome").in("id", ids).is("deleted_at", null)),
   });
 }
 

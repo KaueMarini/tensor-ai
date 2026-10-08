@@ -104,7 +104,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         invalidar("capacidade");
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "time_membro" }, () => {
-        invalidar("membros", "projetos");
+        invalidar("membros", "projetos", "backlog");
+      })
+      // renomeado, descrição/tags alteradas ou excluído (arquivado) no DevOps
+      .on("postgres_changes", { event: "*", schema: "public", table: "projeto" }, () => {
+        invalidar("projetos", "membros", "backlog");
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");
