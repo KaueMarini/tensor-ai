@@ -22,7 +22,7 @@ export function useCargaGlobal(pessoaIds: string[]) {
     queryKey: ["backlog", "carga_global", ...ids],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const [sprints, capacidades, folgas, feriados, itens] = await Promise.all([
+      const [sprints, capacidades, folgas, feriados, itens, ausencias] = await Promise.all([
         supabase.from("sprint").select("id, projeto_id, inicio, fim").is("deleted_at", null).not("inicio", "is", null),
         supabase.from("capacidade_sprint").select("sprint_id, pessoa_id, time_id, capacidade_dia").in("pessoa_id", ids),
         supabase.from("dias_off").select("sprint_id, time_id, pessoa_id, inicio, fim").or(`pessoa_id.is.null,pessoa_id.in.(${ids.join(",")})`),
@@ -31,6 +31,7 @@ export function useCargaGlobal(pessoaIds: string[]) {
           .from("v_backlog")
           .select("projeto_id, sprint_id, item_id, item_parent_id, item_tipo, item_estado, responsavel_id, horas_restantes, horas_estimadas, horas_concluidas")
           .in("responsavel_id", ids),
+        supabase.from("ausencia").select("pessoa_id, inicio, fim").in("pessoa_id", ids),
       ]);
       return {
         sprints: unwrap(sprints),
@@ -38,6 +39,7 @@ export function useCargaGlobal(pessoaIds: string[]) {
         folgas: unwrap(folgas),
         feriados: unwrap(feriados),
         itens: unwrap(itens),
+        ausencias: unwrap(ausencias),
       };
     },
   });
@@ -75,7 +77,11 @@ export function useCargaGlobal(pessoaIds: string[]) {
         timeId: c.time_id,
         capacidadeDia: Number(c.capacidade_dia),
       })),
-      folgas: d.folgas.map((f) => ({ sprintId: f.sprint_id, timeId: f.time_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
+      folgas: [
+        ...d.folgas.map((f) => ({ sprintId: f.sprint_id, timeId: f.time_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
+        // ausência registrada na Agenda: folga pessoal (o motor global filtra só por pessoa e data)
+        ...d.ausencias.map((a) => ({ sprintId: "", timeId: "", pessoaId: a.pessoa_id, inicio: a.inicio, fim: a.fim })),
+      ],
       feriados: d.feriados.map((f) => f.data),
       itens,
     };
