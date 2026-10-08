@@ -98,7 +98,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         avisar(descrever(p));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sprint" }, () => {
-        invalidar("sprints", "backlog");
+        invalidar("sprints", "backlog", "projetos");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "capacidade_sprint" }, () => {
+        invalidar("capacidade");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_membro" }, () => {
+        invalidar("membros", "projetos");
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");

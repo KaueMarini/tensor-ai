@@ -5,6 +5,7 @@ import type {
   AzdoCapacityResponse,
   AzdoClassificationNode,
   AzdoList,
+  AzdoPatchOp,
   AzdoProject,
   AzdoTeam,
   AzdoTeamDaysOff,
@@ -12,6 +13,7 @@ import type {
   AzdoTeamMember,
   AzdoWiqlResult,
   AzdoWorkItem,
+  AzdoWorkItemState,
 } from "./types.ts";
 
 export const API_VERSION = "7.1";
@@ -213,6 +215,17 @@ export function createAzdoClient(config: AzdoClientConfig) {
 
     /** Item único com relations. Lança AzdoHttpError 404 se excluído. */
     getWorkItem: (id: number) => get<AzdoWorkItem>(`_apis/wit/workitems/${id}`, { $expand: "relations" }),
+
+    /** Estados de um tipo de item no processo do projeto, cada um com sua categoria. */
+    getWorkItemTypeStates: async (projectId: string, type: string) =>
+      (await get<AzdoList<AzdoWorkItemState>>(`${seg(projectId)}/_apis/wit/workitemtypes/${seg(type)}/states`)).value,
+
+    /** JSON Patch num item. Exige PAT com escopo Work Items (Read & Write). */
+    updateWorkItem: (id: number, ops: AzdoPatchOp[]) =>
+      request<AzdoWorkItem>("PATCH", `_apis/wit/workitems/${id}`, {
+        body: ops,
+        contentType: "application/json-patch+json",
+      }),
 
     /** IDs na lixeira do projeto (excluídos, ainda restauráveis). */
     listRecycleBinIds: async (projectId: string) =>

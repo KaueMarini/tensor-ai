@@ -22,7 +22,8 @@ import { Input } from "@/components/ui/input";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
-export function ProjetoPage() {
+/** Backlog em tabela Sprint → Feature → itens (visão "Lista" do Kanban). */
+export function BacklogLista() {
   const { projetoId } = useParams({ strict: false }) as { projetoId: string };
   const sprints = useSprints(projetoId);
   const backlog = useBacklog(projetoId);
@@ -276,7 +277,7 @@ function FeatureRows({
   );
 }
 
-const TIPO_ICONE: Record<string, { Icon: typeof SquareCheck; cor: string }> = {
+export const TIPO_ICONE: Record<string, { Icon: typeof SquareCheck; cor: string }> = {
   Task: { Icon: SquareCheck, cor: "text-amber-500" },
   "User Story": { Icon: BookOpen, cor: "text-sky-600" },
   "Product Backlog Item": { Icon: BookOpen, cor: "text-sky-600" },
@@ -335,7 +336,7 @@ function ItemRow({ node }: { node: ItemNode }) {
   );
 }
 
-function IdLink({ id }: { id: number }) {
+export function IdLink({ id }: { id: number }) {
   const cls = "font-mono text-xs text-slate-400 dark:text-slate-500";
   if (!AZDO_ORG_URL) return <span className={cls}>#{id}</span>;
   return (
@@ -352,7 +353,7 @@ function IdLink({ id }: { id: number }) {
   );
 }
 
-function Estado({ estado }: { estado: string }) {
+export function Estado({ estado }: { estado: string }) {
   const e = estado.toLowerCase();
   const tone =
     e === "new" || e === "to do" || e === "proposed"

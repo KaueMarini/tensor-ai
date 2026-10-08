@@ -3,10 +3,14 @@ import { Toaster } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
-import { InicioPage } from "@/routes/inicio";
-import { ProjetoLayout } from "@/routes/projeto-layout";
-import { ProjetoPage } from "@/routes/projeto";
+import { ProjetosPage } from "@/routes/projetos";
 import { MembrosPage } from "@/routes/membros";
+import { ProjetoLayout } from "@/routes/projeto/layout";
+import { CronogramaPage } from "@/routes/projeto/cronograma";
+import { SquadPage } from "@/routes/projeto/squad";
+import { KanbanPage } from "@/routes/projeto/kanban";
+import { MetricasPage } from "@/routes/projeto/metricas";
+import { AnalisesPage } from "@/routes/projeto/analises";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -40,18 +44,22 @@ const appRoute = createRoute({
   component: AppLayout,
 });
 
-const inicioRoute = createRoute({ getParentRoute: () => appRoute, path: "/", component: InicioPage });
-
-const projetoRoute = createRoute({
+const inicioRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: "/projetos/$projetoId",
-  component: ProjetoLayout,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/projetos" });
+  },
 });
 
-const projetoBacklogRoute = createRoute({
-  getParentRoute: () => projetoRoute,
-  path: "/",
-  component: ProjetoPage,
+const projetosRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/projetos",
+  validateSearch: (s: Record<string, unknown>): { q?: string; p?: number } => ({
+    ...(typeof s.q === "string" && s.q ? { q: s.q } : {}),
+    ...(Number(s.p) > 0 ? { p: Math.floor(Number(s.p)) } : {}),
+  }),
+  component: ProjetosPage,
 });
 
 const membrosRoute = createRoute({
@@ -62,9 +70,49 @@ const membrosRoute = createRoute({
   component: MembrosPage,
 });
 
+const projetoRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/projetos/$projetoId",
+  component: ProjetoLayout,
+});
+
+const projetoIndexRoute = createRoute({
+  getParentRoute: () => projetoRoute,
+  path: "/",
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/projetos/$projetoId/kanban", params });
+  },
+});
+
+const cronogramaRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/cronograma", component: CronogramaPage });
+const squadRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/squad", component: SquadPage });
+const kanbanRoute = createRoute({
+  getParentRoute: () => projetoRoute,
+  path: "/kanban",
+  validateSearch: (s: Record<string, unknown>): { modo?: "lista"; sprint?: string } => ({
+    ...(s.modo === "lista" ? { modo: "lista" as const } : {}),
+    ...(typeof s.sprint === "string" && s.sprint ? { sprint: s.sprint } : {}),
+  }),
+  component: KanbanPage,
+});
+const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: MetricasPage });
+const analisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", component: AnalisesPage });
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  appRoute.addChildren([inicioRoute, membrosRoute, projetoRoute.addChildren([projetoBacklogRoute])]),
+  appRoute.addChildren([
+    inicioRoute,
+    projetosRoute,
+    membrosRoute,
+    projetoRoute.addChildren([
+      projetoIndexRoute,
+      cronogramaRoute,
+      squadRoute,
+      kanbanRoute,
+      metricasRoute,
+      analisesRoute,
+    ]),
+  ]),
 ]);
 
 export const router = createRouter({ routeTree, defaultPreload: "intent" });

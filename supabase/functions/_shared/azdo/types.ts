@@ -86,6 +86,21 @@ export interface AzdoWiqlResult {
   asOf?: string;
 }
 
+/** Categoria fixa do processo: é o que permite tratar estados diferentes (Active, Doing...) igual. */
+export type AzdoStateCategory = "Proposed" | "InProgress" | "Resolved" | "Completed" | "Removed";
+
+export interface AzdoWorkItemState {
+  name: string;
+  color?: string;
+  category: AzdoStateCategory;
+}
+
+export interface AzdoPatchOp {
+  op: "add" | "replace" | "remove" | "test";
+  path: string;
+  value?: unknown;
+}
+
 export interface AzdoList<T> {
   count: number;
   value: T[];

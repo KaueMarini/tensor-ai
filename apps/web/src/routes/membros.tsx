@@ -30,12 +30,12 @@ import {
   useExcluirFuncaoTag,
   useFuncaoTags,
   useMembros,
-  useProjetos,
   useRemoverSkill,
   useRenomearFuncaoTag,
   useSkillsCatalogo,
 } from "@/lib/queries";
-import { cn, corAvatar, hashTexto, iniciais, normalizarNome } from "@/lib/utils";
+import { cn, hashTexto, normalizarNome } from "@/lib/utils";
+import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,7 @@ import { Input } from "@/components/ui/input";
 // Dados
 // ---------------------------------------------------------------------------
 
-interface FuncaoTag {
+export interface FuncaoTag {
   id: number;
   nome: string;
 }
@@ -55,7 +55,7 @@ interface ProjetoDoMembro {
   times: string[];
 }
 
-interface Membro {
+export interface Membro {
   pessoaId: string;
   nome: string;
   uniqueName: string | null;
@@ -65,7 +65,7 @@ interface Membro {
 }
 
 /** v_membros tem uma linha por pessoa × time; aqui vira uma entrada por pessoa. */
-function agruparMembros(rows: MembroRow[], nomesProjeto: Map<string, string>): Membro[] {
+function agruparMembros(rows: MembroRow[]): Membro[] {
   const porPessoa = new Map<string, Membro>();
   for (const r of rows) {
     if (!r.pessoa_id) continue;
@@ -84,7 +84,7 @@ function agruparMembros(rows: MembroRow[], nomesProjeto: Map<string, string>): M
     if (!r.projeto_id) continue;
     let p = m.projetos.find((x) => x.id === r.projeto_id);
     if (!p) {
-      p = { id: r.projeto_id, nome: nomesProjeto.get(r.projeto_id) ?? "Projeto", times: [] };
+      p = { id: r.projeto_id, nome: r.projeto_nome ?? "Projeto", times: [] };
       m.projetos.push(p);
     }
     if (r.time_nome && !p.times.includes(r.time_nome)) p.times.push(r.time_nome);
@@ -148,7 +148,6 @@ export function MembrosPage() {
   const porProjeto = visao === "projeto";
 
   const membrosQ = useMembros();
-  const projetosQ = useProjetos();
   const funcaoTags = useFuncaoTags();
   const skillsCatalogo = useSkillsCatalogo();
 
@@ -156,15 +155,19 @@ export function MembrosPage() {
   const [aberto, setAberto] = useState<string | null>(null);
   const [gerenciarTags, setGerenciarTags] = useState(false);
 
-  const nomesProjeto = useMemo(() => new Map((projetosQ.data ?? []).map((p) => [p.id, p.nome])), [projetosQ.data]);
-  const membros = useMemo(() => agruparMembros(membrosQ.data ?? [], nomesProjeto), [membrosQ.data, nomesProjeto]);
+  const membros = useMemo(() => agruparMembros(membrosQ.data ?? []), [membrosQ.data]);
+  const projetos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const x of membros) for (const p of x.projetos) m.set(p.id, p.nome);
+    return [...m].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [membros]);
   const filtrados = useMemo(() => filtrar(membros, filtros), [membros, filtros]);
   const rankingSkills = useMemo(() => contar(membros.flatMap((m) => m.skills)), [membros]);
   const usosTag = useMemo(() => new Map(contar(membros.flatMap((m) => m.tags.map((t) => String(t.id))))), [membros]);
 
   const selecionado = membros.find((m) => m.pessoaId === aberto) ?? null;
-  const carregando = membrosQ.isLoading || projetosQ.isLoading;
-  const erro = membrosQ.error ?? projetosQ.error;
+  const carregando = membrosQ.isLoading;
+  const erro = membrosQ.error;
   const temFiltro = Object.values(filtros).some(Boolean);
 
   const setFiltro = (k: keyof Filtros) => (v: string) => setFiltros((f) => ({ ...f, [k]: v }));
@@ -215,7 +218,7 @@ export function MembrosPage() {
         </div>
         {!porProjeto && (
           <Select value={filtros.projeto} onChange={setFiltro("projeto")} placeholder="Todos os projetos">
-            {(projetosQ.data ?? []).map((p) => (
+            {projetos.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
               </option>
@@ -256,7 +259,7 @@ export function MembrosPage() {
         <Esqueleto />
       ) : porProjeto ? (
         <VisaoPorProjeto
-          projetos={projetosQ.data ?? []}
+          projetos={projetos}
           membros={filtrados}
           temFiltro={temFiltro}
           onAbrir={setAberto}
@@ -383,21 +386,6 @@ function Select({
 // ---------------------------------------------------------------------------
 // Peças visuais
 // ---------------------------------------------------------------------------
-
-function Avatar({ nome, tamanho = "md" }: { nome: string; tamanho?: "sm" | "md" | "lg" }) {
-  const t = { sm: "size-7 text-[10px]", md: "size-10 text-xs", lg: "size-14 text-base" }[tamanho];
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-full font-semibold text-white ring-2 ring-white dark:ring-slate-900",
-        t,
-        corAvatar(nome),
-      )}
-    >
-      {iniciais(nome)}
-    </span>
-  );
-}
 
 function Chips({ skills, tags, vazio = "—" }: { skills?: string[]; tags?: FuncaoTag[]; vazio?: string }) {
   if (!skills?.length && !tags?.length) return <span className="text-xs text-slate-400 dark:text-slate-500">{vazio}</span>;
@@ -717,7 +705,7 @@ function useEsc(onClose: () => void) {
   }, [onClose]);
 }
 
-function PainelMembro({
+export function PainelMembro({
   membro,
   funcaoTags,
   skillsCatalogo,

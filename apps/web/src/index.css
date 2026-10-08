@@ -20,6 +20,28 @@
   --color-brand-900: #2a2d3c;
 }
 
+/* Gráficos: paleta categórica de referência (ordem fixa, validada para daltonismo)
+   e status reservados (ok/atenção/sobrecarga). Texto nunca usa estas cores. */
+:root {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-grid: #e1e0d9;
+  --viz-eixo: #c3c2b7;
+  --status-ok: #0ca30c;
+  --status-atencao: #fab219;
+  --status-critico: #d03b3b;
+}
+.dark {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-grid: #2c2c2a;
+  --viz-eixo: #383835;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

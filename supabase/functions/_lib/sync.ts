@@ -15,7 +15,7 @@ import type { Database } from "../_shared/db.types.ts";
 
 type SyncStatePatch = Database["public"]["Tables"]["sync_state"]["Update"];
 
-export type Origem = "webhook" | "reconcile" | "full";
+export type Origem = "webhook" | "reconcile" | "full" | "app";
 export type Modo = "full" | "reconcile";
 
 export interface SyncCtx {

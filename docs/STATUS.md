@@ -5,10 +5,10 @@
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
 **Última atualização:** 2026-10-07
-**Fase atual:** Fundação — sincronização com o Azure DevOps + front com Realtime,
-abas Backlog/Membros, skills/tags editáveis e dark mode.
-Fora do escopo desta fase: IA, motor de capacidade, heatmap, sugestões e executor
-(a arquitetura já está preparada para recebê-los).
+**Fase atual:** P0 em andamento — sync com o Azure DevOps, navegação para muitos projetos,
+telas do projeto (Kanban que escreve no DevOps, Cronograma, Squad, Métricas, Análises),
+**motor de capacidade** e mapa de utilização. Ainda fora: IA, sugestões, cadastro de
+ausências/feriados pela UI.
 
 ---
 
@@ -20,7 +20,13 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
-Nesta sessão: nova **aba Membros** (skills + tags de função, editáveis pelo gestor,
+Última sessão: **cada projeto ganhou 5 telas** (Kanban, Cronograma, Squad, Métricas,
+Análises — ver 2.8), a navegação foi refeita para escalar a muitos projetos (página
+Projetos com busca/paginação no banco + recentes na sidebar), o **Kanban muda o estado
+no Azure DevOps** ao arrastar (Edge Function `devops-acoes`, com auditoria em `acao`) e
+entrou o **motor de capacidade** puro em `_shared/capacidade/motor.ts`.
+
+Antes disso: seção **Membros** (skills + tags de função, editáveis pelo gestor,
 persistidas no Supabase — ver 2.7), **dark mode** em todo o app e **login redesenhado**
 com painel de marca (ver 2.6). Validado com navegador headless, luz e escuro.
 
@@ -44,7 +50,8 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `tsc --noEmit` e `deno check` | sem erros |
 | Histórico de migrations remoto | reparado (`migration repair`); `db push` funciona |
 
-**Próximo passo imediato:** aba Sprints, página de Sync, ESLint no front, CI/CD (seção 4).
+**Próximo passo imediato:** cadastro de ausências/feriados pela UI (alimenta o motor),
+webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (seção 4).
 
 ---
 
@@ -62,11 +69,15 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `20261007000100_fix_upsert_temp_table.sql` | `upsert_work_items` aceita várias chamadas na mesma transação |
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
 | `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
+| `20261007000500_projetos_kanban.sql` | `pg_trgm` + índice GIN em `projeto.nome` (busca), view `v_projeto_resumo` (lista paginada: itens, features, membros, sprint atual, última sync), `v_membros` ganha `projeto_nome`, tabela `acao` (auditoria de ações no DevOps), `sync_origem` aceita `app` |
 | `20261007000400_membros_skills_tags.sql` | `funcao_tag` + `pessoa_funcao_tag` (catálogo de tags de função) + policies de escrita pro gestor em `skill_tag`/`funcao_tag`/`pessoa_funcao_tag` + view `v_membros` |
 
 - **Tabelas:** projeto, time, pessoa, time_membro, sprint, capacidade_sprint, dias_off,
   ausencia, feriado, skill_tag, funcao_tag, pessoa_funcao_tag, work_item, sugestao,
   evento, sync_state. (`feature` é uma **view** sobre `work_item` com `tipo='Feature'`.)
+- **`acao`**: toda escrita que o app faz no DevOps (hoje: mover estado no Kanban) — tipo,
+  devops_id, antes/depois (jsonb), status `aplicada`/`erro`, erro, usuario_id/email,
+  criado_em. Só a Edge Function grava (service_role); front só lê.
 - **Skills e tags de função:** `skill_tag` (já existia, pensada pro CLAUDE.md §4) agora
   também recebe escrita direto do front (`origem='gestor'`); `funcao_tag` é o catálogo
   novo de tags de papel/função (nome único, editável/renomeável — afeta todo mundo que
@@ -97,11 +108,20 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 - `azdo/types.ts`: tipos da API do DevOps.
 - `mappers/workItem.ts`, `team.ts`, `webhook.ts`, `paths.ts`: tolerantes a campos ausentes;
   pai via `System.Parent` ou relação `Hierarchy-Reverse`.
+- `kanban.ts`: colunas por **categoria** de estado do processo (Proposed/InProgress/
+  Resolved/Completed), `estadoDestino` (1º estado do tipo na categoria), `categoriaDe`
+  (usa os metadados do processo; sem eles, nomes conhecidos). Features/Epics fora.
+- `capacidade/motor.ts`: **motor de capacidade** (sem IA). Por pessoa × sprint:
+  capacidade = Capacity/dia do DevOps (soma dos times; sem Capacity, `horas_semana_base`/5)
+  × dias úteis − feriados − days off (da pessoa e do time); carga = horas restantes (ou
+  estimado − concluído) das tasks abertas, ignorando pais com filhos; status `ok` ≤ 85% <
+  `limite` ≤ 100% < `sobrecarga`; `sem-capacidade` se tem carga e 0 h. Testado em
+  `motor.test.ts` (9 casos).
 - `log.ts`: log estruturado (JSON) com `devops_id` em cada linha.
 - `db.types.ts`: gerado por `pnpm db:types`.
 - Testes: `azdo/client.test.ts`, `mappers/mappers.test.ts` + fixtures reais em `__fixtures__/`.
 
-### 2.4 Edge Functions (deploy feito, ambas `--no-verify-jwt`)
+### 2.4 Edge Functions (deploy feito, todas `--no-verify-jwt`)
 - **`devops-webhook`**: basic auth (WEBHOOK_BASIC_USER/PASS) → grava evento bruto
   (chave de idempotência única) → responde 200 → `EdgeRuntime.waitUntil` rebusca o item
   na API e chama o upsert. Delete = soft delete. Retorna 500 se não conseguir gravar
@@ -115,6 +135,13 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
   - `reconcile`: WIQL `ChangedDate > cursor` (timePrecision) + refresh de meta +
     reprocessa eventos com erro.
   - Lease por projeto (`acquire/release_sync_lease`) evita execuções concorrentes.
+- **`devops-acoes`** (escreve no DevOps, exige JWT de usuário logado):
+  - `POST { acao: "estados", projeto_id }` → estados de cada tipo do projeto com categoria
+    (`_apis/wit/workitemtypes/{tipo}/states`).
+  - `POST { acao: "mover", devops_id, categoria }` → recusa Feature/Epic, escolhe o estado
+    destino pelo processo, faz JSON Patch em `System.State`, grava a nova revisão no banco
+    na hora (`upsertWorkItems`, origem `app`) e registra em `acao` (aplicada ou erro).
+    PAT precisa de **Work Items (Read & Write)** — já tem (testado).
 - Runtime em `supabase/functions/_lib` (`context.ts`, `sync.ts`).
 
 ### 2.5 Scripts (`scripts/`, rodam com tsx + `.env.local` + `supabase/.env.functions`)
@@ -133,11 +160,13 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
   tipado com `@shared/db.types`. Componentes base estilo shadcn em `src/components/ui`
   (button, input, badge) — escritos à mão, sem a CLI do shadcn.
 - Aliases: `@/` → `apps/web/src`, `@shared/` → `supabase/functions/_shared`.
-- Rotas: `/login`, `/` (redireciona ao 1º projeto), `/projetos/$projetoId` (Backlog).
-  Guard de sessão no `beforeLoad` da rota `app`.
-- **Sidebar**: projetos, indicador "Ao vivo / Conectando / Desconectado" (status do canal
+- Rotas (ver também 2.8): `/login`, `/` → `/projetos`, `/projetos` (lista, `?q=` e `?p=`),
+  `/membros` (`?visao=projeto`), `/projetos/$projetoId/{kanban|cronograma|squad|metricas|analises}`
+  (o index redireciona para `kanban`). Guard de sessão no `beforeLoad` da rota `app`.
+- **Sidebar**: Projetos, Membros, **Recentes** (5 últimos projetos abertos, guardados no
+  navegador em `lib/recentes.ts`) — a lista completa de projetos saiu da sidebar, indicador "Ao vivo / Conectando / Desconectado" (status do canal
   Realtime), "Última reconciliação há X" (sync_state), e-mail + sair.
-- **Backlog** (`src/routes/projeto.tsx`): KPIs (sprints, features, itens, horas restantes,
+- **Backlog** (`src/routes/projeto/lista.tsx`, hoje é a visão "Lista" do Kanban): KPIs (sprints, features, itens, horas restantes,
   sem estimativa), busca (título, responsável, tag, `#id`), expandir/recolher, tabela
   Sprint (status atual/futura/encerrada + datas + totais) → Feature → itens em árvore
   (User Story intermediária aninha as Tasks). Colunas: estado, responsável, horas
@@ -149,9 +178,6 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
   ao reconectar, invalida tudo.
 - `apps/web/.env.example`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_AZDO_ORG_URL`.
 - Rodar: `pnpm dev` na raiz → http://localhost:5173
-- **Rotas**: `/projetos/$projetoId` é rota-mãe (`routes/projeto-layout.tsx`, header)
-  com o Backlog como index (`routes/projeto.tsx`). Membros é uma seção própria na
-  sidebar (grupo "Equipe"): `/membros` (todos) e `/membros?visao=projeto` (por projeto).
 - **Dark mode**: `lib/theme.tsx` (`ThemeProvider`/`useTheme`, classe `.dark` no
   `<html>`, persistido em `localStorage["tema"]`, cai pro `prefers-color-scheme` sem
   preferência salva; script inline em `index.html` evita flash no load). Toggle
@@ -204,10 +230,55 @@ com duas visões no seletor do topo:
 - **Permissões**: ver seção 5 — sem RBAC ainda, escrita liberada pra qualquer
   `authenticated`.
 - **Principais arquivos**: `supabase/migrations/20261007000400_membros_skills_tags.sql`,
-  `apps/web/src/routes/membros.tsx`, `apps/web/src/routes/projeto-layout.tsx`,
+  `apps/web/src/routes/membros.tsx`,
   `apps/web/src/lib/queries.ts` (hooks `useMembros`/`useSkillsCatalogo`/`useFuncaoTags`
   + mutations), `apps/web/src/lib/utils.ts` (helpers de avatar/nome extraídos de
   `projeto.tsx`, agora compartilhados).
+
+### 2.8 Projetos e telas do projeto (pensado para muitos projetos)
+
+- **Página Projetos** (`routes/projetos.tsx`): busca por nome com debounce (URL `?q=`),
+  paginação de 20 no banco (`range` + `count: exact`, URL `?p=`), nunca carrega todos.
+  Lê `v_projeto_resumo` (itens, features, membros, sprint atual, última sync). Busca
+  usa índice trigram. "Acessados recentemente" no topo.
+- **Layout do projeto** (`routes/projeto/layout.tsx`): breadcrumb, nome, processo,
+  sprint atual, descrição, "Abrir no DevOps" e as 5 abas. Registra o projeto nos recentes.
+- **Kanban** (`projeto/kanban.tsx`, aba padrão): colunas A fazer / Em andamento /
+  Resolvido (só se o processo usa) / Concluído. Filtros: sprint (padrão = atual, na URL),
+  busca, responsável (inclui "sem responsável"), tipos (Task, User Story, Bug...).
+  Card: tipo, #id (abre no DevOps), estado, título, feature, tags, responsável, horas,
+  "sem estimativa". **Arrastar** muda o estado no DevOps: card move na hora (otimista,
+  com spinner), toast de sucesso ou volta + toast de erro; colunas sem estado válido
+  para o tipo ficam apagadas durante o arrasto. Alternância **Quadro / Lista** (Lista =
+  tabela de backlog antiga).
+- **Cronograma** (`projeto/cronograma.tsx`): Gantt — eixo semanal, linha de hoje, faixa
+  por sprint (atual destacada) e, sob a sprint onde começa, cada feature como barra da
+  1ª à última sprint com itens; preenchimento = % concluído (horas; sem horas, itens).
+  Tooltip com datas, itens e horas.
+- **Squad** (`projeto/squad.tsx`): pessoas por time do DevOps (+ "com tasks, fora dos
+  times"), skills/tags e medidor de carga na sprint escolhida; KPIs de capacidade e
+  carga; clique abre o mesmo painel de skills/tags da seção Membros.
+- **Métricas** (`projeto/metricas.tsx`): KPIs (itens, % concluído, horas restantes, sem
+  estimativa), itens por estado (barra 100%), horas por sprint (colunas empilhadas
+  concluídas/restantes, eixo único, tooltip), horas restantes por responsável e
+  progresso por feature (tabela).
+- **Análises** (`projeto/analises.tsx`): mapa de utilização pessoa × sprint (status com
+  ícone + texto, tooltip com horas), "Precisa de atenção" (sobrecarga, no limite, sem
+  capacidade, tasks sem dono), detalhe da sprint (dias úteis, capacidade, carga, livre,
+  utilização) e "Quem pode absorver trabalho" (horas livres até 85% + skills/tags).
+- **Dados**: `lib/capacidade-projeto.ts` junta sprints, `v_backlog`, membros,
+  `capacidade_sprint`, `dias_off`, `feriado` e estados do processo e roda o motor —
+  Squad e Análises mostram os mesmos números. Realtime agora também escuta
+  `capacidade_sprint` e `time_membro`.
+- **Gráficos**: paleta categórica de referência (skill dataviz) em `index.css`
+  (`--viz-1..4`, `--status-*`, com versão `.dark`); status nunca só por cor.
+- **Componentes novos**: `components/avatar.tsx` (Avatar, MarcaProjeto),
+  `components/ui/card.tsx` (Card, CardTitulo, Stat), `components/carga.tsx` (medidor e
+  status de carga).
+- **Validado** (Chrome headless, claro e escuro): todas as telas sem erro de console;
+  Kanban movendo a task #10 New → Active (DevOps, banco com origem `app` e registro em
+  `acao` conferidos) e de volta para New; Análises reproduz o cenário do seed (Kauê
+  117% na Sprint 1). 35 testes, typecheck e build limpos.
 
 ---
 
@@ -243,8 +314,10 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
   - [x] Sidebar com projetos, indicador "ao vivo" (status do canal Realtime), horário da última sync
   - [x] **Backlog** em tabela Sprint → Feature → Task via `v_backlog`
   - [x] Seção **Membros** na sidebar (todos / por projeto, skills + tags, ver 2.7)
-  - [ ] Aba/página **Sprints** (datas, status, capacidade por sprint — depende do
-        motor de capacidade do P0, ainda não construído)
+  - [x] Página **Projetos** com busca/paginação no banco + recentes na sidebar (2.8)
+  - [x] Telas do projeto: **Kanban** (move estado no DevOps), **Cronograma**, **Squad**,
+        **Métricas**, **Análises** (2.8)
+  - [x] **Motor de capacidade** puro + mapa de utilização + alertas de sobrecarga
   - [x] Realtime `postgres_changes` → invalida queries + destaque ~2s + toast
   - [ ] Página **Sync**: últimos eventos, status da reconciliação, botão de sync completa
   - [x] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
@@ -262,9 +335,10 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
 - [ ] Validar o critério de pronto pelo app: alterar task no DevOps → aparece em < 5 s sem
       refresh; desligar subscription, alterar coisas, reconciliação corrige sozinha
 
-### Depois da fundação (P0/P1 do CLAUDE.md)
-Cadastro de ausências/feriados, motor de capacidade em `_shared` (puro), heatmap,
-alertas, agente de IA, caixa de sugestões, executor.
+### Próximos (P0/P1 do CLAUDE.md)
+Cadastro de ausências/feriados pela UI (hoje o motor usa days off do DevOps e a tabela
+`feriado`, vazia), utilização por **semana** (hoje é por sprint), agente de IA, caixa de
+sugestões, executor de sugestões (reaproveitar `devops-acoes` + `acao`).
 
 ---
 
@@ -277,14 +351,22 @@ alertas, agente de IA, caixa de sugestões, executor.
   prefira a ferramenta de escrita de arquivos.
 - Validação visual do front: `puppeteer-core` (instalado só no scratchpad, não no repo) com
   o Chrome local em headless, logando com o usuário de demo.
-- **`AZDO_PROJECTS` limita quais projetos sincronizam.** Vazio = todos os projetos da
-  org. Estava `IportJLKN12` no segredo das Edge Functions, por isso projetos novos
-  criados no DevOps (`IportJLNK`, `Teste`) nunca chegavam ao banco. O código já trata
-  projeto novo sozinho (o reconcile do cron faz a full na primeira vez), basta tirar o
-  filtro: `npx supabase secrets unset AZDO_PROJECTS --project-ref wswcksxvsqhmxxawgwmq`.
-  Os Service Hooks (webhooks) são criados por projeto: depois de liberar, rodar
-  `pnpm devops:hooks create` para os projetos novos (sem eles, mudanças chegam pelo
-  cron em até 5 min).
+- **`AZDO_PROJECTS` limita quais projetos sincronizam** (vazio = todos). Estava
+  `IportJLKN12` no segredo das Edge Functions e barrava projetos novos; **foi removido**
+  (2026-10-07) e `IportJLNK`, `Teste` e `Eu amo a Laryssa` foram importados. Projeto novo
+  no DevOps aparece em até 5 min (cron do reconcile faz a full na 1ª vez).
+- **Webhooks dos projetos novos ainda não existem**: Service Hooks são por projeto e só
+  o `IportJLKN12` tem. Nos outros, mudanças chegam pelo cron (até 5 min). Para criar:
+  `pnpm devops:hooks create`, que precisa de `supabase/.env.functions` (credenciais do
+  webhook) — o arquivo só existe na máquina original.
+- **Kanban escreve no DevOps** por gesto explícito do gestor (decisão do usuário): vale
+  para qualquer tipo exceto Feature/Epic (regra do CLAUDE.md: Features nunca mudam).
+  Toda tentativa fica em `acao`. Sugestões da IA continuam exigindo aprovação.
+- **Recentes** ficam no `localStorage` do navegador (conveniência por pessoa, não é dado
+  do sistema).
+- **Utilização é por sprint**, não por semana ainda (o CLAUDE.md fala em semana).
+- **Escala**: listas de projetos sempre paginadas no banco. A seção Membros ainda
+  carrega todos os vínculos pessoa × time de uma vez — paginar quando crescer.
 - **Permissões (Membros/skills/tags):** o app ainda não tem um segundo papel de usuário
   — todo `authenticated` é tratado como gestor. Por isso `skill_tag`, `funcao_tag` e
   `pessoa_funcao_tag` aceitam escrita de qualquer usuário logado, igual ao padrão de
@@ -322,3 +404,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-07 | Branch do front consolidada na `main` (fast-forward, PR #1 marcado como merged, branch apagada). Proteções de limite: debounce de invalidação no front, capacidade só de sprints ativas no reconcile, retenção de 30 dias na tabela evento. Migration aplicada via `db push`, `devops-sync` republicada, reconcile e teste ao vivo validados. |
 | 2026-10-07 | Máquina nova (`npx supabase login` + `link` nesta sessão). Nova aba **Membros**: migration `20261007000400` (`funcao_tag`, `pessoa_funcao_tag`, view `v_membros`, policies de escrita pro gestor), hooks/mutations em `queries.ts`, UI completa em `membros.tsx` (filtros, cards, painel de skills/tags, modal "Gerenciar tags"), Realtime estendido. **Dark mode** (`lib/theme.tsx`, toggle na sidebar, pares `dark:` em todos os componentes). Paleta de marca trocada pra slate-índigo (`#4C516D`). **Login redesenhado** (card dividido + painel de marca). Validado: `pnpm typecheck`/`test`/`build` limpos, navegação headless (login → Backlog → Membros, claro e escuro), adicionar skill + criar/associar tag + reload confirmando persistência no Supabase (depois removidos, eram só do teste), sem erros de console. |
 | 2026-10-07 | Membros saiu da aba do projeto e virou seção própria na sidebar, com visões "Todos" (cards + ranking de skills/tags) e "Por projeto" (tabela por projeto); painel do membro e modal de tags refeitos (animação, Esc, confirmação de exclusão, toasts). Rampa da marca completada (200/300/400/800). Diagnóstico: projetos novos não sincronizavam por causa do segredo `AZDO_PROJECTS=IportJLKN12` (ver seção 5) — remoção do segredo pendente de aprovação do usuário. |
+| 2026-10-07 | Usuário removeu `AZDO_PROJECTS`; 3 projetos novos importados (um deles disparado na hora via `devops-sync`). Navegação refeita para muitos projetos: página Projetos (busca trigram + paginação no banco, `v_projeto_resumo`), recentes na sidebar. Cada projeto com 5 telas: **Kanban** (arrastar muda o estado no DevOps via nova Edge Function `devops-acoes`, auditoria na nova tabela `acao`), **Cronograma** (Gantt), **Squad**, **Métricas**, **Análises** (mapa de utilização + alertas). **Motor de capacidade** puro em `_shared/capacidade/motor.ts` com 9 testes. Migration `20261007000500` aplicada, `devops-acoes` publicada. Validado no Chrome headless (claro/escuro) e com um movimento real no DevOps (#10 New → Active → New). |

@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      acao: {
+        Row: {
+          antes: Json | null
+          criado_em: string
+          depois: Json | null
+          devops_id: number | null
+          erro: string | null
+          id: number
+          projeto_id: string | null
+          status: string
+          tipo: string
+          usuario_email: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          antes?: Json | null
+          criado_em?: string
+          depois?: Json | null
+          devops_id?: number | null
+          erro?: string | null
+          id?: never
+          projeto_id?: string | null
+          status: string
+          tipo: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          antes?: Json | null
+          criado_em?: string
+          depois?: Json | null
+          devops_id?: number | null
+          erro?: string | null
+          id?: never
+          projeto_id?: string | null
+          status?: string
+          tipo?: string
+          usuario_email?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ausencia: {
         Row: {
           fim: string
@@ -444,6 +501,13 @@ export type Database = {
             referencedRelation: "projeto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sprint_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sugestao: {
@@ -533,6 +597,13 @@ export type Database = {
             referencedRelation: "projeto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sync_state_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
         ]
       }
       time: {
@@ -560,6 +631,13 @@ export type Database = {
             columns: ["projeto_id"]
             isOneToOne: false
             referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
           },
         ]
@@ -711,6 +789,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_item_responsavel_id_fkey"
             columns: ["responsavel_id"]
             isOneToOne: false
@@ -781,6 +866,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_item_responsavel_id_fkey"
             columns: ["responsavel_id"]
             isOneToOne: false
@@ -838,6 +930,7 @@ export type Database = {
           papel: string | null
           pessoa_id: string | null
           projeto_id: string | null
+          projeto_nome: string | null
           skills: Json | null
           tags: Json | null
           time_id: string | null
@@ -852,7 +945,29 @@ export type Database = {
             referencedRelation: "projeto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "time_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      v_projeto_resumo: {
+        Row: {
+          descricao: string | null
+          id: string | null
+          n_features: number | null
+          n_itens: number | null
+          n_membros: number | null
+          nome: string | null
+          processo: string | null
+          sprint_atual: string | null
+          sync_fase: string | null
+          ultima_reconciliacao_em: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
