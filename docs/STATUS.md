@@ -5,10 +5,10 @@
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
 **Última atualização:** 2026-10-08
-**Fase atual:** P0 em andamento — sync com o Azure DevOps, navegação para muitos projetos,
-telas do projeto (Kanban que escreve no DevOps, Cronograma, Squad, Métricas, Análises),
-**motor de capacidade** e mapa de utilização. Ainda fora: IA, sugestões, cadastro de
-ausências/feriados pela UI.
+**Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
+(Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
+Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
+regras do gestor. Ainda fora: agente de IA, cadastro de ausências/feriados pela UI.
 
 ---
 
@@ -19,6 +19,21 @@ O **backend de sincronização está completo, publicado e validado em produçã
 (na `main`, ver 2.6). Validado com navegador headless: alteração no
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
+
+Sessão de 2026-10-08 (7ª parte): **front reorganizado para o gestor** (pedido: "o gerente não
+tem tempo de analisar passo a passo"). Navegação nova — sidebar: **Início** (`/inicio`, nova
+home: 4 indicadores clicáveis, "Precisa de você" priorizado com ação de um clique, mapa de
+ocupação pessoa × semana e saúde de cada projeto), **Sugestões** (`/analises`, aceita
+`?projeto=`), **Equipe** (`/membros`: abas Ocupação [padrão, mapa 4/8/12 semanas] · Skills e
+tags · Squads), **Projetos**; **Ajustes › Regras de capacidade** (`/capacidade`, só config:
+regras gerais, jornada por pessoa, alertas por projeto). Projeto: **Resumo** (padrão; alertas
+com ação, inclusive "parece bem aqui mas está pior no geral"), Kanban (`?resp=` filtra a
+pessoa), Cronograma, **Equipe** (Squad + Capacidade fundidos: por squad, projeto × geral,
+horas/dia editáveis, popover de alertas), Métricas. Rotas antigas (`/analises`, `/squad`,
+`/capacidade` do projeto) redirecionam. A **ficha da pessoa** (drawer) ganhou "Ocupação em
+todos os projetos" (próximas 2 semanas, 4 semanas em barras, por projeto, jornada × foco
+editáveis). Motor global corrigido: a carga da sprint é distribuída **só nos dias em que a
+pessoa está disponível** (antes caía em dias de folga e gerava falso "ausente com tasks").
 
 Sessão de 2026-10-08 (6ª parte): **regras de capacidade do gestor**. Painel **Capacidade**
 na sidebar (`/capacidade`): regras gerais (jornada, foco, % de atenção e de sobrecarga) e a
@@ -262,10 +277,16 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   tipado com `@shared/db.types`. Componentes base estilo shadcn em `src/components/ui`
   (button, input, badge) — escritos à mão, sem a CLI do shadcn.
 - Aliases: `@/` → `apps/web/src`, `@shared/` → `supabase/functions/_shared`.
-- Rotas (ver também 2.8): `/login`, `/` → `/projetos`, `/projetos` (lista, `?q=` e `?p=`),
-  `/membros` (`?visao=projeto`), `/projetos/$projetoId/{kanban|cronograma|squad|metricas|analises}`
-  (o index redireciona para `kanban`). Guard de sessão no `beforeLoad` da rota `app`.
-- **Sidebar**: Projetos, Membros, **Recentes** (5 últimos projetos abertos, guardados no
+- Rotas (2026-10-08, reorganização): `/login`, `/` → `/inicio`, `/inicio`, `/analises`
+  (Sugestões, `?projeto=`), `/membros` (Equipe, `?visao=skills|squads`; sem visao = Ocupação),
+  `/projetos` (`?q=`, `?p=`), `/capacidade` (Regras), `/projetos/$projetoId/{resumo|kanban|
+  cronograma|equipe|metricas}` (index → `resumo`; `kanban?resp=&sprint=`; `analises`→resumo,
+  `squad`/`capacidade`→equipe). Guard de sessão no `beforeLoad` da rota `app`.
+- Peças compartilhadas: `lib/ocupacao.ts` (semanas, `useOcupacaoEquipe` — uma consulta
+  global para Início/Equipe), `lib/membros.ts` (`agruparMembros`), `components/mapa-ocupacao.tsx`
+  (heatmap pessoa × semana, ordenado por risco), `components/ocupacao-membro.tsx` (seção da
+  ficha), `_shared/capacidade/atencao.ts` ("Precisa de você", testado).
+- **Sidebar**: Início, Sugestões (badge de tasks sem dono), Equipe, Projetos, **Recentes** (5 últimos projetos abertos, guardados no
   navegador em `lib/recentes.ts`) — a lista completa de projetos saiu da sidebar, indicador "Ao vivo / Conectando / Desconectado" (status do canal
   Realtime), "Última reconciliação há X" (sync_state), e-mail + sair.
 - **Backlog** (`src/routes/projeto/lista.tsx`, hoje é a visão "Lista" do Kanban): KPIs (sprints, features, itens, horas restantes,
@@ -616,3 +637,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Ciclo de vida**: sync trata projeto excluído (arquiva), renomeado (paths de sprints e tasks; bug de desvínculo da sprint achado no teste e corrigido em `20261008000600`), time excluído e membro removido (views e `atribuir` ignoram inativos); descrição + `Tags:` do projeto viram `tags_requeridas` e aparecem no cabeçalho; `projeto` no Realtime. Functions `devops-sync`/`webhook`/`acoes` republicadas. Testes SQL com rollback dos 4 cenários (Kauê cai de 126h para 22h abertas e de 10 para 7 skills inferidas ao arquivar o IportJLNK). Scripts por ID. `pnpm devops:projetos` pronto, **bloqueado por 401** (PAT sem Project and Team). 60 testes, typecheck e build limpos. |
 | 2026-10-08 | PAT novo com acesso total (local + segredos das functions). `pnpm devops:projetos --excluir` aplicado: 3 projetos renomeados para nomes fictícios com descrição + `Tags:`, IportJLNK excluído no DevOps. Reconcile refletiu tudo (arquivamento, renomeação de caminhos sem perder sprint, tags). Achado: `secrets set --env-file` recolocou `AZDO_PROJECTS=IportJLKN12` (filtro por nome → 0 projetos após renomear); removido do segredo e comentado nos arquivos locais. Validado no banco e no headless. |
 | 2026-10-08 | **Regras de capacidade do gestor**: migration `20261008000700` (4 tabelas + trigger `atualizado_por` + Realtime), `_shared/capacidade/regras.ts` (cascata + padrão de mercado), motores por projeto e global recebem regras, alocações e limites (`origemCapacidade` substitui `capacidadePadrao`). Front: painel `/capacidade` (regras gerais + ocupação geral por pessoa editável) e aba `/projetos/$id/capacidade` (limites do projeto + horas/dia por pessoa, projeto × geral). Telas antigas sem 85% fixo. 70 testes, typecheck e build limpos; headless (claro/escuro) editando e desfazendo jornada e alocação, Análises conferida. |
+| 2026-10-08 | **Front reorganizado para o gestor**: Início (pendências priorizadas + mapa pessoa × semana + saúde dos projetos), Equipe com abas (Ocupação/Skills/Squads), ficha da pessoa com ocupação e jornada, projeto com Resumo (padrão) e Equipe (Squad + Capacidade), Regras de capacidade só com configuração, Kanban `?resp=`, Sugestões `?projeto=`, redirects das rotas antigas. `atencao.ts` (4 testes); motor global distribui a carga nos dias disponíveis da pessoa (2 testes). 76 testes, typecheck e build limpos; tour headless claro/escuro em todas as telas sem erros de console. |
