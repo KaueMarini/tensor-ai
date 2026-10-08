@@ -69,6 +69,13 @@ export type Database = {
             referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "acao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
         ]
       }
       ausencia: {
@@ -520,6 +527,13 @@ export type Database = {
             referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sprint_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
         ]
       }
       sugestao: {
@@ -616,6 +630,13 @@ export type Database = {
             referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sync_state_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
         ]
       }
       time: {
@@ -651,6 +672,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
           },
         ]
       }
@@ -808,6 +836,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+          {
             foreignKeyName: "work_item_responsavel_id_fkey"
             columns: ["responsavel_id"]
             isOneToOne: false
@@ -885,6 +920,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_item_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+          {
             foreignKeyName: "work_item_responsavel_id_fkey"
             columns: ["responsavel_id"]
             isOneToOne: false
@@ -912,6 +954,7 @@ export type Database = {
           atualizado_em: string | null
           feature_estado: string | null
           feature_id: number | null
+          feature_tags: string[] | null
           feature_titulo: string | null
           horas_concluidas: number | null
           horas_estimadas: number | null
@@ -964,6 +1007,13 @@ export type Database = {
             referencedRelation: "v_projeto_resumo"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "time_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
         ]
       }
       v_projeto_resumo: {
@@ -978,6 +1028,15 @@ export type Database = {
           sprint_atual: string | null
           sync_fase: string | null
           ultima_reconciliacao_em: string | null
+        }
+        Relationships: []
+      }
+      v_sem_dono_resumo: {
+        Row: {
+          horas: number | null
+          projeto_id: string | null
+          projeto_nome: string | null
+          tasks: number | null
         }
         Relationships: []
       }
