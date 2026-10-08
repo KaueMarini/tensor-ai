@@ -400,6 +400,7 @@ export type Database = {
       projeto: {
         Row: {
           atualizado_em: string
+          deleted_at: string | null
           descricao: string | null
           descricao_extra: string | null
           id: string
@@ -409,6 +410,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          deleted_at?: string | null
           descricao?: string | null
           descricao_extra?: string | null
           id: string
@@ -418,6 +420,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          deleted_at?: string | null
           descricao?: string | null
           descricao_extra?: string | null
           id?: string
@@ -1027,6 +1030,7 @@ export type Database = {
           processo: string | null
           sprint_atual: string | null
           sync_fase: string | null
+          tags: string[] | null
           ultima_reconciliacao_em: string | null
         }
         Relationships: []
@@ -1046,10 +1050,15 @@ export type Database = {
         Args: { p_projeto_id: string; p_segundos?: number }
         Returns: boolean
       }
+      arquivar_projeto: { Args: { p_projeto_id: string }; Returns: undefined }
       feature_ancestral: { Args: { p_devops_id: number }; Returns: number }
       recalcular_skills: { Args: { p_pessoas: string[] }; Returns: number }
       recompute_hierarquia: { Args: { p_ids: number[] }; Returns: number }
       release_sync_lease: { Args: { p_projeto_id: string }; Returns: undefined }
+      renomear_paths_projeto: {
+        Args: { p_antigo: string; p_novo: string; p_projeto_id: string }
+        Returns: number
+      }
       replace_capacidade: {
         Args: {
           p_capacidades: Json
