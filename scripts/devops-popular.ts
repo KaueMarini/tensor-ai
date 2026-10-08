@@ -8,7 +8,8 @@
 // - Capacidade 6h/dia para todos os membros nas 3 sprints.
 // - Idempotente: procura pelo título antes de criar. Itens marcados com a tag SEED_TAG.
 // - --reset manda para a lixeira os itens SEED_TAG (sprints e capacidade ficam).
-// - IportJLKN12 fica de fora: já é populado por `pnpm devops:seed`.
+// - O projeto de pátio (antigo IportJLKN12) fica de fora: já é populado por `pnpm devops:seed`.
+// - Temas por ID do projeto: renomear no DevOps não quebra o script.
 
 import { chunk, createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import type { AzdoTeamMember, AzdoWorkItem } from "../supabase/functions/_shared/azdo/types.ts";
@@ -27,7 +28,9 @@ const SO_PROJETO = (() => {
 })();
 const SEED_TAG = "seed-popular";
 const HORAS_DIA = 6;
-const IGNORAR = new Set(["IportJLKN12"]);
+// Chaves por ID do projeto (estável se ele for renomeado no DevOps)
+const ID_PATIO = "badd3c28-2533-4e04-9239-e79fa7f520f0"; // antigo IportJLKN12, populado pelo devops:seed
+const IGNORAR = new Set([ID_PATIO]);
 const enc = encodeURIComponent;
 
 const SPRINTS = [
@@ -69,7 +72,7 @@ const t = (titulo: string, horas: number | null, tags: string[], quem: Pessoa[],
 
 const TEMAS: Record<string, RequisitoDef[]> = {
   // Agile — atendimento automatizado (só o Kauê no time hoje: parte das tasks fica sem dono)
-  Teste: [
+  "a8f446dd-64fb-44a7-a32c-10fe9584e646": [
     {
       titulo: "Bot de atendimento a transportadoras",
       descricao: "Assistente no Teams para transportadoras consultarem agendamentos e status de carga.",
@@ -135,7 +138,7 @@ const TEMAS: Record<string, RequisitoDef[]> = {
   ],
 
   // Agile — app do motorista (time com Abner, Sebastião, Kauê, Aaron; Abner sobrecarregado na Sprint 1)
-  "Eu amo a Laryssa": [
+  "dbb885fc-cab5-4bc8-85d8-70da870e7b74": [
     {
       titulo: "Check-in do motorista pelo app",
       descricao: "Motorista confirma chegada ao porto pelo celular e recebe a doca.",
@@ -203,7 +206,7 @@ const TEMAS: Record<string, RequisitoDef[]> = {
   ],
 
   // Basic (Epic → Task) — integração fiscal e faturamento
-  IportJLNK: [
+  "569342a3-1d76-4c48-8f9e-e8c635bb13d3": [
     {
       titulo: "Emissão de NFS-e dos serviços portuários",
       descricao: "Gerar a nota de serviço automaticamente ao fim de cada operação.",
@@ -442,10 +445,10 @@ async function criar(projetoId: string, tipo: string, ops: Op[]): Promise<number
 
 async function main() {
   const projetos = (await azdo.listProjects()).filter(
-    (p) => !IGNORAR.has(p.name) && (!SO_PROJETO || p.name === SO_PROJETO),
+    (p) => !IGNORAR.has(p.id) && (!SO_PROJETO || p.name === SO_PROJETO || p.id === SO_PROJETO),
   );
   for (const p of projetos) {
-    const tema = TEMAS[p.name];
+    const tema = TEMAS[p.id];
     if (!tema) {
       console.warn(`\n! ${p.name}: sem tema definido em TEMAS, pulando`);
       continue;

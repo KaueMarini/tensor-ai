@@ -48,12 +48,12 @@ const PERFIL: Record<Pessoa, { funcao: string; skills: string[] }> = {
   wallace: { funcao: "Infra & Segurança", skills: ["infra", "seguranca"] },
 };
 
-/** Horas/dia por projeto. Quem não aparece no projeto fica com 6h/dia (time único). */
+/** Horas/dia por projeto (chave = ID do projeto, estável se ele for renomeado). Quem não aparece fica com 6h/dia. */
 const ALOCACAO: Record<string, Partial<Record<Pessoa, number>>> = {
-  IportJLNK: { kaue: 4 },
-  IportJLKN12: { kaue: 2 },
-  "Eu amo a Laryssa": { kaue: 2 },
-  Teste: { kaue: 0 },
+  "569342a3-1d76-4c48-8f9e-e8c635bb13d3": { kaue: 4 }, // fiscal e faturamento (antigo IportJLNK)
+  "badd3c28-2533-4e04-9239-e79fa7f520f0": { kaue: 2 }, // pátio e agendamento (antigo IportJLKN12)
+  "dbb885fc-cab5-4bc8-85d8-70da870e7b74": { kaue: 2 }, // app do motorista
+  "a8f446dd-64fb-44a7-a32c-10fe9584e646": { kaue: 0 }, // assistente virtual
 };
 const PADRAO_H_DIA = 6;
 
@@ -133,7 +133,7 @@ async function organizarProjeto(projeto: { id: string; name: string }) {
     const atuais: AzdoCapacity[] = resp.teamMembers ?? resp.value ?? [];
     for (const m of membros) {
       const p = quemE(m.identity.displayName ?? "");
-      const alvo = (p && ALOCACAO[projeto.name]?.[p]) ?? PADRAO_H_DIA;
+      const alvo = (p && ALOCACAO[projeto.id]?.[p]) ?? PADRAO_H_DIA;
       const atual = atuais.find((c) => c.teamMember.id === m.identity.id);
       const hoje = (atual?.activities ?? []).reduce((n, a) => n + (a.capacityPerDay ?? 0), 0);
       if (hoje === alvo) continue;

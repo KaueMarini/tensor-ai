@@ -17,7 +17,8 @@ const need = (k: string) => {
 };
 
 const azdo = createAzdoClient({ orgUrl: need("AZDO_ORG_URL"), pat: need("AZDO_PAT") });
-const PROJETO = (process.env.AZDO_PROJECTS ?? "IportJLKN12").split(",")[0]!.trim();
+// ID do projeto de pátio (antigo IportJLKN12): estável se ele for renomeado no DevOps
+const PROJETO = process.env.SEED_PROJETO?.trim() || "badd3c28-2533-4e04-9239-e79fa7f520f0";
 const RESET = process.argv.includes("--reset");
 const SEED_TAG = "seed-radar";
 const HORAS_DIA = 6;
