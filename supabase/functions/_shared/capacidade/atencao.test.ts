@@ -62,6 +62,19 @@ describe("itensDeAtencao", () => {
     expect(s[0]!.detalhe.startsWith("Rota 3 · Atlântico 1")).toBe(true);
   });
 
+  it("projeto sem equipe entra depois das sobrecargas e antes das tasks sem dono", () => {
+    const itens = itensDeAtencao({
+      pessoas,
+      celula: (id) => celulas[id],
+      nomeProjeto: (id) => nomes[id]!,
+      semDono: [{ projetoId: "p2", nome: "Rota", tasks: 3, horas: 12 }],
+      semEquipe: [{ projetoId: "p9", nome: "Farol" }],
+      periodo: "nas próximas 2 semanas",
+    });
+    expect(itens.map((i) => i.tipo)).toEqual(["sem-capacidade", "sobrecarga", "sem-equipe", "sem-dono", "limite"]);
+    expect(itens[2]!.titulo).toBe("Projeto novo sem equipe: Farol");
+  });
+
   it("sem tasks sem dono não cria item", () => {
     expect(rodar([]).some((i) => i.tipo === "sem-dono")).toBe(false);
   });

@@ -19,6 +19,14 @@ export type ItemAtencao =
       peso: number;
     }
   | {
+      tipo: "sem-equipe";
+      gravidade: Gravidade;
+      titulo: string;
+      detalhe: string;
+      projetoId: string;
+      peso: number;
+    }
+  | {
       tipo: "sem-dono";
       gravidade: Gravidade;
       titulo: string;
@@ -42,10 +50,12 @@ export function itensDeAtencao(entrada: {
   celula: (pessoaId: string) => CelulaGlobal | undefined;
   nomeProjeto: (projetoId: string) => string;
   semDono: SemDonoProjeto[];
+  /** Projetos novos sem ninguém alocado (ganham sugestão de squad/pessoas). */
+  semEquipe?: { projetoId: string; nome: string }[];
   /** Ex.: "nas próximas 2 semanas" */
   periodo: string;
 }): ItemAtencao[] {
-  const { pessoas, celula, nomeProjeto, semDono, periodo } = entrada;
+  const { pessoas, celula, nomeProjeto, semDono, periodo, semEquipe = [] } = entrada;
   const out: ItemAtencao[] = [];
 
   for (const p of pessoas) {
@@ -105,6 +115,17 @@ export function itensDeAtencao(entrada: {
     });
   }
 
-  const ordem = { "sem-capacidade": 0, sobrecarga: 1, "sem-dono": 2, limite: 3 } as const;
+  for (const p of semEquipe) {
+    out.push({
+      tipo: "sem-equipe",
+      gravidade: "atencao",
+      projetoId: p.projetoId,
+      titulo: `Projeto novo sem equipe: ${p.nome}`,
+      detalhe: "Pela descrição e pelas tags, já há um squad e pessoas com as skills certas e tempo livre para ele",
+      peso: 0,
+    });
+  }
+
+  const ordem = { "sem-capacidade": 0, sobrecarga: 1, "sem-equipe": 2, "sem-dono": 3, limite: 4 } as const;
   return out.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || b.peso - a.peso);
 }
