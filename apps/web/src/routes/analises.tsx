@@ -22,9 +22,11 @@ import {
   UserRoundX,
 } from "lucide-react";
 import { horasPendentes } from "@shared/capacidade/motor";
+import type { CelulaGlobal } from "@shared/capacidade/global";
 import { type OpcaoAlocacao, recomendarAlocacao, type RecomendacaoTask } from "@shared/capacidade/recomendacao";
 import { type PessoaProjeto, useCapacidadeProjeto } from "@/lib/capacidade-projeto";
-import { useAtribuirTask, useSemDonoResumo } from "@/lib/queries";
+import { useAtribuirTask, useProjetosPorIds, useSemDonoResumo } from "@/lib/queries";
+import { useCargaGlobal } from "@/lib/carga-global";
 import type { BacklogRow } from "@/lib/backlog";
 import { cn, formatHoras } from "@/lib/utils";
 import { Avatar, MarcaProjeto } from "@/components/avatar";
@@ -120,9 +122,16 @@ export function AnalisesPage() {
 
 function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string; projetoNome: string; busca: string }) {
   const cap = useCapacidadeProjeto(projetoId);
+  const idsCandidatos = useMemo(() => cap.pessoas.filter((p) => !p.foraDoTime).map((p) => p.id), [cap.pessoas]);
+  // Ocupação no ÂMBITO GERAL: capacidade única da pessoa × tasks dela em todos os projetos
+  const global = useCargaGlobal(idsCandidatos);
 
-  const { tasks, recomendacoes, pessoas } = useMemo(() => {
+  const { tasks, recomendacoes, pessoas, detalhe } = useMemo(() => {
     const sprintsComData = new Map(cap.sprints.map((s) => [s.id, s]));
+    const celulaGlobal = (sprintId: string, pessoaId: string) => {
+      const s = sprintsComData.get(sprintId);
+      return s && global.celula ? global.celula({ id: s.id, inicio: s.inicio, fim: s.fim }, pessoaId) : undefined;
+    };
     // Mais urgentes primeiro: sprint mais próxima, depois as maiores (as sugestões consideram as anteriores)
     const ordem = (r: BacklogRow) => (r.sprint_id && sprintsComData.get(r.sprint_id)?.inicio) || "9999";
     const tasks = [...cap.semResponsavel].sort(
@@ -148,11 +157,18 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
         })),
         funcoes: p.tags.map((t) => t.nome),
       })),
-      celula: cap.celula,
+      celula: celulaGlobal,
       sprintPadrao: cap.sprintAtual?.id ?? null,
     });
-    return { tasks, recomendacoes: new Map(recomendacoes.map((r) => [r.taskId, r])), pessoas: new Map(candidatos.map((p) => [p.id, p])) };
-  }, [cap.semResponsavel, cap.pessoas, cap.sprints, cap.celula, cap.sprintAtual]);
+    return {
+      tasks,
+      recomendacoes: new Map(recomendacoes.map((r) => [r.taskId, r])),
+      pessoas: new Map(candidatos.map((p) => [p.id, p])),
+      detalhe: celulaGlobal,
+    };
+  }, [cap.semResponsavel, cap.pessoas, cap.sprints, cap.sprintAtual, global.celula]);
+  const carregando = cap.carregando || global.carregando;
+  const erro = cap.erro ?? global.erro;
 
   const q = busca.trim().toLowerCase();
   const filtradas = q
@@ -165,7 +181,7 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
     : tasks;
   const sprintNome = (id: string | null) => cap.sprints.find((s) => s.id === id);
 
-  if (!cap.carregando && filtradas.length === 0 && q) return null;
+  if (!carregando && filtradas.length === 0 && q) return null;
 
   return (
     <section>
@@ -174,7 +190,7 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
         <div className="min-w-0">
           <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">{projetoNome}</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {cap.carregando
+            {carregando
               ? "Calculando…"
               : `${tasks.length} ${tasks.length === 1 ? "task sem responsável" : "tasks sem responsável"} · ${pessoas.size} ${pessoas.size === 1 ? "pessoa" : "pessoas"} no time`}
           </p>
@@ -188,11 +204,11 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
         </Link>
       </header>
 
-      {cap.carregando ? (
+      {carregando ? (
         <div className="h-48 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />
-      ) : cap.erro ? (
+      ) : erro ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
-          Erro ao calcular {projetoNome}: {cap.erro.message}
+          Erro ao calcular {projetoNome}: {erro.message}
         </p>
       ) : filtradas.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 px-5 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -200,6 +216,12 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          {pessoas.size === 1 && tasks.length > 3 && (
+            <p className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+              Só uma pessoa no time deste projeto no Azure DevOps: todas as sugestões caem nela. Adicione gente ao time
+              (Project settings → Teams) para o motor distribuir.
+            </p>
+          )}
           {pessoas.size === 0 && (
             <p className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
               Ninguém nos times deste projeto no Azure DevOps — não há a quem sugerir.
@@ -212,6 +234,7 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
                 task={r}
                 rec={recomendacoes.get(r.item_id!)}
                 pessoas={pessoas}
+                detalhe={detalhe}
                 sprint={sprintNome(recomendacoes.get(r.item_id!)?.sprintId ?? null)}
                 semSprintPropria={!r.sprint_id || !cap.sprints.some((s) => s.id === r.sprint_id)}
               />
@@ -231,12 +254,14 @@ function LinhaTask({
   task,
   rec,
   pessoas,
+  detalhe,
   sprint,
   semSprintPropria,
 }: {
   task: BacklogRow;
   rec: RecomendacaoTask | undefined;
   pessoas: Map<string, PessoaProjeto>;
+  detalhe: (sprintId: string, pessoaId: string) => CelulaGlobal | undefined;
   sprint: { nome: string; inicio: string; fim: string } | undefined;
   semSprintPropria: boolean;
 }) {
@@ -293,7 +318,7 @@ function LinhaTask({
           </p>
         ) : (
           <>
-            <Opcao opcao={melhor} pessoa={pessoas.get(melhor.pessoaId)} task={task} sprint={sprint} destaque />
+            <Opcao opcao={melhor} pessoa={pessoas.get(melhor.pessoaId)} global={rec?.sprintId ? detalhe(rec.sprintId, melhor.pessoaId) : undefined} task={task} sprint={sprint} destaque />
             {outras.length > 0 && (
               <button
                 onClick={() => setMaisOpcoes((v) => !v)}
@@ -306,7 +331,7 @@ function LinhaTask({
             {maisOpcoes && (
               <div className="mt-2 space-y-2">
                 {outras.map((o) => (
-                  <Opcao key={o.pessoaId} opcao={o} pessoa={pessoas.get(o.pessoaId)} task={task} sprint={sprint} />
+                  <Opcao key={o.pessoaId} opcao={o} pessoa={pessoas.get(o.pessoaId)} global={rec?.sprintId ? detalhe(rec.sprintId, o.pessoaId) : undefined} task={task} sprint={sprint} />
                 ))}
               </div>
             )}
@@ -328,12 +353,14 @@ function rotuloEncaixe(e: number | null): { texto: string; tom: string } {
 function Opcao({
   opcao,
   pessoa,
+  global,
   task,
   sprint,
   destaque,
 }: {
   opcao: OpcaoAlocacao;
   pessoa: PessoaProjeto | undefined;
+  global: CelulaGlobal | undefined;
   task: BacklogRow;
   sprint: { nome: string } | undefined;
   destaque?: boolean;
@@ -432,7 +459,25 @@ function Opcao({
         )}
         <StatusCargaTag status={opcao.statusDepois} className="ml-auto" />
       </div>
+      {global && global.porProjeto.length > 0 && <OcupacaoProjetos celula={global} />}
     </div>
+  );
+}
+
+/** De onde vem a ocupação da pessoa no período: tasks em todos os projetos. */
+function OcupacaoProjetos({ celula }: { celula: CelulaGlobal }) {
+  const ids = celula.porProjeto.map((p) => p.projetoId);
+  const nomes = new Map((useProjetosPorIds(ids).data ?? []).map((p) => [p.id, p.nome]));
+  return (
+    <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+      Ocupação em todos os projetos ({formatHoras(celula.capacidadeH)} de capacidade no período):{" "}
+      {celula.porProjeto.map((p, i) => (
+        <span key={p.projetoId}>
+          {i > 0 && " · "}
+          <span className="text-slate-700 dark:text-slate-300">{nomes.get(p.projetoId) ?? "…"}</span> {formatHoras(p.cargaH)}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -465,8 +510,10 @@ function ComoFunciona() {
           função conta 50%.
         </p>
         <p className="mt-2">
-          <strong className="text-slate-800 dark:text-slate-100">Folga (35%)</strong>: horas livres na sprint da task depois
-          de recebê-la, pelo motor de capacidade (Capacity do DevOps, dias úteis, folgas e feriados).
+          <strong className="text-slate-800 dark:text-slate-100">Folga (35%)</strong>: horas livres da pessoa no período da
+          sprint da task, depois de recebê-la, <strong className="text-slate-800 dark:text-slate-100">somando todos os projetos</strong>:
+          a capacidade é a soma da Capacity dela em todos os times, limitada à jornada (ex.: 8h/dia), e a carga são as
+          tasks abertas dela em qualquer projeto. Descontados folgas e feriados.
         </p>
         <p className="mt-2">
           Quem passaria do limite perde pontos; quem não tem capacidade na sprint vai para o fim. As sugestões são
