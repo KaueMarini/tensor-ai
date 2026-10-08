@@ -4,7 +4,7 @@
 > **atualize ao final de cada etapa**: o que foi feito, onde parou e o que vem a seguir.
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
-**Última atualização:** 2026-10-08
+**Última atualização:** 2026-10-09
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
 (Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
 Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
@@ -13,6 +13,14 @@ regras do gestor. Ainda fora: agente de IA, cadastro de ausências/feriados pela
 ---
 
 ## 1. Onde paramos
+
+Sessão de 2026-10-09: **motor de análise de fluxo e capacidade em Python** (`services/analytics`,
+só backend, ver 2.10), em etapas. **Etapa 1 feita** (migrations + config): `work_item_transicao`
+(+ trigger em `evento`), `fluxo_config`/`analise_config`/`devops_relacao_cache`, colunas novas e
+Realtime em `sugestao`; esqueleto `uv` (Python 3.12) com ruff/mypy/pytest. **Migrations ainda
+não aplicadas**: esta máquina não tinha `.env.local`, `supabase/.env.functions` nem
+`supabase login` — rodar `npx supabase login` e `npx supabase db push </dev/null`.
+Próximo: etapa 2 (`domain/` + testes).
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -496,6 +504,29 @@ com duas visões no seletor do topo:
   `acao` conferidos) e de volta para New; Análises reproduz o cenário do seed (Kauê
   117% na Sprint 1). 35 testes, typecheck e build limpos.
 
+### 2.10 Serviço de análise de fluxo e capacidade (`services/analytics`, Python)
+
+- **O quê**: lê o banco, calcula fluxo + capacidade de forma determinística, pede ao LLM só a
+  escolha de uma ação candidata + texto, valida e grava `sugestao` **pendente**. Nunca escreve
+  no DevOps (PAT só leitura). Plano: domain → repositórios → agente → API/disparo → deploy.
+- **Stack**: Python 3.12 via `uv` (`uv sync`, `uv run pytest`), FastAPI, Pydantic v2,
+  psycopg 3, httpx, structlog, ruff + mypy --strict + pytest/hypothesis.
+  Arredondamento e tolerâncias só em `numeros.py`. Configuração por env (`config.py`).
+- **Migrations** (2026-10-09, **pendentes de `db push`**):
+  - `20261009000000_work_item_transicao`: histórico de `System.State`/`System.BoardColumn`
+    (único por item+campo+rev). Trigger `after insert` em `evento` extrai `oldValue/newValue`
+    do Service Hook (origem `evento`); backfill pelo serviço via `/updates` (origem `backfill`).
+    Erro no trigger vira `warning`, nunca derruba o webhook.
+  - `20261009000100_fluxo_config`: `fluxo_config` (projeto × coluna: espera/ativa, SLA em horas
+    úteis, WIP coluna; coluna `*` = WIP por pessoa) com defaults Code Review 24h, Homologação
+    48h, WIP pessoa 3, semeado para projetos atuais e novos (trigger); `analise_config` (tags/
+    campo de bloqueio, campo de horas da carga, fallback de horas, percentil); 
+    `devops_relacao_cache` (dependências lidas pelo serviço).
+  - `20261009000200_sugestao_analytics`: `sugestao` ganha `projeto_id`, `origem`, `markdown`,
+    `acao` (`{tipo, work_item_id, de_pessoa_id, para_pessoa_id|para_sprint_id}`),
+    `impacto_antes/depois`, `versao_prompt`, `hash_payload` (único entre pendentes),
+    `usou_fallback`; **entra no Realtime** (antes não estava).
+
 ---
 
 ## 3. Configuração local (por máquina)
@@ -619,6 +650,17 @@ e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
   essas policies precisam virar `select`-only pra esse papel.
 - Nomes de responsáveis podem vir em CAIXA ALTA do DevOps; o front normaliza só na exibição.
 - Free tier: wall clock de 150 s nas Edge Functions → orçamento de 110 s no `devops-sync`.
+
+### A confirmar (serviço de análise)
+Tudo abaixo está configurável em `analise_config`/`fluxo_config`, sem suposição fixa no código:
+- Campo de horas da carga: hoje `restante` (RemainingWork); alternativas `estimada_menos_concluida`
+  e `estimada`. Fallback para task sem estimativa: 4h (por tag em `horas_fallback_por_tag`).
+- Nomes das colunas de espera do board (`Code Review`, `Homologação` são palpites) e se os
+  times usam colunas de board ou só estados. **A sync não lê `System.BoardColumn`**; o
+  histórico vem dos eventos e do backfill.
+- Como marcam bloqueio: tag (`bloqueado`, `blocked`, `impedimento`) ou campo
+  (`Microsoft.VSTS.CMMI.Blocked`, só no processo CMMI).
+- Se usam links de dependência (`System.LinkTypes.Dependency`).
 
 ### Limites de uso (MVP no free tier)
 Folga grande para poucos projetos/usuários: ~8,6 mil execuções/mês do cron (limite 500 mil),
