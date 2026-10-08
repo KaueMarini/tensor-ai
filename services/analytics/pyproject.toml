@@ -43,7 +43,7 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "S", "PT", "DTZ", "C4", "PL"]
 ignore = [
-  "PLR0913",  # funções de domínio recebem várias entradas explícitas (sem estado global)
+  "PLR0913", "PLR0917",  # funções de domínio recebem várias entradas explícitas (sem estado global)
   "PLR2004",  # constantes de regra de negócio ficam nomeadas onde importa
   "RUF001", "RUF002", "RUF003",  # textos em pt-BR com acentos e símbolos
 ]
@@ -63,7 +63,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 asyncio_mode = "auto"
 addopts = "-q"
 

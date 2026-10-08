@@ -19,7 +19,8 @@ TOLERANCIA_PERCENTUAL = 1.0
 
 def arredondar(valor: float, casas: int) -> float:
     q = Decimal(1).scaleb(-casas)
-    return float(Decimal(str(valor)).quantize(q, rounding=ROUND_HALF_UP))
+    # round(…, 9) absorve o ruído de ponto flutuante (8.649999… vira 8.65 antes do meio-para-cima)
+    return float(Decimal(str(round(valor, 9))).quantize(q, rounding=ROUND_HALF_UP))
 
 
 def horas(valor: float) -> float:

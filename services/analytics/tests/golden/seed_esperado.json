@@ -1,0 +1,192 @@
+{
+  "alertas": [
+    {
+      "tipo": "ausencia",
+      "pessoa": "julliano",
+      "task": 116,
+      "semana": null,
+      "resultado": 5
+    },
+    {
+      "tipo": "ausencia",
+      "pessoa": "julliano",
+      "task": 117,
+      "semana": null,
+      "resultado": 5
+    },
+    {
+      "tipo": "sobrecarga",
+      "pessoa": "kaue",
+      "task": null,
+      "semana": "2026-10-05",
+      "resultado": 117.0
+    },
+    {
+      "tipo": "sobrecarga",
+      "pessoa": "kaue",
+      "task": null,
+      "semana": "2026-10-12",
+      "resultado": 117.0
+    }
+  ],
+  "utilizacao": {
+    "kaue@2026-10-05": [
+      30.0,
+      35.0,
+      "sobrecarga"
+    ],
+    "kaue@2026-10-12": [
+      30.0,
+      35.0,
+      "sobrecarga"
+    ],
+    "kaue@2026-10-19": [
+      30.0,
+      9.0,
+      "ok"
+    ],
+    "kaue@2026-10-26": [
+      30.0,
+      9.0,
+      "ok"
+    ],
+    "laryssa@2026-10-05": [
+      30.0,
+      14.0,
+      "ok"
+    ],
+    "laryssa@2026-10-12": [
+      30.0,
+      14.0,
+      "ok"
+    ],
+    "laryssa@2026-10-19": [
+      30.0,
+      8.0,
+      "ok"
+    ],
+    "laryssa@2026-10-26": [
+      30.0,
+      8.0,
+      "ok"
+    ],
+    "nicolas@2026-10-05": [
+      30.0,
+      7.0,
+      "ok"
+    ],
+    "nicolas@2026-10-12": [
+      30.0,
+      7.0,
+      "ok"
+    ],
+    "nicolas@2026-10-19": [
+      30.0,
+      12.0,
+      "ok"
+    ],
+    "nicolas@2026-10-26": [
+      30.0,
+      12.0,
+      "ok"
+    ],
+    "julliano@2026-10-05": [
+      30.0,
+      4.0,
+      "ok"
+    ],
+    "julliano@2026-10-12": [
+      30.0,
+      4.0,
+      "ok"
+    ],
+    "julliano@2026-10-19": [
+      0.0,
+      0.0,
+      "ok"
+    ],
+    "julliano@2026-10-26": [
+      30.0,
+      22.0,
+      "ok"
+    ]
+  },
+  "pareto": [
+    [
+      "sobrecarga",
+      5,
+      62.5,
+      true
+    ],
+    [
+      "ausente",
+      2,
+      87.5,
+      true
+    ],
+    [
+      "sem_estimativa",
+      1,
+      100.0,
+      false
+    ]
+  ],
+  "candidatos": [
+    {
+      "acao_id": "A-a5e78339",
+      "tipo": "mover_sprint",
+      "task": 116,
+      "para": "s3",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-ca049932",
+      "tipo": "mover_sprint",
+      "task": 117,
+      "para": "s3",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-2f9003ee",
+      "tipo": "mover_sprint",
+      "task": 101,
+      "para": "s2",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-aada38dd",
+      "tipo": "mover_sprint",
+      "task": 103,
+      "para": "s2",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-463501c0",
+      "tipo": "mover_sprint",
+      "task": 102,
+      "para": "s2",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-431ea002",
+      "tipo": "reatribuir",
+      "task": 101,
+      "para": "nicolas",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-7659346d",
+      "tipo": "reatribuir",
+      "task": 103,
+      "para": "nicolas",
+      "quadrante": "quick_win"
+    },
+    {
+      "acao_id": "A-97098c26",
+      "tipo": "mover_sprint",
+      "task": 104,
+      "para": "s2",
+      "quadrante": "quick_win"
+    }
+  ]
+}

@@ -20,7 +20,9 @@ só backend, ver 2.10), em etapas. **Etapa 1 feita** (migrations + config): `wor
 Realtime em `sugestao`; esqueleto `uv` (Python 3.12) com ruff/mypy/pytest. **Migrations ainda
 não aplicadas**: esta máquina não tinha `.env.local`, `supabase/.env.functions` nem
 `supabase login` — rodar `npx supabase login` e `npx supabase db push </dev/null`.
-Próximo: etapa 2 (`domain/` + testes).
+**Etapa 2 feita** (`domain/` puro + testes: 58 testes, 98,8% de cobertura no domínio, golden do
+seed com Kauê 117% nas semanas de 05 e 12/10 e Julliano de férias com as tasks 116/117;
+fórmulas em [metodologia.md](metodologia.md)). Próximo: etapa 3 (repositórios + backfill).
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -512,6 +514,14 @@ com duas visões no seletor do topo:
 - **Stack**: Python 3.12 via `uv` (`uv sync`, `uv run pytest`), FastAPI, Pydantic v2,
   psycopg 3, httpx, structlog, ruff + mypy --strict + pytest/hypothesis.
   Arredondamento e tolerâncias só em `numeros.py`. Configuração por env (`config.py`).
+- **Domínio** (`domain/`, puro, datas por parâmetro — fórmulas em `docs/metodologia.md`):
+  `capacidade.py` (porta a cascata de `regras.ts`/`global.ts`, mas por **semana**; fallback de
+  horas "sistema"; conflito com ausência), `fluxo.py` (waiting time com reentrada, cycle/lead/
+  aging × p85, WIP pessoa/coluna), `pareto.py` (6 causas, vitais ≥ 80%), `priorizacao.py`
+  (esforço × impacto com referências fixas), `candidatos.py` (reatribuir/mover_sprint/pausar
+  simulados no motor; só Tasks), `anonimizacao.py`, `analise.py` (junta tudo por projeto).
+  Testes: `tests/unit`, `tests/property` (hypothesis), `tests/golden` (cenário do seed;
+  `UPDATE_GOLDEN=1` regenera `seed_esperado.json`).
 - **Migrations** (2026-10-09, **pendentes de `db push`**):
   - `20261009000000_work_item_transicao`: histórico de `System.State`/`System.BoardColumn`
     (único por item+campo+rev). Trigger `after insert` em `evento` extrai `oldValue/newValue`
