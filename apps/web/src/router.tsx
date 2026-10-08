@@ -5,6 +5,7 @@ import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
 import { ProjetosPage } from "@/routes/projetos";
 import { MembrosPage } from "@/routes/membros";
+import { AnalisesPage as SugestoesAlocacaoPage } from "@/routes/analises";
 import { ProjetoLayout } from "@/routes/projeto/layout";
 import { CronogramaPage } from "@/routes/projeto/cronograma";
 import { SquadPage } from "@/routes/projeto/squad";
@@ -71,6 +72,12 @@ const membrosRoute = createRoute({
   component: MembrosPage,
 });
 
+const sugestoesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/analises",
+  component: SugestoesAlocacaoPage,
+});
+
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/projetos/$projetoId",
@@ -105,6 +112,7 @@ const routeTree = rootRoute.addChildren([
     inicioRoute,
     projetosRoute,
     membrosRoute,
+    sugestoesRoute,
     projetoRoute.addChildren([
       projetoIndexRoute,
       cronogramaRoute,

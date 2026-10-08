@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FolderKanban, LogOut, Moon, Sun, Users } from "lucide-react";
+import { FolderKanban, Lightbulb, LogOut, Moon, Sun, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useProjetosPorIds, useSyncState } from "@/lib/queries";
+import { useProjetosPorIds, useSemDonoResumo, useSyncState } from "@/lib/queries";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
 import { useRecentes } from "@/lib/recentes";
 import { useTheme } from "@/lib/theme";
@@ -33,6 +33,7 @@ const GRUPO = "px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider te
 function Sidebar() {
   const recentes = useRecentes();
   const { data } = useProjetosPorIds(recentes);
+  const semDono = (useSemDonoResumo().data ?? []).reduce((n, p) => n + (p.tasks ?? 0), 0);
   const projetosRecentes = recentes.map((id) => data?.find((p) => p.id === id)).filter((p) => !!p);
 
   return (
@@ -52,6 +53,14 @@ function Sidebar() {
           </Link>
           <Link to="/membros" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <Users className="size-4 shrink-0 opacity-70" /> Membros
+          </Link>
+          <Link to="/analises" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <Lightbulb className="size-4 shrink-0 opacity-70" /> Análises
+            {semDono > 0 && (
+              <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold tabular-nums text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" title="Tasks abertas sem responsável">
+                {semDono}
+              </span>
+            )}
           </Link>
         </div>
 

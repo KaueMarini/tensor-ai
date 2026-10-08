@@ -5,7 +5,7 @@
 // Pensado para muitos projetos: cada projeto só busca os dados de capacidade quando o
 // bloco entra na tela (IntersectionObserver).
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, CalendarRange, Sparkles, UserRoundX, Users } from "lucide-react";
 import type { Celula } from "@shared/capacidade/motor";
@@ -15,6 +15,7 @@ import { cn, corAvatar, formatData, formatHoras } from "@/lib/utils";
 import { Avatar, MarcaProjeto } from "@/components/avatar";
 import { MedidorCarga, pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
 import { Badge } from "@/components/ui/badge";
+import { QuandoVisivel } from "@/components/quando-visivel";
 import type { Membro } from "./membros";
 
 interface Props {
@@ -395,35 +396,6 @@ function topSkills(pessoas: PessoaProjeto[], n: number): [string, number][] {
 // ---------------------------------------------------------------------------
 // Carregamento sob demanda
 // ---------------------------------------------------------------------------
-
-/** Renderiza os filhos só depois que o bloco chega perto da tela (e mantém depois disso). */
-function QuandoVisivel({ children, reserva, className }: { children: ReactNode; reserva: ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visivel, setVisivel] = useState(false);
-  useEffect(() => {
-    if (visivel || !ref.current) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setVisivel(true);
-      return;
-    }
-    const obs = new IntersectionObserver(
-      (entradas) => {
-        if (entradas.some((e) => e.isIntersecting)) {
-          setVisivel(true);
-          obs.disconnect();
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [visivel]);
-  return (
-    <div ref={ref} className={className}>
-      {visivel ? children : reserva}
-    </div>
-  );
-}
 
 function EsqueletoProjeto({ nome }: { nome: string }) {
   return (

@@ -19,6 +19,8 @@ export const keys = {
   estados: (projetoId: string) => ["estados", projetoId] as const,
   skillsCatalogo: ["skills_catalogo"] as const,
   funcaoTags: ["funcao_tags"] as const,
+  // começa com "backlog" para o Realtime de work_item invalidar junto
+  semDono: ["backlog", "sem_dono_resumo"] as const,
 };
 
 function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -196,6 +198,30 @@ export function useMoverCard() {
         devops_id: v.devopsId,
         categoria: v.categoria,
       }),
+  });
+}
+
+/** Projetos com tasks abertas sem responsável (para a tela Análises não carregar todos). */
+export function useSemDonoResumo() {
+  return useQuery({
+    queryKey: keys.semDono,
+    queryFn: async () =>
+      unwrap(await supabase.from("v_sem_dono_resumo").select("*").order("tasks", { ascending: false })),
+  });
+}
+
+/** Gestor aprova a sugestão: reatribui a task no DevOps (auditado em `acao`). */
+export function useAtribuirTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { devopsId: number; pessoaId: string; motivo: Record<string, unknown> }) =>
+      invocar<{ ok: true; para: string; semMudanca?: boolean }>("devops-acoes", {
+        acao: "atribuir",
+        devops_id: v.devopsId,
+        pessoa_id: v.pessoaId,
+        motivo: v.motivo,
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["backlog"] }),
   });
 }
 

@@ -29,6 +29,7 @@ function row(p: Partial<BacklogRow>): BacklogRow {
     tags: [],
     sem_estimativa: false,
     atualizado_em: null,
+    feature_tags: [],
     ...p,
   };
 }

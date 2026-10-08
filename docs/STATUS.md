@@ -20,6 +20,11 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (3ª parte): **tela Análises na sidebar** — para cada task sem
+responsável, sugere as melhores pessoas do time (encaixe de skills/tags + tempo livre na
+sprint, motor determinístico) e o gestor aprova com **Atribuir**, que reatribui no DevOps
+com auditoria (ver 2.9). Primeiro fluxo "sugere → aprova → executa" do produto.
+
 Sessão de 2026-10-08 (2ª parte): **skills automáticas** — o banco sugere skills para cada
 pessoa a partir das tags das tasks dela (e da Feature pai), sozinho, a cada task nova ou
 alterada; o gestor confirma/descarta no perfil (ver 2.7). 38 sugestões geradas na carga
@@ -82,6 +87,7 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
 | `20261007000200_cron_reconcile.sql` | pg_cron a cada 5 min → pg_net → `devops-sync` (reconcile), segredos no Vault |
 | `20261007000300_retencao_eventos.sql` | pg_cron diário apaga eventos resolvidos com mais de 30 dias |
 | `20261007000500_projetos_kanban.sql` | `pg_trgm` + índice GIN em `projeto.nome` (busca), view `v_projeto_resumo` (lista paginada: itens, features, membros, sprint atual, última sync), `v_membros` ganha `projeto_nome`, tabela `acao` (auditoria de ações no DevOps), `sync_origem` aceita `app` |
+| `20261008000300_analises_alocacao.sql` | `v_backlog` ganha `feature_tags`; view `v_sem_dono_resumo` (tasks abertas sem dono por projeto) |
 | `20261008000100_skills_automaticas.sql` | `skill_tag` ganha origem `tasks`, `evidencias`, `horas`, `rejeitada`, `atualizado_em`; `unaccent`; `skill_chave`; `recalcular_skills`; triggers por comando em `work_item`; `v_membros.skills` com origem/confirmada/rejeitada/evidencias; carga inicial |
 | `20261008000200_skills_grafia_unica.sql` | sugestão nova usa a grafia mais comum da skill no time; normaliza as existentes |
 | `20261008000000_hierarquia_epic_basic.sql` | `feature_ancestral` prefere Feature e cai para Epic (processo Basic: Epic → Task); `v_backlog` mostra Epic sem filhos como requisito vazio; recalcula todos os itens |
@@ -157,6 +163,11 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
     destino pelo processo, faz JSON Patch em `System.State`, grava a nova revisão no banco
     na hora (`upsertWorkItems`, origem `app`) e registra em `acao` (aplicada ou erro).
     PAT precisa de **Work Items (Read & Write)** — já tem (testado).
+  - `POST { acao: "atribuir", devops_id, pessoa_id, motivo? }` (2026-10-08) → recusa
+    Feature/Epic, exige que a pessoa esteja num time do projeto (o DevOps não aceita outro
+    responsável), faz JSON Patch em `System.AssignedTo` com o `unique_name`, grava a revisão
+    na hora e registra em `acao` (tipo `atribuir`, antes/depois + `motivo` com encaixe,
+    skills que bateram e utilização antes/depois). Usado pela tela Análises.
 - Runtime em `supabase/functions/_lib` (`context.ts`, `sync.ts`).
 
 ### 2.5 Scripts (`scripts/`, rodam com tsx + `.env.local` + `supabase/.env.functions`)
@@ -296,6 +307,35 @@ com duas visões no seletor do topo:
   + mutations), `apps/web/src/lib/utils.ts` (helpers de avatar/nome extraídos de
   `projeto.tsx`, agora compartilhados).
 
+### 2.9 Análises — sugestões de alocação (sidebar, `/analises`)
+
+- **O quê**: lista as tasks abertas **sem responsável** de todos os projetos e, para cada
+  uma, as 3 melhores pessoas do time do projeto, com botão **Atribuir** (gestor aprova →
+  reatribui no DevOps via `devops-acoes` `atribuir`, auditado em `acao`). Badge na sidebar
+  com o total pendente.
+- **Motor** (puro, sem IA): `_shared/capacidade/recomendacao.ts` (`recomendarAlocacao`,
+  9 testes). Score = 65% **encaixe** (tags da task + tags da Feature pai × skills da
+  pessoa: confirmada = 1, sugerida pelas tasks = 0,5–0,8 conforme evidência, tag de função
+  = 0,5; tags `seed-*` ignoradas; mesma normalização do banco, `chaveSkill`) + 35% **folga**
+  (horas livres na sprint da task depois de recebê-la, células do motor de capacidade).
+  Multiplicador por status depois: limite ×0,85, sobrecarga ×0,5, sem capacidade ×0 (vai
+  para o fim). Task sem tags → decide pela folga. Task sem estimativa → não pesa na carga
+  (sinalizada). Task sem sprint datada → usa a sprint atual. **Distribuição sequencial**:
+  tasks ordenadas por sprint mais próxima e horas desc; a carga da melhor opção de cada
+  task já conta para as seguintes (não empilha tudo em uma pessoa).
+- **Tela** (`routes/analises.tsx`): KPIs (tasks sem dono, horas, projetos), busca e filtro
+  de projeto, bloco por projeto carregado sob demanda (`components/quando-visivel.tsx`,
+  extraído da visão Squads). Cada task: #id (abre no DevOps), feature, sprint, horas, tags
+  consideradas; melhor opção destacada com rótulo de encaixe (alto/médio/baixo/nenhuma
+  skill em comum), chips das skills que bateram (confirmada verde, sugerida tracejada,
+  função violeta), impacto "37% → 52% em Sprint 1 · 22h livres depois" e status; "Ver
+  outras opções". Popover "Como a sugestão é calculada".
+- **Dados**: `v_sem_dono_resumo` (projetos com pendência, aproximação por nome de estado)
+  escolhe os blocos; a lista exata vem de `useCapacidadeProjeto().semResponsavel` (estados
+  reais do processo). `v_backlog` ganhou `feature_tags` (migration `20261008000300`).
+- **Validado**: Chrome headless claro/escuro sem erros; clique real em Atribuir na #38 →
+  DevOps com Kauê, registro em `acao` com motivo, task saiu da lista; depois desfeito.
+
 ### 2.8 Projetos e telas do projeto (pensado para muitos projetos)
 
 - **Página Projetos** (`routes/projetos.tsx`): busca por nome com debounce (URL `?q=`),
@@ -398,8 +438,11 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
 
 ### Próximos (P0/P1 do CLAUDE.md)
 Cadastro de ausências/feriados pela UI (hoje o motor usa days off do DevOps e a tabela
-`feriado`, vazia), utilização por **semana** (hoje é por sprint), agente de IA, caixa de
-sugestões, executor de sugestões (reaproveitar `devops-acoes` + `acao`).
+`feriado`, vazia), utilização por **semana** (hoje é por sprint), agente de IA (explicar
+e priorizar as sugestões da tela Análises, ler descritivo/Feature, sinônimos de skills),
+sugestões proativas por evento (webhook → sugestão na caixa), sugestões de **realocação**
+de quem está sobrecarregado (mesmo motor `recomendarAlocacao`, partindo de tasks com dono)
+e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
 
 ---
 
@@ -475,3 +518,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-07 | Usuário removeu `AZDO_PROJECTS`; 3 projetos novos importados (um deles disparado na hora via `devops-sync`). Navegação refeita para muitos projetos: página Projetos (busca trigram + paginação no banco, `v_projeto_resumo`), recentes na sidebar. Cada projeto com 5 telas: **Kanban** (arrastar muda o estado no DevOps via nova Edge Function `devops-acoes`, auditoria na nova tabela `acao`), **Cronograma** (Gantt), **Squad**, **Métricas**, **Análises** (mapa de utilização + alertas). **Motor de capacidade** puro em `_shared/capacidade/motor.ts` com 9 testes. Migration `20261007000500` aplicada, `devops-acoes` publicada. Validado no Chrome headless (claro/escuro) e com um movimento real no DevOps (#10 New → Active → New). |
 | 2026-10-08 | Membros: visão **Squads** (cards por squad dentro de cada projeto, carga da sprint atual pelo motor, mini-medidor por pessoa, skills do squad, carregamento sob demanda) no lugar da tabela "Por projeto"; `resumirSquad` em `_shared/capacidade/squads.ts` (+ testes). Migration `20261008000000` (Epic como requisito no Basic) aplicada. `pnpm devops:popular` criou 82 itens nos 3 projetos sem dados (sprints datadas, capacidade, requisitos, tasks) e o reconcile trouxe tudo; webhooks criados para os 3 projetos. PAT sem Graph API → squads novos só pela UI do DevOps. Usuário `qa-headless` criado para testes (senha de demo local estava desatualizada). Validado: 39 testes, typecheck, build e Chrome headless claro/escuro sem erros. |
 | 2026-10-08 | **Skills automáticas** a partir das tasks (migrations `20261008000100`/`0200`: `recalcular_skills` + triggers em `work_item`, sugestão até o gestor confirmar, descarte que não volta, grafia única). Front: chips sugeridos, revisão no perfil, aviso de pendentes. Validado: teste SQL com rollback (sugere / descartada não volta / some sem evidência) e ponta a ponta real — tag `kotlin` em 2 tasks do Aaron no DevOps apareceu como sugestão no perfil em 8,6 s sem refresh; confirmar/descartar conferidos no banco; tudo desfeito. 42 testes, typecheck limpos. Time do projeto Teste ganhou 6 pessoas no DevOps (13 membros no total). |
+| 2026-10-08 | **Análises** na sidebar: sugestões de responsável para tasks sem dono (motor `recomendarAlocacao` em `_shared/capacidade/recomendacao.ts`, 9 testes: encaixe de skills/tags + folga na sprint, penalidades por carga, distribuição sequencial), botão **Atribuir** → nova ação `atribuir` em `devops-acoes` (publicada) com auditoria e motivo em `acao`. Migration `20261008000300` (`feature_tags` na `v_backlog`, `v_sem_dono_resumo`). `QuandoVisivel` virou componente compartilhado. Validado: 51 testes, typecheck, build, Chrome headless claro/escuro e atribuição real da #38 (DevOps + auditoria conferidos, depois desfeita). |
