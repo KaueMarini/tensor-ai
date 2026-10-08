@@ -4,7 +4,7 @@
 > **atualize ao final de cada etapa**: o que foi feito, onde parou e o que vem a seguir.
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
-**Última atualização:** 2026-10-09
+**Última atualização:** 2026-10-09 (serviço de análise)
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
 (Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
 Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
@@ -31,7 +31,11 @@ mockado). **Falta o texto de `prompts/analista-fluxo.v1.md`** (o usuário vai co
 serviço usa só o template, `usou_fallback=true`). **Etapa 5 feita** (FastAPI `/analyze/event` com
 debounce por item, `/analyze/sweep` em segundo plano, `/health`; migration `20261009000300`
 com trigger pg_net + cron de 15 min; CLI `analisar`/`sweep`; contrato em
-[contratos-backend.md](contratos-backend.md); 113 testes). Próximo: etapa 6 (deploy + CI).
+[contratos-backend.md](contratos-backend.md); 113 testes). **Etapa 6 feita** (Dockerfile multi-stage com uv, `fly.toml` em `gru`, CI `.github/workflows/analytics.yml`, [deploy-analytics.md](deploy-analytics.md)).
+**Para ligar de verdade** (precisa de credenciais desta máquina): `npx supabase login` →
+`npx supabase db push </dev/null` → segredos do Fly → `radar_analytics_url`/`_secret` no Vault →
+`uv run radar-analytics backfill` → colar `prompts/analista-fluxo.v1.md` → criar task no DevOps e
+conferir `sugestao`.
 
 O **backend de sincronização está completo, publicado e validado em produção**, e o
 **front já tem login + tabela Backlog (Sprint → Feature → Task) ao vivo**
@@ -748,3 +752,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Regras de capacidade do gestor**: migration `20261008000700` (4 tabelas + trigger `atualizado_por` + Realtime), `_shared/capacidade/regras.ts` (cascata + padrão de mercado), motores por projeto e global recebem regras, alocações e limites (`origemCapacidade` substitui `capacidadePadrao`). Front: painel `/capacidade` (regras gerais + ocupação geral por pessoa editável) e aba `/projetos/$id/capacidade` (limites do projeto + horas/dia por pessoa, projeto × geral). Telas antigas sem 85% fixo. 70 testes, typecheck e build limpos; headless (claro/escuro) editando e desfazendo jornada e alocação, Análises conferida. |
 | 2026-10-08 | **Front reorganizado para o gestor**: Início (pendências priorizadas + mapa pessoa × semana + saúde dos projetos), Equipe com abas (Ocupação/Skills/Squads), ficha da pessoa com ocupação e jornada, projeto com Resumo (padrão) e Equipe (Squad + Capacidade), Regras de capacidade só com configuração, Kanban `?resp=`, Sugestões `?projeto=`, redirects das rotas antigas. `atencao.ts` (4 testes); motor global distribui a carga nos dias disponíveis da pessoa (2 testes). 76 testes, typecheck e build limpos; tour headless claro/escuro em todas as telas sem erros de console. |
 | 2026-10-08 | **Equipe sugerida** para projeto sem pessoas: motor `equipe-sugerida.ts` (9 testes), painel no Resumo/Equipe do projeto, "Sugerir reforço", pendência no Início (`atencao.ts` ganhou `sem-equipe`), selo em Projetos. Projeto real "Farol Cargas" criado no DevOps por `pnpm devops:projeto-novo`, sincronizado, com webhooks; headless claro/escuro sem erros. 86 testes, typecheck e build limpos. |
+| 2026-10-09 | **Serviço de análise em Python** (`services/analytics`, só backend, 6 etapas/commits): migrations de transições, `fluxo_config`/`analise_config`, `sugestao` estendida + Realtime e disparo (pg_net + cron 15 min); domínio puro (capacidade semanal com a cascata do app, fluxo, Pareto, esforço × impacto, candidatos, pseudonimização); repositórios + cliente DevOps só-leitura + backfill; agente (structured outputs, validador anti-alucinação, fallback por template); FastAPI com debounce; Dockerfile, Fly.io (`gru`) e CI. Python 3.12 via `uv` instalado nesta máquina. 113 testes, 98,8% de cobertura no domínio, ruff/mypy strict limpos. **Pendente**: `db push` das 4 migrations, segredos no Vault/Fly, backfill, texto do prompt v1 e o teste ponta a ponta. Front intocado. |

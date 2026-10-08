@@ -1,0 +1,10 @@
+# Contexto do build é a raiz do repositório: só entram o serviço e os prompts.
+*
+!services/analytics/pyproject.toml
+!services/analytics/uv.lock
+!services/analytics/README.md
+!services/analytics/src/**
+!prompts/**
+**/__pycache__
+**/.venv
+**/.env*

@@ -1,0 +1,30 @@
+# Fly.io — ver docs/deploy-analytics.md. Deploy a partir da RAIZ do repositório:
+#   fly deploy . --config services/analytics/fly.toml --dockerfile services/analytics/Dockerfile
+app = "radar-analytics"
+primary_region = "gru"
+
+[env]
+  TZ = "America/Sao_Paulo"
+  LOG_LEVEL = "INFO"
+  LLM_MODEL = "claude-opus-5-5"
+  DEBOUNCE_SEGUNDOS = "30"
+  VERSAO_PROMPT = "v1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # o debounce vive em memória: a máquina não pode dormir entre um evento e a análise
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "3s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
