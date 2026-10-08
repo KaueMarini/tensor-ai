@@ -20,6 +20,18 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (6ª parte): **regras de capacidade do gestor**. Painel **Capacidade**
+na sidebar (`/capacidade`): regras gerais (jornada, foco, % de atenção e de sobrecarga) e a
+**ocupação geral** de cada pessoa somando todos os projetos (esta semana / 2 / 4 semanas),
+com jornada e foco editáveis por pessoa na própria linha. Aba **Capacidade** em cada projeto:
+limites próprios do projeto e horas/dia que cada pessoa dedica a ele (sobrepõe a Capacity do
+DevOps), com "neste projeto × no geral" lado a lado e aviso quando alguém parece bem no
+projeto mas está pior no total. Sem nada definido vale o **padrão de mercado**: 8h × 75% =
+6h produtivas/dia, atenção > 80%, sobrecarga > 100%. Tudo ao vivo (Realtime) e usado pelas
+sugestões de alocação. Ver 2.3 (`regras.ts`) e a migration `20261008000700`.
+**Atenção:** a regra própria do Kauê (8h × 100% de foco) foi criada pelo usuário na tela,
+não pelos testes.
+
 Sessão de 2026-10-08 (5ª parte): **ciclo de vida de projetos/times/membros**. A sync
 agora trata projeto **excluído** no DevOps (arquiva: some do app e da carga global;
 restaurado volta com carga completa), **renomeado** (caminhos de sprints e tasks
@@ -152,12 +164,20 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
 - `kanban.ts`: colunas por **categoria** de estado do processo (Proposed/InProgress/
   Resolved/Completed), `estadoDestino` (1º estado do tipo na categoria), `categoriaDe`
   (usa os metadados do processo; sem eles, nomes conhecidos). Features/Epics fora.
+- `capacidade/regras.ts` (2026-10-08): regras do gestor em cascata e `PADRAO_MERCADO`
+  (8h, 75% de foco, atenção 80%, sobrecarga 100%). Horas produtivas = jornada × foco
+  (pessoa → geral); limites = projeto (só nas telas do projeto) → geral. Tabelas:
+  `regra_capacidade` (linha única), `regra_capacidade_pessoa`, `regra_capacidade_projeto`,
+  `alocacao_projeto` (escrita por autenticado, `atualizado_por` via trigger, no Realtime).
+  `pessoa.horas_semana_base` **não é mais usado** pelos motores.
 - `capacidade/motor.ts`: **motor de capacidade** (sem IA). Por pessoa × sprint:
-  capacidade = Capacity/dia do DevOps (soma dos times; sem Capacity, `horas_semana_base`/5)
-  × dias úteis − feriados − days off (da pessoa e do time); carga = horas restantes (ou
-  estimado − concluído) das tasks abertas, ignorando pais com filhos; status `ok` ≤ 85% <
-  `limite` ≤ 100% < `sobrecarga`; `sem-capacidade` se tem carga e 0 h. Testado em
-  `motor.test.ts` (9 casos).
+  capacidade/dia = alocação do gestor no projeto → Capacity do DevOps (soma dos times) →
+  horas produtivas da pessoa; × dias úteis − feriados − days off (da pessoa e do time); carga =
+  horas restantes (ou estimado − concluído) das tasks abertas, ignorando pais com filhos;
+  status pelos limites (`statusDe(carga, cap, limites)`); `sem-capacidade` se tem carga e
+  0 h. Cada célula traz `origemCapacidade` (gestor/devops/padrao) e os `limites` usados.
+  `global.ts`: por dia, soma por projeto (alocação do gestor ou Capacity), teto nas horas
+  produtivas. Testes: motor 12, global 10, regras 4.
 - `log.ts`: log estruturado (JSON) com `devops_id` em cada linha.
 - `db.types.ts`: gerado por `pnpm db:types`.
 - Testes: `azdo/client.test.ts`, `mappers/mappers.test.ts` + fixtures reais em `__fixtures__/`.
@@ -595,3 +615,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Carga global** nas sugestões (`_shared/capacidade/global.ts` + `lib/carga-global.ts`): capacidade única por pessoa limitada à jornada × tasks em todos os projetos — corrige o Kauê sendo sugerido para tudo (cada projeto o via com 6h/dia exclusivas). **Org reorganizada** com `pnpm devops:organizar` (120 mudanças: Capacity realista, tasks pelo foco de cada pessoa, 10 funções e skills confirmadas no app); descoberto que `add` em `System.Tags` acrescenta (usar `replace`). Resultado validado no headless: Teste #57→Abigail, #54→Arão, #59→Valeria; IportJLNK → Kauê com ocupação real (46h de 80h) e aviso de time com 1 pessoa. 58 testes, typecheck e build limpos. |
 | 2026-10-08 | **Ciclo de vida**: sync trata projeto excluído (arquiva), renomeado (paths de sprints e tasks; bug de desvínculo da sprint achado no teste e corrigido em `20261008000600`), time excluído e membro removido (views e `atribuir` ignoram inativos); descrição + `Tags:` do projeto viram `tags_requeridas` e aparecem no cabeçalho; `projeto` no Realtime. Functions `devops-sync`/`webhook`/`acoes` republicadas. Testes SQL com rollback dos 4 cenários (Kauê cai de 126h para 22h abertas e de 10 para 7 skills inferidas ao arquivar o IportJLNK). Scripts por ID. `pnpm devops:projetos` pronto, **bloqueado por 401** (PAT sem Project and Team). 60 testes, typecheck e build limpos. |
 | 2026-10-08 | PAT novo com acesso total (local + segredos das functions). `pnpm devops:projetos --excluir` aplicado: 3 projetos renomeados para nomes fictícios com descrição + `Tags:`, IportJLNK excluído no DevOps. Reconcile refletiu tudo (arquivamento, renomeação de caminhos sem perder sprint, tags). Achado: `secrets set --env-file` recolocou `AZDO_PROJECTS=IportJLKN12` (filtro por nome → 0 projetos após renomear); removido do segredo e comentado nos arquivos locais. Validado no banco e no headless. |
+| 2026-10-08 | **Regras de capacidade do gestor**: migration `20261008000700` (4 tabelas + trigger `atualizado_por` + Realtime), `_shared/capacidade/regras.ts` (cascata + padrão de mercado), motores por projeto e global recebem regras, alocações e limites (`origemCapacidade` substitui `capacidadePadrao`). Front: painel `/capacidade` (regras gerais + ocupação geral por pessoa editável) e aba `/projetos/$id/capacidade` (limites do projeto + horas/dia por pessoa, projeto × geral). Telas antigas sem 85% fixo. 70 testes, typecheck e build limpos; headless (claro/escuro) editando e desfazendo jornada e alocação, Análises conferida. |
