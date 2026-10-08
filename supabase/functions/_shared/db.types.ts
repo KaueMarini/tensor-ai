@@ -78,6 +78,66 @@ export type Database = {
           },
         ]
       }
+      alocacao_projeto: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          horas_dia: number
+          pessoa_id: string
+          projeto_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          horas_dia: number
+          pessoa_id: string
+          projeto_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          horas_dia?: number
+          pessoa_id?: string
+          projeto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alocacao_projeto_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alocacao_projeto_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
+            foreignKeyName: "alocacao_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alocacao_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alocacao_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
+      }
       ausencia: {
         Row: {
           fim: string
@@ -429,6 +489,124 @@ export type Database = {
           tags_requeridas?: string[]
         }
         Relationships: []
+      }
+      regra_capacidade: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          foco: number
+          id: boolean
+          jornada_dia: number
+          limite_atencao: number
+          limite_sobrecarga: number
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          foco?: number
+          id?: boolean
+          jornada_dia?: number
+          limite_atencao?: number
+          limite_sobrecarga?: number
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          foco?: number
+          id?: boolean
+          jornada_dia?: number
+          limite_atencao?: number
+          limite_sobrecarga?: number
+        }
+        Relationships: []
+      }
+      regra_capacidade_pessoa: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          foco: number | null
+          jornada_dia: number | null
+          observacao: string | null
+          pessoa_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          foco?: number | null
+          jornada_dia?: number | null
+          observacao?: string | null
+          pessoa_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          foco?: number | null
+          jornada_dia?: number | null
+          observacao?: string | null
+          pessoa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regra_capacidade_pessoa_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: true
+            referencedRelation: "pessoa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regra_capacidade_pessoa_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: true
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+        ]
+      }
+      regra_capacidade_projeto: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          limite_atencao: number | null
+          limite_sobrecarga: number | null
+          projeto_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          limite_atencao?: number | null
+          limite_sobrecarga?: number | null
+          projeto_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          limite_atencao?: number | null
+          limite_sobrecarga?: number | null
+          projeto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regra_capacidade_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regra_capacidade_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regra_capacidade_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
       }
       skill_tag: {
         Row: {
