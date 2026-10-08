@@ -422,27 +422,39 @@ export type Database = {
       }
       skill_tag: {
         Row: {
+          atualizado_em: string
           confianca: number | null
           confirmada: boolean
+          evidencias: number
+          horas: number | null
           id: number
           origem: string
           pessoa_id: string
+          rejeitada: boolean
           tag: string
         }
         Insert: {
+          atualizado_em?: string
           confianca?: number | null
           confirmada?: boolean
+          evidencias?: number
+          horas?: number | null
           id?: never
           origem: string
           pessoa_id: string
+          rejeitada?: boolean
           tag: string
         }
         Update: {
+          atualizado_em?: string
           confianca?: number | null
           confirmada?: boolean
+          evidencias?: number
+          horas?: number | null
           id?: never
           origem?: string
           pessoa_id?: string
+          rejeitada?: boolean
           tag?: string
         }
         Relationships: [
@@ -976,6 +988,7 @@ export type Database = {
         Returns: boolean
       }
       feature_ancestral: { Args: { p_devops_id: number }; Returns: number }
+      recalcular_skills: { Args: { p_pessoas: string[] }; Returns: number }
       recompute_hierarquia: { Args: { p_ids: number[] }; Returns: number }
       release_sync_lease: { Args: { p_projeto_id: string }; Returns: undefined }
       replace_capacidade: {
@@ -987,6 +1000,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      skill_chave: { Args: { p_tag: string }; Returns: string }
       soft_delete_work_item: {
         Args: { p_devops_id: number; p_rev?: number }
         Returns: boolean
