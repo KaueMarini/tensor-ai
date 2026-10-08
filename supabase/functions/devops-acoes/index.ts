@@ -3,8 +3,10 @@
 //
 // POST { acao: "estados", projeto_id }            -> { estados: { Task: [{ nome, categoria }] } }
 // POST { acao: "mover", devops_id, categoria }    -> { ok, de, para }
+// POST { acao: "atribuir", devops_id, pessoa_id, motivo? } -> { ok, para }
+//      (sugestão de alocação aprovada pelo gestor; motivo = encaixe/impacto, vai para a auditoria)
 //
-// Toda tentativa de mover fica registrada em `acao` (quem, quando, antes/depois, erro).
+// Toda tentativa fica registrada em `acao` (quem, quando, antes/depois, erro).
 
 import { errorMessage, log } from "../_shared/log.ts";
 import { AzdoHttpError } from "../_shared/azdo/client.ts";
@@ -83,6 +85,14 @@ Deno.serve(async (req) => {
       return jsonResponse(...(await mover(db, azdo, devopsId, categoria, user)));
     }
 
+    if (body.acao === "atribuir") {
+      const devopsId = Number(body.devops_id);
+      if (!Number.isInteger(devopsId) || typeof body.pessoa_id !== "string") {
+        return jsonResponse({ error: "devops_id e pessoa_id são obrigatórios" }, 400);
+      }
+      return jsonResponse(...(await atribuir(db, azdo, devopsId, body.pessoa_id, body.motivo ?? null, user)));
+    }
+
     return jsonResponse({ error: "ação desconhecida" }, 400);
   } catch (err) {
     log("error", "devops-acoes falhou", { acao: body.acao, erro: errorMessage(err) });
@@ -142,4 +152,72 @@ async function mover(
   await upsertWorkItems(ctx, atualizados, item.projeto_id, "app");
 
   return [{ ok: true, de: item.estado, para }, 200];
+}
+
+async function atribuir(
+  db: Db,
+  azdo: Azdo,
+  devopsId: number,
+  pessoaId: string,
+  motivo: unknown,
+  user: { id: string; email?: string },
+): Promise<[unknown, number]> {
+  const { data: item, error } = await db
+    .from("work_item")
+    .select("devops_id, projeto_id, tipo, responsavel_id, pessoa:responsavel_id(nome)")
+    .eq("devops_id", devopsId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!item) return [{ error: "item não encontrado" }, 404];
+  // Regra do produto: o sistema só altera Tasks (e itens de trabalho), nunca Feature/Epic
+  if (TIPOS_FORA_DO_KANBAN.has(item.tipo)) return [{ error: `${item.tipo} não pode ser alterada pelo app` }, 422];
+
+  const { data: pessoa, error: e2 } = await db
+    .from("pessoa")
+    .select("id, nome, unique_name")
+    .eq("id", pessoaId)
+    .maybeSingle();
+  if (e2) throw new Error(e2.message);
+  if (!pessoa?.unique_name) return [{ error: "pessoa sem usuário do DevOps" }, 422];
+
+  // O DevOps só aceita responsável com acesso ao projeto: exige estar num time dele
+  const { data: vinculo, error: e3 } = await db
+    .from("time_membro")
+    .select("pessoa_id, time!inner(projeto_id)")
+    .eq("pessoa_id", pessoaId)
+    .eq("time.projeto_id", item.projeto_id)
+    .limit(1);
+  if (e3) throw new Error(e3.message);
+  if (!vinculo?.length) return [{ error: `${pessoa.nome} não está em nenhum time deste projeto` }, 422];
+  if (item.responsavel_id === pessoaId) return [{ ok: true, para: pessoa.nome, semMudanca: true }, 200];
+
+  const registro = {
+    tipo: "atribuir",
+    projeto_id: item.projeto_id,
+    devops_id: devopsId,
+    antes: asJson({
+      responsavel_id: item.responsavel_id,
+      responsavel: (item.pessoa as { nome?: string } | null)?.nome ?? null,
+    }),
+    depois: asJson({ responsavel_id: pessoa.id, responsavel: pessoa.nome, motivo }),
+    usuario_id: user.id,
+    usuario_email: user.email ?? null,
+  };
+
+  try {
+    await azdo.updateWorkItem(devopsId, [{ op: "add", path: "/fields/System.AssignedTo", value: pessoa.unique_name }]);
+  } catch (err) {
+    const msg = mensagemAzdo(err);
+    await db.from("acao").insert({ ...registro, status: "erro", erro: msg });
+    log("warn", "atribuir falhou", { devops_id: devopsId, pessoa: pessoa.nome, erro: msg });
+    return [{ error: msg }, err instanceof AzdoHttpError && err.status < 500 ? 422 : 502];
+  }
+
+  await db.from("acao").insert({ ...registro, status: "aplicada" });
+  log("info", "task atribuída pelo app", { devops_id: devopsId, para: pessoa.nome, usuario: user.email });
+
+  const ctx = { db, azdo, filtro: [], deadline: Date.now() + 20_000 };
+  await upsertWorkItems(ctx, await azdo.getWorkItemsBatch([devopsId]), item.projeto_id, "app");
+  return [{ ok: true, para: pessoa.nome }, 200];
 }
