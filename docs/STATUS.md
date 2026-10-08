@@ -20,6 +20,14 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (4ª parte): **carga global** e **empresa organizada**. As sugestões
+agora usam a ocupação da pessoa em **todos os projetos** (`_shared/capacidade/global.ts`:
+capacidade única limitada à jornada × tasks de qualquer projeto) — antes cada projeto via
+o Kauê com 6h/dia só para ele, como se ele tivesse 24h/dia. E a org de demo foi
+reorganizada (`pnpm devops:organizar`): cada pessoa com uma função e um foco, tasks
+coerentes, Capacity realista (Kauê 4+2+2+0 = 8h/dia; demais 6h/dia num time só) — ver 2.5
+e 2.9.
+
 Sessão de 2026-10-08 (3ª parte): **tela Análises na sidebar** — para cada task sem
 responsável, sugere as melhores pessoas do time (encaixe de skills/tags + tempo livre na
 sprint, motor determinístico) e o gestor aprova com **Atribuir**, que reatribui no DevOps
@@ -176,6 +184,20 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   cadeia Feature → User Story → Task, task sem estimativa). Idempotente.
 - `pnpm devops:hooks [create|list|delete]`: gerencia subscriptions de Service Hooks. Idempotente.
 - `pnpm devops:latency <id>`: mede latência DevOps → banco e restaura o valor original.
+- `pnpm devops:organizar [--dry]` (2026-10-08): organiza a org como empresa. `PERFIL`
+  (função + skills principais por pessoa), `ALOCACAO` (h/dia por projeto; padrão 6) e
+  `RESPONSAVEIS` (devops_id → pessoa; `null` = deixar sem dono). Ajusta Capacity no DevOps
+  (Sprint 1..3), reatribui só tasks **abertas** (fechadas = histórico), limpa tags de teste
+  e grava no app as funções (`funcao_tag`) e skills confirmadas (`origem='gestor'`, ou
+  confirma a sugerida). Idempotente (2ª rodada = 0 mudanças). Atenção: no DevOps, `add`
+  em `System.Tags` **acrescenta**; para remover tag use `replace` com a lista final.
+  Times hoje: Kauê = Tech Lead (IportJLNK 4h, IportJLKN12 2h, Eu amo a Laryssa 2h,
+  Teste 0h); IportJLKN12 = Laryssa (Front-end), Nicolas (Back-end), Julliano (Dados & BI);
+  Eu amo a Laryssa = Abner (Mobile, ~90% na Sprint 1 de propósito), Sebastião (Back-end),
+  Aaron (QA); Teste = Abigail (Copilot Studio), Alexsandro (Power Platform), Arão
+  (Dados & BI), Thabata (QA), Valeria (Conteúdo & UX), Wallace (Infra & Segurança).
+  Sem dono de propósito: Teste #54/#57/#59 (para a demo das sugestões) e o que o IportJLNK
+  não comporta (só o Kauê no time — precisa de gente adicionada pela UI do DevOps).
 - `pnpm devops:popular [--reset] [--projeto "Nome"]`: popula **todos** os projetos (menos
   IportJLKN12, que é do `devops:seed`) com Sprint 1..3 datadas (associadas ao time),
   capacidade 6h/dia por membro, 5 requisitos por tema (Feature; **Epic** no processo
@@ -313,6 +335,18 @@ com duas visões no seletor do topo:
   uma, as 3 melhores pessoas do time do projeto, com botão **Atribuir** (gestor aprova →
   reatribui no DevOps via `devops-acoes` `atribuir`, auditado em `acao`). Badge na sidebar
   com o total pendente.
+- **Ocupação global (2026-10-08)**: a folga de cada candidato vem de
+  `_shared/capacidade/global.ts` (`cargaGlobal`, 7 testes), não do motor por projeto.
+  Por dia útil do período (datas da sprint da task): capacidade = soma da Capacity da
+  pessoa em **todos os times** que cobrem o dia, **limitada à jornada**
+  (`horas_semana_base/5`); sem Capacity em nenhum time, a jornada. Folga pessoal zera o dia,
+  folga de time tira só a parcela daquele time, feriado zera. Carga = tasks abertas da
+  pessoa em **qualquer projeto**, proporcional aos dias úteis da sprint da task que caem no
+  período. Front: `lib/carga-global.ts` (`useCargaGlobal(ids)`: busca sprints, Capacity,
+  folgas, feriados e `v_backlog` só das pessoas candidatas; cache por período). A tela
+  mostra "Ocupação em todos os projetos (X h de capacidade): Projeto A 36h · Projeto B 10h"
+  e avisa quando o time do projeto tem uma pessoa só. As abas Squad/Análises **do projeto**
+  continuam mostrando a alocação dentro do projeto (motor por projeto).
 - **Motor** (puro, sem IA): `_shared/capacidade/recomendacao.ts` (`recomendarAlocacao`,
   9 testes). Score = 65% **encaixe** (tags da task + tags da Feature pai × skills da
   pessoa: confirmada = 1, sugerida pelas tasks = 0,5–0,8 conforme evidência, tag de função
@@ -519,3 +553,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | Membros: visão **Squads** (cards por squad dentro de cada projeto, carga da sprint atual pelo motor, mini-medidor por pessoa, skills do squad, carregamento sob demanda) no lugar da tabela "Por projeto"; `resumirSquad` em `_shared/capacidade/squads.ts` (+ testes). Migration `20261008000000` (Epic como requisito no Basic) aplicada. `pnpm devops:popular` criou 82 itens nos 3 projetos sem dados (sprints datadas, capacidade, requisitos, tasks) e o reconcile trouxe tudo; webhooks criados para os 3 projetos. PAT sem Graph API → squads novos só pela UI do DevOps. Usuário `qa-headless` criado para testes (senha de demo local estava desatualizada). Validado: 39 testes, typecheck, build e Chrome headless claro/escuro sem erros. |
 | 2026-10-08 | **Skills automáticas** a partir das tasks (migrations `20261008000100`/`0200`: `recalcular_skills` + triggers em `work_item`, sugestão até o gestor confirmar, descarte que não volta, grafia única). Front: chips sugeridos, revisão no perfil, aviso de pendentes. Validado: teste SQL com rollback (sugere / descartada não volta / some sem evidência) e ponta a ponta real — tag `kotlin` em 2 tasks do Aaron no DevOps apareceu como sugestão no perfil em 8,6 s sem refresh; confirmar/descartar conferidos no banco; tudo desfeito. 42 testes, typecheck limpos. Time do projeto Teste ganhou 6 pessoas no DevOps (13 membros no total). |
 | 2026-10-08 | **Análises** na sidebar: sugestões de responsável para tasks sem dono (motor `recomendarAlocacao` em `_shared/capacidade/recomendacao.ts`, 9 testes: encaixe de skills/tags + folga na sprint, penalidades por carga, distribuição sequencial), botão **Atribuir** → nova ação `atribuir` em `devops-acoes` (publicada) com auditoria e motivo em `acao`. Migration `20261008000300` (`feature_tags` na `v_backlog`, `v_sem_dono_resumo`). `QuandoVisivel` virou componente compartilhado. Validado: 51 testes, typecheck, build, Chrome headless claro/escuro e atribuição real da #38 (DevOps + auditoria conferidos, depois desfeita). |
+| 2026-10-08 | **Carga global** nas sugestões (`_shared/capacidade/global.ts` + `lib/carga-global.ts`): capacidade única por pessoa limitada à jornada × tasks em todos os projetos — corrige o Kauê sendo sugerido para tudo (cada projeto o via com 6h/dia exclusivas). **Org reorganizada** com `pnpm devops:organizar` (120 mudanças: Capacity realista, tasks pelo foco de cada pessoa, 10 funções e skills confirmadas no app); descoberto que `add` em `System.Tags` acrescenta (usar `replace`). Resultado validado no headless: Teste #57→Abigail, #54→Arão, #59→Valeria; IportJLNK → Kauê com ocupação real (46h de 80h) e aviso de time com 1 pessoa. 58 testes, typecheck e build limpos. |
