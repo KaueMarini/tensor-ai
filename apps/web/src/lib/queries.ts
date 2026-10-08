@@ -204,7 +204,7 @@ export function useSkillsCatalogo() {
   return useQuery({
     queryKey: keys.skillsCatalogo,
     queryFn: async () => {
-      const { data, error } = await supabase.from("skill_tag").select("tag").order("tag");
+      const { data, error } = await supabase.from("skill_tag").select("tag").eq("rejeitada", false).order("tag");
       if (error) throw new Error(error.message);
       return [...new Set((data ?? []).map((r) => r.tag))];
     },
@@ -229,9 +229,18 @@ export function useAdicionarSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ pessoaId, skill }: { pessoaId: string; skill: string }) => {
-      const { error } = await supabase
+      const tag = skill.trim();
+      // Já existe sugerida/descartada com o mesmo nome (sem diferenciar maiúsculas): confirma ela
+      const { data: existentes, error: e1 } = await supabase
         .from("skill_tag")
-        .insert({ pessoa_id: pessoaId, tag: skill.trim(), origem: "gestor", confirmada: true });
+        .select("id")
+        .eq("pessoa_id", pessoaId)
+        .ilike("tag", tag.replace(/[%_]/g, "\\$&"));
+      if (e1) throw new Error(e1.message);
+      const existente = existentes?.[0];
+      const { error } = existente
+        ? await supabase.from("skill_tag").update({ confirmada: true, rejeitada: false }).eq("id", existente.id)
+        : await supabase.from("skill_tag").insert({ pessoa_id: pessoaId, tag, origem: "gestor", confirmada: true });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
@@ -241,11 +250,31 @@ export function useAdicionarSkill() {
   });
 }
 
+/**
+ * Remove uma skill. As inferidas das tasks não são apagadas, e sim descartadas
+ * (rejeitada = true): assim a inferência automática não as sugere de novo.
+ */
 export function useRemoverSkill() {
   const invalidar = useInvalidarMembros();
   return useMutation({
-    mutationFn: async ({ pessoaId, skill }: { pessoaId: string; skill: string }) => {
-      const { error } = await supabase.from("skill_tag").delete().eq("pessoa_id", pessoaId).eq("tag", skill);
+    mutationFn: async ({ pessoaId, skill, inferida }: { pessoaId: string; skill: string; inferida: boolean }) => {
+      const q = supabase.from("skill_tag");
+      const { error } = inferida
+        ? await q.update({ rejeitada: true, confirmada: false }).eq("pessoa_id", pessoaId).eq("tag", skill)
+        : await q.delete().eq("pessoa_id", pessoaId).eq("tag", skill);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidar,
+  });
+}
+
+/** Gestor revisa as sugestões da inferência: confirmar uma ou várias, ou restaurar uma descartada. */
+export function useRevisarSkills() {
+  const invalidar = useInvalidarMembros();
+  return useMutation({
+    mutationFn: async ({ pessoaId, skills, acao }: { pessoaId: string; skills: string[]; acao: "confirmar" | "restaurar" }) => {
+      const patch = acao === "confirmar" ? { confirmada: true, rejeitada: false } : { rejeitada: false, confirmada: false };
+      const { error } = await supabase.from("skill_tag").update(patch).eq("pessoa_id", pessoaId).in("tag", skills);
       if (error) throw new Error(error.message);
     },
     onSuccess: invalidar,

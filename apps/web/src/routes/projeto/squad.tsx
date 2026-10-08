@@ -162,6 +162,7 @@ export function SquadPage() {
             uniqueName: selecionado.uniqueName,
             projetos: [{ id: projetoId, nome: projeto.data?.nome ?? "Projeto", times: selecionado.times }],
             skills: selecionado.skills,
+            skillsInfo: selecionado.skillsInfo,
             tags: selecionado.tags,
           }}
           funcaoTags={funcaoTags.data ?? []}

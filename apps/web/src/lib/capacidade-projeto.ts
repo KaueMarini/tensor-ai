@@ -15,6 +15,7 @@ import {
 } from "./queries";
 import { sprintStatus } from "./backlog";
 import { normalizarNome } from "./utils";
+import { lerSkills, type SkillsPessoa } from "./skills";
 
 export interface PessoaProjeto {
   id: string;
@@ -22,6 +23,7 @@ export interface PessoaProjeto {
   uniqueName: string | null;
   times: string[];
   skills: string[];
+  skillsInfo: SkillsPessoa;
   tags: { id: number; nome: string }[];
   /** Tem task no projeto mas não está em nenhum time dele no DevOps. */
   foraDoTime: boolean;
@@ -53,12 +55,14 @@ export function useCapacidadeProjeto(projetoId: string) {
     const horasBase = new Map<string, number>();
     for (const m of membros.data ?? []) {
       if (!m.pessoa_id) continue;
+      const skillsInfo = lerSkills(m.skills);
       const p = pessoas.get(m.pessoa_id) ?? {
         id: m.pessoa_id,
         nome: normalizarNome(m.nome ?? "Sem nome"),
         uniqueName: m.unique_name,
         times: [],
-        skills: ((m.skills as unknown as { tag: string }[] | null) ?? []).map((s) => s.tag),
+        skills: skillsInfo.skills,
+        skillsInfo,
         tags: (m.tags as unknown as { id: number; nome: string }[] | null) ?? [],
         foraDoTime: false,
       };
@@ -79,6 +83,7 @@ export function useCapacidadeProjeto(projetoId: string) {
           uniqueName: null,
           times: [],
           skills: [],
+          skillsInfo: lerSkills([]),
           tags: [],
           foraDoTime: true,
         });

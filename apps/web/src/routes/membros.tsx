@@ -6,11 +6,13 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import { Link, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
+  Check,
   ChevronRight,
   FolderKanban,
   LayoutGrid,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Settings2,
   Sparkles,
@@ -32,9 +34,11 @@ import {
   useMembros,
   useRemoverSkill,
   useRenomearFuncaoTag,
+  useRevisarSkills,
   useSkillsCatalogo,
 } from "@/lib/queries";
 import { cn, hashTexto, normalizarNome } from "@/lib/utils";
+import { lerSkills, type SkillsPessoa } from "@/lib/skills";
 import { VisaoSquads } from "./membros-squads";
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +65,9 @@ export interface Membro {
   nome: string;
   uniqueName: string | null;
   projetos: ProjetoDoMembro[];
+  /** Visíveis: confirmadas + sugeridas pela inferência das tasks. */
   skills: string[];
+  skillsInfo: SkillsPessoa;
   tags: FuncaoTag[];
 }
 
@@ -72,12 +78,14 @@ function agruparMembros(rows: MembroRow[]): Membro[] {
     if (!r.pessoa_id) continue;
     let m = porPessoa.get(r.pessoa_id);
     if (!m) {
+      const skillsInfo = lerSkills(r.skills);
       m = {
         pessoaId: r.pessoa_id,
         nome: normalizarNome(r.nome ?? "Sem nome"),
         uniqueName: r.unique_name,
         projetos: [],
-        skills: ((r.skills as unknown as { tag: string }[] | null) ?? []).map((s) => s.tag),
+        skills: skillsInfo.skills,
+        skillsInfo,
         tags: (r.tags as unknown as FuncaoTag[] | null) ?? [],
       };
       porPessoa.set(r.pessoa_id, m);
@@ -165,6 +173,10 @@ export function MembrosPage() {
   const filtrados = useMemo(() => filtrar(membros, filtros), [membros, filtros]);
   const rankingSkills = useMemo(() => contar(membros.flatMap((m) => m.skills)), [membros]);
   const usosTag = useMemo(() => new Map(contar(membros.flatMap((m) => m.tags.map((t) => String(t.id))))), [membros]);
+  const sugestoesPendentes = useMemo(() => {
+    const com = membros.filter((m) => m.skillsInfo.sugeridas.length > 0);
+    return { pessoas: com.length, skills: com.reduce((n, m) => n + m.skillsInfo.sugeridas.length, 0) };
+  }, [membros]);
 
   const selecionado = membros.find((m) => m.pessoaId === aberto) ?? null;
   const carregando = membrosQ.isLoading;
@@ -206,6 +218,20 @@ export function MembrosPage() {
           alerta
         />
       </div>
+
+      {sugestoesPendentes.pessoas > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-brand-400/60 bg-brand-50/60 px-4 py-3 text-sm dark:border-brand-400/40 dark:bg-brand-900/20">
+          <Sparkles className="size-4 shrink-0 text-brand-600 dark:text-brand-300" />
+          <span className="text-slate-700 dark:text-slate-200">
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{sugestoesPendentes.skills} skills</span>{" "}
+            foram sugeridas automaticamente a partir das tasks de {sugestoesPendentes.pessoas}{" "}
+            {sugestoesPendentes.pessoas === 1 ? "pessoa" : "pessoas"}. Abra o perfil para confirmar ou descartar.
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Novas tasks atualizam as sugestões sozinhas.
+          </span>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
@@ -383,15 +409,44 @@ function Select({
 // Peças visuais
 // ---------------------------------------------------------------------------
 
-function Chips({ skills, tags, vazio = "—" }: { skills?: string[]; tags?: FuncaoTag[]; vazio?: string }) {
+/** Chip de skill sugerida pela inferência das tasks (ainda não confirmada pelo gestor). */
+export function ChipSugerida({ texto, evidencias }: { texto: string; evidencias?: number }) {
+  return (
+    <span
+      title={`Sugerida automaticamente${evidencias ? `: aparece em ${evidencias} tasks` : ""} — confirme no perfil`}
+      className="inline-flex items-center gap-1 rounded border border-dashed border-brand-400/70 px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap text-brand-800 dark:border-brand-400/50 dark:text-brand-200"
+    >
+      <Sparkles className="size-3 opacity-70" />
+      {texto}
+    </span>
+  );
+}
+
+function Chips({
+  skills,
+  sugeridas,
+  info,
+  tags,
+  vazio = "—",
+}: {
+  skills?: string[];
+  sugeridas?: string[];
+  info?: SkillsPessoa["info"];
+  tags?: FuncaoTag[];
+  vazio?: string;
+}) {
   if (!skills?.length && !tags?.length) return <span className="text-xs text-slate-400 dark:text-slate-500">{vazio}</span>;
   return (
     <div className="flex flex-wrap gap-1">
-      {skills?.map((s) => (
-        <Badge key={s} tone="slate" className="font-normal">
-          {s}
-        </Badge>
-      ))}
+      {skills?.map((s) =>
+        sugeridas?.includes(s) ? (
+          <ChipSugerida key={s} texto={s} evidencias={info?.[s]?.evidencias} />
+        ) : (
+          <Badge key={s} tone="slate" className="font-normal">
+            {s}
+          </Badge>
+        ),
+      )}
       {tags?.map((t) => (
         <Badge key={t.id} tone={tonePorTexto(t.nome)}>
           {t.nome}
@@ -429,7 +484,12 @@ function MembroCard({ membro, onClick }: { membro: Membro; onClick: () => void }
 
       <div className="mt-3 space-y-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
         <LinhaCard rotulo="Skills">
-          <Chips skills={membro.skills.slice(0, 5)} vazio="Nenhuma skill" />
+          <Chips
+            skills={membro.skills.slice(0, 5)}
+            sugeridas={membro.skillsInfo.sugeridas}
+            info={membro.skillsInfo.info}
+            vazio="Nenhuma skill"
+          />
           {membro.skills.length > 5 && (
             <span className="text-[11px] text-slate-400 dark:text-slate-500">+{membro.skills.length - 5}</span>
           )}
@@ -595,14 +655,35 @@ export function PainelMembro({
   const [novaSkill, setNovaSkill] = useState("");
   const [novaTag, setNovaTag] = useState("");
 
+  const revisarSkills = useRevisarSkills();
+  const { sugeridas, descartadas, info } = membro.skillsInfo;
+  const confirmadas = membro.skills.filter((s) => !sugeridas.includes(s));
+
   const disponiveis = funcaoTags.filter((t) => !membro.tags.some((mt) => mt.id === t.id));
   const sugestoesSkill = skillsCatalogo.filter((s) => !membro.skills.includes(s));
+
+  /** Inferida das tasks → descarta (não volta); cadastrada pelo gestor → apaga. */
+  const remover = (skill: string) =>
+    tentar(() =>
+      removerSkill.mutateAsync({
+        pessoaId: membro.pessoaId,
+        skill,
+        inferida: info[skill]?.origem === "tasks" || info[skill]?.origem === "ia",
+      }),
+    );
+  const revisar = (skills: string[], acao: "confirmar" | "restaurar", sucesso?: string) =>
+    tentar(() => revisarSkills.mutateAsync({ pessoaId: membro.pessoaId, skills, acao }), sucesso);
 
   async function onAdicionarSkill(e: FormEvent) {
     e.preventDefault();
     const skill = novaSkill.trim();
     if (!skill) return;
-    if (membro.skills.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+    const jaTem = membro.skills.find((s) => s.toLowerCase() === skill.toLowerCase());
+    if (jaTem && sugeridas.includes(jaTem)) {
+      if (await revisar([jaTem], "confirmar", `${jaTem} confirmada.`)) setNovaSkill("");
+      return;
+    }
+    if (jaTem) {
       toast.info(`${membro.nome} já tem ${skill}.`);
       return;
     }
@@ -662,20 +743,62 @@ export function PainelMembro({
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          <Bloco icone={Sparkles} titulo="Skills" descricao="Tecnologias e conhecimentos da pessoa.">
+          <Bloco
+            icone={Sparkles}
+            titulo="Skills"
+            descricao="Tecnologias e conhecimentos. As sugeridas vêm sozinhas das tasks da pessoa (tags da task e da Feature)."
+          >
             <div className="mb-3 flex min-h-7 flex-wrap gap-1.5">
-              {membro.skills.length === 0 && (
-                <span className="text-xs text-slate-400 dark:text-slate-500">Nenhuma skill cadastrada.</span>
+              {confirmadas.length === 0 && (
+                <span className="text-xs text-slate-400 dark:text-slate-500">Nenhuma skill confirmada.</span>
               )}
-              {membro.skills.map((s) => (
-                <ChipRemovivel
-                  key={s}
-                  tone="slate"
-                  texto={s}
-                  onRemover={() => void tentar(() => removerSkill.mutateAsync({ pessoaId: membro.pessoaId, skill: s }))}
-                />
+              {confirmadas.map((s) => (
+                <ChipRemovivel key={s} tone="slate" texto={s} onRemover={() => void remover(s)} />
               ))}
             </div>
+
+            {sugeridas.length > 0 && (
+              <div className="mb-3 rounded-lg border border-dashed border-brand-400/60 bg-brand-50/60 p-3 dark:border-brand-400/40 dark:bg-brand-900/20">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-900 dark:text-brand-100">
+                    <Sparkles className="size-3.5" /> Sugeridas pelas tasks ({sugeridas.length})
+                  </span>
+                  <button
+                    onClick={() => void revisar(sugeridas, "confirmar", "Skills confirmadas.")}
+                    disabled={revisarSkills.isPending}
+                    className="cursor-pointer text-xs font-medium text-brand-700 hover:underline disabled:opacity-50 dark:text-brand-300"
+                  >
+                    Confirmar todas
+                  </button>
+                </div>
+                <ul className="space-y-0.5">
+                  {sugeridas.map((s) => (
+                    <li key={s} className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/70 dark:hover:bg-slate-800/50">
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-800 dark:text-slate-100">{s}</span>
+                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                        {info[s]?.evidencias ?? 0} tasks
+                      </span>
+                      <button
+                        onClick={() => void revisar([s], "confirmar")}
+                        title="Confirmar"
+                        aria-label={`Confirmar ${s}`}
+                        className="cursor-pointer rounded p-1 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                      >
+                        <Check className="size-3.5" />
+                      </button>
+                      <button
+                        onClick={() => void remover(s)}
+                        title="Descartar (não será sugerida de novo)"
+                        aria-label={`Descartar ${s}`}
+                        className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <form onSubmit={onAdicionarSkill} className="flex gap-2">
               <Input
                 list="skills-catalogo"
@@ -692,6 +815,26 @@ export function PainelMembro({
                 <Plus className="size-4" /> Adicionar
               </Button>
             </form>
+
+            {descartadas.length > 0 && (
+              <details className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                <summary className="cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-200">
+                  Descartadas ({descartadas.length}) — não voltam a ser sugeridas
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {descartadas.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => void revisar([s], "restaurar")}
+                      title="Restaurar como sugestão"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-500 line-through decoration-slate-400 hover:border-brand-400 hover:text-brand-700 hover:no-underline dark:border-slate-700 dark:hover:text-brand-300"
+                    >
+                      <RotateCcw className="size-3" /> {s}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            )}
           </Bloco>
 
           <Bloco icone={Tag} titulo="Tags de função" descricao="Papel da pessoa no time (ex.: Tech Lead, QA).">
