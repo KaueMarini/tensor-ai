@@ -10,7 +10,10 @@
 //                    folga de um time tira só a parcela daquele time; feriado zera.
 //   status         = pelos limites gerais (os do projeto valem só na visão do projeto).
 //   carga          = horas pendentes das tasks abertas da pessoa em TODOS os projetos,
-//                    proporcional aos dias úteis da sprint da task que caem no período.
+//                    distribuída pelos dias em que a PESSOA está disponível na sprint da
+//                    task (sem feriados e sem folgas dela) e somada nos que caem no período.
+//                    Quem está ausente a sprint toda fica com a carga no calendário da
+//                    sprint (vira "sem capacidade", que é o alerta certo).
 // Puro e determinístico (CLAUDE.md §5: números vêm do motor).
 
 import { type Celula, diasUteis, horasPendentes, type ItemCarga, type PessoaCap, statusDe } from "./motor.ts";
@@ -85,15 +88,17 @@ export function cargaGlobal(entrada: {
     diasPeriodo.map((d) => [d, new Set([...sprints.values()].filter((s) => dentro(d, s.inicio, s.fim)).map((s) => projetoDa(s.id)))]),
   );
 
-  // Fração de cada sprint que cai no período (dias úteis em comum / dias úteis da sprint)
-  const fracao = new Map<string, number>();
-  for (const s of sprints.values()) {
-    const total = diasUteis(s.inicio, s.fim, (d) => feriados.has(d));
+  // Fração da sprint que cai no período: dias em comum / dias da sprint, contando só os dias
+  // que passam no filtro (úteis, sem feriado e, por pessoa, sem as folgas dela)
+  const fracaoSprint = (s: { inicio: string; fim: string }, fora: (d: string) => boolean) => {
+    const total = diasUteis(s.inicio, s.fim, fora);
     const ini = s.inicio > periodo.inicio ? s.inicio : periodo.inicio;
     const fim = s.fim < periodo.fim ? s.fim : periodo.fim;
-    const comum = ini <= fim ? diasUteis(ini, fim, (d) => feriados.has(d)) : 0;
-    fracao.set(s.id, total > 0 ? comum / total : 0);
-  }
+    const comum = ini <= fim ? diasUteis(ini, fim, fora) : 0;
+    return total > 0 ? comum / total : null;
+  };
+  const fracao = new Map<string, number>();
+  for (const s of sprints.values()) fracao.set(s.id, fracaoSprint(s, (d) => feriados.has(d)) ?? 0);
 
   return entrada.pessoas.map((p) => {
     const teto = p.horasDia;
@@ -133,12 +138,24 @@ export function cargaGlobal(entrada: {
     const origemCapacidade: OrigemCapacidade =
       usouGestor || p.origemHoras === "gestor" ? "gestor" : usouDevops ? "devops" : "padrao";
 
+    const ausente = (d: string) => feriados.has(d) || folgasPessoais.some((f) => dentro(d, f.inicio, f.fim));
+    const fracaoPessoa = new Map<string, number>();
+    const fracaoDe = (sprintId: string) => {
+      let f = fracaoPessoa.get(sprintId);
+      if (f === undefined) {
+        const s = sprints.get(sprintId);
+        f = s ? (fracaoSprint(s, ausente) ?? fracao.get(sprintId) ?? 0) : 0;
+        fracaoPessoa.set(sprintId, f);
+      }
+      return f;
+    };
+
     const porProjeto = new Map<string, number>();
     let cargaH = 0;
     let itens = 0;
     for (const i of entrada.itens) {
       if (i.responsavelId !== p.id || i.fechado || i.temFilhos || !i.sprintId) continue;
-      const f = fracao.get(i.sprintId) ?? 0;
+      const f = fracaoDe(i.sprintId);
       if (f <= 0) continue;
       const h = horasPendentes(i) * f;
       cargaH += h;

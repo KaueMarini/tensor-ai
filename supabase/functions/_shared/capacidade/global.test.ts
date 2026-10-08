@@ -123,6 +123,22 @@ describe("cargaGlobal", () => {
     expect(c.origemCapacidade).toBe("gestor");
   });
 
+  it("carga da sprint vai para os dias em que a pessoa está disponível", () => {
+    // Sprint de 2 semanas, 28h; pessoa de folga na 1ª semana inteira
+    const folgas: FolgaTime[] = [{ sprintId: "a1", timeId: "ta", pessoaId: "kaue", inicio: "2026-10-05", fim: "2026-10-09" }];
+    const base = { capacidades: [cap("a1", "ta", 6)], folgas, itens: [item({ sprintId: "a1", horasRestantes: 28 })] };
+    const sem1 = rodar({ ...base, periodo: { id: "s1", inicio: "2026-10-05", fim: "2026-10-09" } });
+    const sem2 = rodar({ ...base, periodo: { id: "s2", inicio: "2026-10-12", fim: "2026-10-16" } });
+    expect(sem1).toMatchObject({ cargaH: 0, capacidadeH: 0, status: "ok" });
+    expect(sem2).toMatchObject({ cargaH: 28, capacidadeH: 30 });
+  });
+
+  it("ausente a sprint toda: carga fica no calendário e vira sem-capacidade", () => {
+    const folgas: FolgaTime[] = [{ sprintId: "a1", timeId: "ta", pessoaId: "kaue", inicio: "2026-10-05", fim: "2026-10-16" }];
+    const c = rodar({ capacidades: [cap("a1", "ta", 6)], folgas, itens: [item({ sprintId: "a1", horasRestantes: 20 })] });
+    expect(c).toMatchObject({ cargaH: 20, capacidadeH: 0, status: "sem-capacidade" });
+  });
+
   it("feriado sai da capacidade", () => {
     const c = rodar({ capacidades: [cap("a1", "ta", 8)], feriados: ["2026-10-12"] });
     expect(c.capacidadeH).toBe(72);
