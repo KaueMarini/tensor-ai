@@ -12,6 +12,8 @@ import { SquadPage } from "@/routes/projeto/squad";
 import { KanbanPage } from "@/routes/projeto/kanban";
 import { MetricasPage } from "@/routes/projeto/metricas";
 import { AnalisesPage } from "@/routes/projeto/analises";
+import { CapacidadePage } from "@/routes/capacidade";
+import { CapacidadeProjetoPage } from "@/routes/projeto/capacidade";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -78,6 +80,12 @@ const sugestoesRoute = createRoute({
   component: SugestoesAlocacaoPage,
 });
 
+const capacidadeRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/capacidade",
+  component: CapacidadePage,
+});
+
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/projetos/$projetoId",
@@ -105,6 +113,7 @@ const kanbanRoute = createRoute({
 });
 const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: MetricasPage });
 const analisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", component: AnalisesPage });
+const capacidadeProjetoRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/capacidade", component: CapacidadeProjetoPage });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -113,6 +122,7 @@ const routeTree = rootRoute.addChildren([
     projetosRoute,
     membrosRoute,
     sugestoesRoute,
+    capacidadeRoute,
     projetoRoute.addChildren([
       projetoIndexRoute,
       cronogramaRoute,
@@ -120,6 +130,7 @@ const routeTree = rootRoute.addChildren([
       kanbanRoute,
       metricasRoute,
       analisesRoute,
+      capacidadeProjetoRoute,
     ]),
   ]),
 ]);

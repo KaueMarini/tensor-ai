@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FolderKanban, Lightbulb, LogOut, Moon, Sun, Users } from "lucide-react";
+import { FolderKanban, Lightbulb, LogOut, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjetosPorIds, useSemDonoResumo, useSyncState } from "@/lib/queries";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
@@ -61,6 +61,9 @@ function Sidebar() {
                 {semDono}
               </span>
             )}
+          </Link>
+          <Link to="/capacidade" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <SlidersHorizontal className="size-4 shrink-0 opacity-70" /> Capacidade
           </Link>
         </div>
 

@@ -3,6 +3,7 @@
 
 import { AlertTriangle, CalendarOff, CircleCheck, OctagonAlert, type LucideIcon } from "lucide-react";
 import type { Celula, StatusCarga } from "@shared/capacidade/motor";
+import type { OrigemCapacidade } from "@shared/capacidade/regras";
 import { cn, formatHoras } from "@/lib/utils";
 
 export const STATUS_CARGA: Record<StatusCarga, { rotulo: string; icone: LucideIcon; cor: string }> = {
@@ -10,6 +11,13 @@ export const STATUS_CARGA: Record<StatusCarga, { rotulo: string; icone: LucideIc
   limite: { rotulo: "No limite", icone: AlertTriangle, cor: "var(--status-atencao)" },
   sobrecarga: { rotulo: "Sobrecarregado", icone: OctagonAlert, cor: "var(--status-critico)" },
   "sem-capacidade": { rotulo: "Sem capacidade", icone: CalendarOff, cor: "var(--status-critico)" },
+};
+
+/** De onde veio a capacidade (o gestor sabe onde mexer). */
+export const ORIGEM_CAPACIDADE: Record<OrigemCapacidade, { rotulo: string; detalhe: string }> = {
+  gestor: { rotulo: "Gestor", detalhe: "definida pelo gestor no painel de Capacidade" },
+  devops: { rotulo: "DevOps", detalhe: "Capacity configurada no Azure DevOps" },
+  padrao: { rotulo: "Padrão", detalhe: "regra geral (padrão de mercado se ninguém mudou)" },
 };
 
 export const pct = (u: number | null) => (u === null ? "—" : `${Math.round(u * 100)}%`);

@@ -16,6 +16,7 @@ import {
 import { sprintStatus } from "./backlog";
 import { normalizarNome } from "./utils";
 import { lerSkills, type SkillsPessoa } from "./skills";
+import { useRegras } from "./regras";
 
 export interface PessoaProjeto {
   id: string;
@@ -45,14 +46,14 @@ export function useCapacidadeProjeto(projetoId: string) {
   const folgas = useDiasOff(projetoId);
   const feriados = useFeriados();
   const estados = useEstados(projetoId);
+  const { regras, carregando: carregandoRegras } = useRegras();
 
   const consultas = [sprints, backlog, membros, capacidades, folgas, feriados];
-  const carregando = consultas.some((q) => q.isLoading);
+  const carregando = consultas.some((q) => q.isLoading) || carregandoRegras;
   const erro = consultas.find((q) => q.error)?.error ?? null;
 
   const dados = useMemo(() => {
     const pessoas = new Map<string, PessoaProjeto>();
-    const horasBase = new Map<string, number>();
     for (const m of membros.data ?? []) {
       if (!m.pessoa_id) continue;
       const skillsInfo = lerSkills(m.skills);
@@ -68,7 +69,6 @@ export function useCapacidadeProjeto(projetoId: string) {
       };
       if (m.time_nome && !p.times.includes(m.time_nome)) p.times.push(m.time_nome);
       pessoas.set(m.pessoa_id, p);
-      horasBase.set(m.pessoa_id, m.horas_semana_base ?? 40);
     }
 
     const rows = (backlog.data ?? []).filter(
@@ -115,7 +115,12 @@ export function useCapacidadeProjeto(projetoId: string) {
 
     const celulas = calcularCapacidade({
       sprints: sprintsComData,
-      pessoas: listaPessoas.map((p) => ({ id: p.id, horasSemanaBase: horasBase.get(p.id) ?? 40 })),
+      pessoas: listaPessoas.map((p) => {
+        const h = regras?.horas(p.id);
+        return { id: p.id, horasDia: h?.horasDia ?? 6, origemHoras: h?.origem };
+      }),
+      alocacoes: (regras?.alocacoes ?? []).filter((a) => a.projetoId === projetoId),
+      limites: regras?.limites(projetoId),
       capacidades: (capacidades.data ?? []).map((c) => ({
         sprintId: c.sprint_id,
         pessoaId: c.pessoa_id,
@@ -135,6 +140,7 @@ export function useCapacidadeProjeto(projetoId: string) {
 
     const abertos = itens.filter((i) => !i.fechado && !i.temFilhos);
     return {
+      regras,
       pessoas: listaPessoas,
       sprints: sprintsComData,
       sprintAtual,
@@ -143,7 +149,7 @@ export function useCapacidadeProjeto(projetoId: string) {
       semEstimativa: rows.filter((r, i) => !itens[i]!.fechado && !itens[i]!.temFilhos && r.sem_estimativa),
       semSprint: abertos.filter((i) => !i.sprintId).length,
     };
-  }, [membros.data, backlog.data, sprints.data, capacidades.data, folgas.data, feriados.data, estados.data]);
+  }, [membros.data, backlog.data, sprints.data, capacidades.data, folgas.data, feriados.data, estados.data, regras, projetoId]);
 
   return { carregando, erro, ...dados };
 }

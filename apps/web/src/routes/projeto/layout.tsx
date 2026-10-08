@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Outlet, useParams } from "@tanstack/react-router";
-import { BarChart3, CalendarRange, ChevronRight, ExternalLink, Gauge, KanbanSquare, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, CalendarRange, ChevronRight, ExternalLink, Gauge, KanbanSquare, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
 import { useProjeto } from "@/lib/queries";
 import { registrarRecente } from "@/lib/recentes";
 import { MarcaProjeto } from "@/components/avatar";
@@ -14,7 +14,8 @@ type Aba = {
     | "/projetos/$projetoId/squad"
     | "/projetos/$projetoId/kanban"
     | "/projetos/$projetoId/metricas"
-    | "/projetos/$projetoId/analises";
+    | "/projetos/$projetoId/analises"
+    | "/projetos/$projetoId/capacidade";
   rotulo: string;
   icone: LucideIcon;
 };
@@ -25,6 +26,7 @@ const ABAS: Aba[] = [
   { to: "/projetos/$projetoId/squad", rotulo: "Squad", icone: Users },
   { to: "/projetos/$projetoId/metricas", rotulo: "Métricas", icone: BarChart3 },
   { to: "/projetos/$projetoId/analises", rotulo: "Análises", icone: Gauge },
+  { to: "/projetos/$projetoId/capacidade", rotulo: "Capacidade", icone: SlidersHorizontal },
 ];
 
 export function ProjetoLayout() {

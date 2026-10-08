@@ -8,7 +8,7 @@ import type { Celula, StatusCarga } from "@shared/capacidade/motor";
 import { useCapacidadeProjeto } from "@/lib/capacidade-projeto";
 import { cn, formatData, formatHoras } from "@/lib/utils";
 import { Avatar } from "@/components/avatar";
-import { MedidorCarga, pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
+import { MedidorCarga, ORIGEM_CAPACIDADE, pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
 import { Card, CardTitulo, Stat } from "@/components/ui/card";
 
 const GRAVIDADE: Record<StatusCarga, number> = { "sem-capacidade": 3, sobrecarga: 2, limite: 1, ok: 0 };
@@ -188,9 +188,9 @@ export function AnalisesPage() {
                         </div>
                       </td>
                       <td className="px-3 text-right tabular-nums text-slate-600 dark:text-slate-300">{c.diasUteis}</td>
-                      <td className="px-3 text-right tabular-nums text-slate-600 dark:text-slate-300" title={c.capacidadePadrao ? "Sem Capacity no DevOps: usando horas base" : undefined}>
+                      <td className="px-3 text-right tabular-nums text-slate-600 dark:text-slate-300" title={`Capacidade: ${ORIGEM_CAPACIDADE[c.origemCapacidade].detalhe}`}>
                         {formatHoras(c.capacidadeH)}
-                        {c.capacidadePadrao && <span className="text-slate-400">*</span>}
+                        {c.origemCapacidade !== "devops" && <span className="text-slate-400">*</span>}
                       </td>
                       <td className="px-3 text-right tabular-nums font-medium text-slate-800 dark:text-slate-100">{formatHoras(c.cargaH)}</td>
                       <td className={cn("px-3 text-right tabular-nums", c.livreH < 0 ? "font-medium text-red-700 dark:text-red-400" : "text-slate-600 dark:text-slate-300")}>
@@ -209,15 +209,15 @@ export function AnalisesPage() {
                 </tbody>
               </table>
             </div>
-            {daSprint.some((x) => x.c.capacidadePadrao) && (
+            {daSprint.some((x) => x.c.origemCapacidade !== "devops") && (
               <p className="border-t border-slate-100 px-5 py-2.5 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                * Sem Capacity configurada no Azure DevOps para esta sprint: usando a jornada base da pessoa (40h/semana).
+                * Capacidade vinda das regras do gestor (painel Capacidade) ou do padrão de mercado, não da Capacity do Azure DevOps.
               </p>
             )}
           </Card>
 
           <Card>
-            <CardTitulo icone={Lightbulb} titulo="Quem pode absorver trabalho" descricao={`Horas livres na ${sprint.nome}, sem passar de 85%.`} />
+            <CardTitulo icone={Lightbulb} titulo="Quem pode absorver trabalho" descricao={`Horas livres na ${sprint.nome}, sem passar do limite de atenção (${pct(daSprint[0]?.c.limites.atencao ?? 0.8)}).`} />
             <ul className="space-y-3 px-5 py-4">
               {comFolga.length === 0 && <li className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">Ninguém com folga nesta sprint.</li>}
               {comFolga.slice(0, 6).map(({ p, c }) => (
@@ -227,7 +227,7 @@ export function AnalisesPage() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{p.nome}</span>
                       <span className="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                        <span className="font-semibold text-slate-800 dark:text-slate-100">{formatHoras(livreAte85(c))}</span> livres
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">{formatHoras(livreAteAtencao(c))}</span> livres
                       </span>
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -244,9 +244,9 @@ export function AnalisesPage() {
   );
 }
 
-/** Horas que a pessoa ainda pode receber sem passar do limite de atenção (85%). */
-function livreAte85(c: Celula) {
-  return Math.max(0, Math.floor(c.capacidadeH * 0.85 - c.cargaH));
+/** Horas que a pessoa ainda pode receber sem passar do limite de atenção (regras do gestor). */
+function livreAteAtencao(c: Celula) {
+  return Math.max(0, Math.floor(c.capacidadeH * c.limites.atencao - c.cargaH));
 }
 
 function LegendaStatus() {

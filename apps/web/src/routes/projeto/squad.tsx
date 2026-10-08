@@ -8,7 +8,7 @@ import { type PessoaProjeto, useCapacidadeProjeto } from "@/lib/capacidade-proje
 import { useFuncaoTags, useProjeto, useSkillsCatalogo } from "@/lib/queries";
 import { cn, formatData, formatHoras, hashTexto } from "@/lib/utils";
 import { Avatar } from "@/components/avatar";
-import { MedidorCarga, pct } from "@/components/carga";
+import { MedidorCarga, ORIGEM_CAPACIDADE, pct } from "@/components/carga";
 import { Badge } from "@/components/ui/badge";
 import { Card, Stat } from "@/components/ui/card";
 import { PainelMembro } from "@/routes/membros";
@@ -142,7 +142,7 @@ export function SquadPage() {
                         <MedidorCarga celula={c} />
                         <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
                           {c.itens} {c.itens === 1 ? "task" : "tasks"} · {c.diasUteis} dias úteis × {formatHoras(c.capacidadeDia)}/dia
-                          {c.capacidadePadrao && " (padrão: sem Capacity no DevOps)"}
+                          {` · ${ORIGEM_CAPACIDADE[c.origemCapacidade].detalhe}`}
                         </p>
                       </div>
                     )}
