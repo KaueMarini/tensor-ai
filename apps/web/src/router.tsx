@@ -65,8 +65,9 @@ const projetosRoute = createRoute({
 const membrosRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/membros",
-  validateSearch: (s: Record<string, unknown>): { visao?: "projeto" } =>
-    s.visao === "projeto" ? { visao: "projeto" } : {},
+  // "projeto" é o nome antigo da visão de squads (links salvos continuam funcionando)
+  validateSearch: (s: Record<string, unknown>): { visao?: "squads" } =>
+    s.visao === "squads" || s.visao === "projeto" ? { visao: "squads" } : {},
   component: MembrosPage,
 });
 

@@ -1,12 +1,11 @@
 // Seção Membros: pessoas dos times sincronizados do Azure DevOps (time_membro), com
 // skills (skill_tag) e tags de função (funcao_tag) geridas pelo gestor no Supabase.
-// Duas visões: todos os membros (uma pessoa = um card) e agrupada por projeto.
+// Duas visões: todos os membros (uma pessoa = um card) e por squads (membros-squads.tsx).
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
-  ArrowUpRight,
   ChevronRight,
   FolderKanban,
   LayoutGrid,
@@ -19,6 +18,7 @@ import {
   Trash2,
   UserRoundX,
   Users,
+  UsersRound,
   X,
 } from "lucide-react";
 import {
@@ -35,6 +35,7 @@ import {
   useSkillsCatalogo,
 } from "@/lib/queries";
 import { cn, hashTexto, normalizarNome } from "@/lib/utils";
+import { VisaoSquads } from "./membros-squads";
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,7 +146,7 @@ async function tentar(acao: () => Promise<unknown>, sucesso?: string) {
 
 export function MembrosPage() {
   const { visao } = useSearch({ from: "/app/membros" });
-  const porProjeto = visao === "projeto";
+  const porSquad = visao === "squads";
 
   const membrosQ = useMembros();
   const funcaoTags = useFuncaoTags();
@@ -183,7 +184,7 @@ export function MembrosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <AlternarVisao porProjeto={porProjeto} />
+          <AlternarVisao porSquad={porSquad} />
           <Button variant="outline" onClick={() => setGerenciarTags(true)}>
             <Settings2 className="size-4" /> Gerenciar tags
           </Button>
@@ -216,7 +217,7 @@ export function MembrosPage() {
             className="pl-8"
           />
         </div>
-        {!porProjeto && (
+        {!porSquad && (
           <Select value={filtros.projeto} onChange={setFiltro("projeto")} placeholder="Todos os projetos">
             {projetos.map((p) => (
               <option key={p.id} value={p.id}>
@@ -257,13 +258,8 @@ export function MembrosPage() {
 
       {carregando ? (
         <Esqueleto />
-      ) : porProjeto ? (
-        <VisaoPorProjeto
-          projetos={projetos}
-          membros={filtrados}
-          temFiltro={temFiltro}
-          onAbrir={setAberto}
-        />
+      ) : porSquad ? (
+        <VisaoSquads projetos={projetos} membros={filtrados} temFiltro={temFiltro} onAbrir={setAberto} />
       ) : (
         <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
           <div>
@@ -307,17 +303,17 @@ export function MembrosPage() {
 // Cabeçalho, KPIs, filtros
 // ---------------------------------------------------------------------------
 
-function AlternarVisao({ porProjeto }: { porProjeto: boolean }) {
+function AlternarVisao({ porSquad }: { porSquad: boolean }) {
   const base = "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors";
   const ativo = "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white";
   const inativo = "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200";
   return (
     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/60">
-      <Link to="/membros" search={{}} className={cn(base, porProjeto ? inativo : ativo)}>
+      <Link to="/membros" search={{}} className={cn(base, porSquad ? inativo : ativo)}>
         <LayoutGrid className="size-4" /> Todos
       </Link>
-      <Link to="/membros" search={{ visao: "projeto" }} className={cn(base, porProjeto ? ativo : inativo)}>
-        <FolderKanban className="size-4" /> Por projeto
+      <Link to="/membros" search={{ visao: "squads" }} className={cn(base, porSquad ? ativo : inativo)}>
+        <UsersRound className="size-4" /> Squads
       </Link>
     </div>
   );
@@ -564,132 +560,6 @@ function Esqueleto() {
         <div key={i} className="h-44 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />
       ))}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Visão por projeto
-// ---------------------------------------------------------------------------
-
-function VisaoPorProjeto({
-  projetos,
-  membros,
-  temFiltro,
-  onAbrir,
-}: {
-  projetos: { id: string; nome: string }[];
-  membros: Membro[];
-  temFiltro: boolean;
-  onAbrir: (pessoaId: string) => void;
-}) {
-  const grupos = projetos
-    .map((p) => ({ projeto: p, membros: membros.filter((m) => m.projetos.some((x) => x.id === p.id)) }))
-    .filter((g) => !temFiltro || g.membros.length > 0);
-
-  if (grupos.length === 0) return <Vazio temFiltro={temFiltro} />;
-
-  return (
-    <div className="space-y-5">
-      {grupos.map(({ projeto, membros: lista }) => (
-        <SecaoProjeto key={projeto.id} projeto={projeto} membros={lista} onAbrir={onAbrir} />
-      ))}
-    </div>
-  );
-}
-
-function SecaoProjeto({
-  projeto,
-  membros,
-  onAbrir,
-}: {
-  projeto: { id: string; nome: string };
-  membros: Membro[];
-  onAbrir: (pessoaId: string) => void;
-}) {
-  const times = new Set(membros.flatMap((m) => m.projetos.find((p) => p.id === projeto.id)?.times ?? []));
-  return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50/70 px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900/60">
-        <span className="grid size-9 place-items-center rounded-lg bg-brand-700 text-white shadow-sm">
-          <FolderKanban className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-semibold text-slate-900 dark:text-slate-100">{projeto.nome}</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {membros.length} {membros.length === 1 ? "membro" : "membros"}
-            {times.size > 0 && ` · ${[...times].join(", ")}`}
-          </p>
-        </div>
-        <div className="flex -space-x-2">
-          {membros.slice(0, 5).map((m) => (
-            <Avatar key={m.pessoaId} nome={m.nome} tamanho="sm" />
-          ))}
-          {membros.length > 5 && (
-            <span className="grid size-7 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600 ring-2 ring-white dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-900">
-              +{membros.length - 5}
-            </span>
-          )}
-        </div>
-        <Link
-          to="/projetos/$projetoId"
-          params={{ projetoId: projeto.id }}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-900/30"
-        >
-          Backlog <ArrowUpRight className="size-3.5" />
-        </Link>
-      </header>
-
-      {membros.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-          Nenhum membro nos times deste projeto no Azure DevOps.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400">
-                <th className="px-5 py-2.5">Membro</th>
-                <th className="w-48 px-3 py-2.5">Time</th>
-                <th className="px-3 py-2.5">Skills</th>
-                <th className="px-3 py-2.5">Tags</th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {membros.map((m) => (
-                <tr
-                  key={m.pessoaId}
-                  onClick={() => onAbrir(m.pessoaId)}
-                  className="group cursor-pointer border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/40"
-                >
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar nome={m.nome} tamanho="sm" />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900 dark:text-slate-100">{m.nome}</div>
-                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{m.uniqueName}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 text-xs text-slate-600 dark:text-slate-300">
-                    {m.projetos.find((p) => p.id === projeto.id)?.times.join(", ")}
-                  </td>
-                  <td className="px-3 py-3">
-                    <Chips skills={m.skills} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <Chips tags={m.tags} />
-                  </td>
-                  <td className="pr-4">
-                    <ChevronRight className="size-4 text-slate-300 group-hover:text-brand-600 dark:text-slate-600 dark:group-hover:text-brand-300" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
   );
 }
 
