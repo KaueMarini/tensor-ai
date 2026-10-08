@@ -18,7 +18,8 @@
     "devops:organizar": "tsx --env-file=.env.local scripts/devops-organizar.ts",
     "devops:projetos": "tsx --env-file=.env.local scripts/devops-projetos.ts",
     "demo:user": "tsx --env-file=.env.local scripts/demo-user.ts",
-    "devops:latency": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-latency.ts"
+    "devops:latency": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-latency.ts",
+    "devops:projeto-novo": "tsx --env-file=.env.local scripts/devops-projeto-novo.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
