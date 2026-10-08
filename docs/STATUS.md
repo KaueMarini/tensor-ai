@@ -20,6 +20,24 @@ O **backend de sincronização está completo, publicado e validado em produçã
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
 
+Sessão de 2026-10-08 (8ª parte): **equipe sugerida para projeto novo sem pessoas**. Motor
+`_shared/capacidade/equipe-sugerida.ts` (termos do projeto = tags + skills citadas na descrição +
+sinônimos; squad de projeto parecido por semelhança × cobertura × disponibilidade; pessoas
+avulsas por encaixe × folga; montagem gulosa só com quem tem ≥ 8h livres e não está
+sobrecarregado; termos que ninguém na empresa tem). Front: painel no topo do **Resumo** e na aba
+**Equipe** do projeto quando ele está sem equipe (`precisaDeEquipe`: 0 membros, ou 1 e nenhum
+item), botão "Sugerir reforço" na aba Equipe de projetos com gente, pendência "Projeto novo sem
+equipe" no Início e selo "Sem equipe" em Projetos. Só sugere: o gestor monta o time no DevOps
+(link + copiar e-mails). Testado de verdade: `pnpm devops:projeto-novo` criou no DevOps o projeto
+fictício **Farol Cargas** (descrição + Tags, time esvaziado via Graph), a sync trouxe e o app
+sugeriu o squad do Atlântico Docas e uma montagem de 4 pessoas. Remover com
+`pnpm devops:projeto-novo --excluir`.
+
+**Teste E2E completo de todas as funcionalidades foi pedido e interrompido** pelo usuário para
+fazer a equipe sugerida — retomar (plano: proteções do back, navegação, DevOps → app ao vivo,
+app → DevOps com Atribuir/Kanban, regras, skills/tags, renomear projeto e remover/readicionar
+membro, desfazendo tudo).
+
 Sessão de 2026-10-08 (7ª parte): **front reorganizado para o gestor** (pedido: "o gerente não
 tem tempo de analisar passo a passo"). Navegação nova — sidebar: **Início** (`/inicio`, nova
 home: 4 indicadores clicáveis, "Precisa de você" priorizado com ação de um clique, mapa de
@@ -231,6 +249,8 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   cadeia Feature → User Story → Task, task sem estimativa). Idempotente.
 - `pnpm devops:hooks [create|list|delete]`: gerencia subscriptions de Service Hooks. Idempotente.
 - `pnpm devops:latency <id>`: mede latência DevOps → banco e restaura o valor original.
+- `pnpm devops:projeto-novo [--dry] [--excluir]` (2026-10-08): cria o projeto fictício "Farol
+  Cargas" sem pessoas (tira o criador do time via Graph) para demonstrar a equipe sugerida.
 - `pnpm devops:projetos [--dry] [--excluir]` (2026-10-08): nomes fictícios + descrição com
   linha `Tags:` por projeto (contexto para o agente), chaveado por ID. Planejado:
   IportJLKN12 → **Atlântico Docas**, Eu amo a Laryssa → **Rota Certa**, Teste →
@@ -638,3 +658,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | PAT novo com acesso total (local + segredos das functions). `pnpm devops:projetos --excluir` aplicado: 3 projetos renomeados para nomes fictícios com descrição + `Tags:`, IportJLNK excluído no DevOps. Reconcile refletiu tudo (arquivamento, renomeação de caminhos sem perder sprint, tags). Achado: `secrets set --env-file` recolocou `AZDO_PROJECTS=IportJLKN12` (filtro por nome → 0 projetos após renomear); removido do segredo e comentado nos arquivos locais. Validado no banco e no headless. |
 | 2026-10-08 | **Regras de capacidade do gestor**: migration `20261008000700` (4 tabelas + trigger `atualizado_por` + Realtime), `_shared/capacidade/regras.ts` (cascata + padrão de mercado), motores por projeto e global recebem regras, alocações e limites (`origemCapacidade` substitui `capacidadePadrao`). Front: painel `/capacidade` (regras gerais + ocupação geral por pessoa editável) e aba `/projetos/$id/capacidade` (limites do projeto + horas/dia por pessoa, projeto × geral). Telas antigas sem 85% fixo. 70 testes, typecheck e build limpos; headless (claro/escuro) editando e desfazendo jornada e alocação, Análises conferida. |
 | 2026-10-08 | **Front reorganizado para o gestor**: Início (pendências priorizadas + mapa pessoa × semana + saúde dos projetos), Equipe com abas (Ocupação/Skills/Squads), ficha da pessoa com ocupação e jornada, projeto com Resumo (padrão) e Equipe (Squad + Capacidade), Regras de capacidade só com configuração, Kanban `?resp=`, Sugestões `?projeto=`, redirects das rotas antigas. `atencao.ts` (4 testes); motor global distribui a carga nos dias disponíveis da pessoa (2 testes). 76 testes, typecheck e build limpos; tour headless claro/escuro em todas as telas sem erros de console. |
+| 2026-10-08 | **Equipe sugerida** para projeto sem pessoas: motor `equipe-sugerida.ts` (9 testes), painel no Resumo/Equipe do projeto, "Sugerir reforço", pendência no Início (`atencao.ts` ganhou `sem-equipe`), selo em Projetos. Projeto real "Farol Cargas" criado no DevOps por `pnpm devops:projeto-novo`, sincronizado, com webhooks; headless claro/escuro sem erros. 86 testes, typecheck e build limpos. |
