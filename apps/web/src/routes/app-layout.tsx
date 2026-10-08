@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FolderKanban, House, Lightbulb, LogOut, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
+import { CalendarDays, FolderKanban, House, Lightbulb, LogOut, Menu, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjetosPorIds, useSemDonoResumo, useSyncState } from "@/lib/queries";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
@@ -12,13 +12,42 @@ import { Logo } from "@/components/logo";
 import { MarcaProjeto } from "@/components/avatar";
 
 export function AppLayout() {
+  const [menuAberto, setMenuAberto] = useState(false);
+  const caminho = useRouterState({ select: (s) => s.location.pathname });
+
+  // no celular/tablet a sidebar é uma gaveta: fecha ao navegar e com Esc
+  useEffect(() => setMenuAberto(false), [caminho]);
+  useEffect(() => {
+    if (!menuAberto) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenuAberto(false);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [menuAberto]);
+
   return (
     <RealtimeProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <Outlet />
-        </main>
+        <Sidebar aberto={menuAberto} />
+        {menuAberto && (
+          <div className="anim-fade fixed inset-0 z-40 bg-slate-950/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white px-4 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+            <button
+              onClick={() => setMenuAberto(true)}
+              aria-label="Abrir menu"
+              aria-expanded={menuAberto}
+              className="-ml-1.5 cursor-pointer rounded-md p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Menu className="size-5" />
+            </button>
+            <Logo />
+            <span className="text-sm font-semibold tracking-tight dark:text-slate-100">Radar de Capacidade</span>
+          </header>
+          <main className="min-w-0 flex-1 overflow-y-auto">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </RealtimeProvider>
   );
@@ -30,14 +59,20 @@ const ITEM_ATIVO =
   "bg-brand-50 font-medium text-brand-900 hover:bg-brand-50 dark:bg-brand-900/30 dark:text-brand-200 dark:hover:bg-brand-900/30";
 const GRUPO = "px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500";
 
-function Sidebar() {
+function Sidebar({ aberto }: { aberto: boolean }) {
   const recentes = useRecentes();
   const { data } = useProjetosPorIds(recentes);
   const semDono = (useSemDonoResumo().data ?? []).reduce((n, p) => n + (p.tasks ?? 0), 0);
   const projetosRecentes = recentes.map((id) => data?.find((p) => p.id === id)).filter((p) => !!p);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <aside
+      className={cn(
+        "flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:translate-x-0 lg:shadow-none",
+        aberto ? "translate-x-0 shadow-2xl" : "-translate-x-full",
+      )}
+    >
       <div className="flex h-14 items-center gap-2.5 border-b border-slate-100 px-4 dark:border-slate-800">
         <Logo />
         <div className="leading-tight">
@@ -64,6 +99,13 @@ function Sidebar() {
           </Link>
           <Link to="/projetos" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <FolderKanban className="size-4 shrink-0 opacity-70" /> Projetos
+          </Link>
+        </div>
+
+        <div>
+          <div className={GRUPO}>Calendário</div>
+          <Link to="/agenda" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <CalendarDays className="size-4 shrink-0 opacity-70" /> Agenda
           </Link>
         </div>
 
