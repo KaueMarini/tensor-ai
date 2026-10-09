@@ -1,12 +1,6 @@
-// Projeto do DevOps → linha da tabela projeto.
-// O DevOps não tem tags de projeto; convencionamos uma linha "Tags: a, b, c" na descrição
-// (visível e editável por qualquer um na UI do DevOps), e opcionalmente "Impacto: alto|médio|baixo".
-// O agente usa descrição + tags + impacto.
-
 import type { AzdoProject } from "../azdo/types.ts";
 
 const LINHA_TAGS = /^\s*tags?\s*:\s*(.+)$/im;
-// "Impacto: alto" (ou Relevância / Importância / Prioridade) → 3 | 2 | 1
 const LINHA_IMPACTO = /^\s*(?:impacto|relev[âa]ncia|import[âa]ncia|prioridade)\s*:\s*(.+)$/im;
 
 export function lerImpacto(valor: string): 1 | 2 | 3 | null {

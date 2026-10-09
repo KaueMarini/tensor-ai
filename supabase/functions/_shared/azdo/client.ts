@@ -1,6 +1,3 @@
-// Cliente da REST API do Azure DevOps com fetch puro (roda em Deno, Node e browser).
-// Retry exponencial com jitter em 429/5xx/erro de rede, respeitando Retry-After.
-
 import type {
   AzdoCapacityResponse,
   AzdoClassificationNode,
@@ -21,7 +18,7 @@ export const API_VERSION = "7.1";
 export type Logger = (level: "info" | "warn" | "error", msg: string, extra?: Record<string, unknown>) => void;
 
 export interface AzdoClientConfig {
-  orgUrl: string; // https://dev.azure.com/minha-org
+  orgUrl: string;
   pat: string;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
@@ -43,7 +40,6 @@ export class AzdoHttpError extends Error {
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_BACKOFF_MS = 30_000;
 
-/** Converte Retry-After (segundos ou data HTTP) em ms. */
 export function parseRetryAfter(value: string | null, now = Date.now()): number | null {
   if (!value) return null;
   const secs = Number(value);
@@ -57,15 +53,12 @@ export function backoffMs(attempt: number, random = Math.random): number {
   return Math.round(base / 2 + random() * (base / 2));
 }
 
-/** Fatia uma lista em lotes. */
 export function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
 
-/** Campos pedidos no workitemsbatch. A API não aceita `fields` junto com `$expand=Relations`,
- *  então o pai vem de System.Parent (o mapper também lê relations quando presentes). */
 export const WORK_ITEM_FIELDS = [
   "System.Id",
   "System.Rev",
@@ -88,7 +81,6 @@ export const WORK_ITEM_FIELDS = [
   "Microsoft.VSTS.Scheduling.TargetDate",
   "Microsoft.VSTS.Common.Activity",
   "Microsoft.VSTS.Common.Priority",
-  // datas para o diagnóstico de tempo (lead time e tempo parado no estado atual)
   "System.CreatedDate",
   "Microsoft.VSTS.Common.StateChangeDate",
   "Microsoft.VSTS.Common.ActivatedDate",
@@ -140,7 +132,6 @@ export function createAzdoClient(config: AzdoClientConfig) {
       if (res.ok) {
         if (res.status === 204) return undefined as T;
         const text = await res.text();
-        // PAT inválido/expirado: o DevOps redireciona para a tela de login (HTML, 200/203)
         if (text && !(res.headers.get("Content-Type") ?? "").includes("json")) {
           throw new AzdoHttpError(401, target, "resposta não-JSON (PAT inválido, expirado ou sem escopo?)");
         }
@@ -201,14 +192,12 @@ export function createAzdoClient(config: AzdoClientConfig) {
         `${seg(projectId)}/${seg(teamId)}/_apis/work/teamsettings/iterations/${seg(iterationId)}/teamdaysoff`,
       ),
 
-    /** Executa WIQL e devolve só os IDs. timePrecision=true para comparar ChangedDate com hora. */
     wiqlIds: async (projectId: string, query: string, top = 20000) =>
       (await request<AzdoWiqlResult>("POST", `${seg(projectId)}/_apis/wit/wiql`, {
         query: { timePrecision: true, $top: top },
         body: { query },
       })).workItems.map((w) => w.id),
 
-    /** Detalhes em lote (máx. 200). Itens excluídos voltam omitidos. */
     getWorkItemsBatch: async (ids: number[], fields: string[] = WORK_ITEM_FIELDS) => {
       if (ids.length === 0) return [];
       if (ids.length > 200) throw new Error("workitemsbatch aceita no máximo 200 ids");
@@ -218,21 +207,17 @@ export function createAzdoClient(config: AzdoClientConfig) {
       return res.value.filter((w): w is AzdoWorkItem => w !== null);
     },
 
-    /** Item único com relations. Lança AzdoHttpError 404 se excluído. */
     getWorkItem: (id: number) => get<AzdoWorkItem>(`_apis/wit/workitems/${id}`, { $expand: "relations" }),
 
-    /** Estados de um tipo de item no processo do projeto, cada um com sua categoria. */
     getWorkItemTypeStates: async (projectId: string, type: string) =>
       (await get<AzdoList<AzdoWorkItemState>>(`${seg(projectId)}/_apis/wit/workitemtypes/${seg(type)}/states`)).value,
 
-    /** JSON Patch num item. Exige PAT com escopo Work Items (Read & Write). */
     updateWorkItem: (id: number, ops: AzdoPatchOp[]) =>
       request<AzdoWorkItem>("PATCH", `_apis/wit/workitems/${id}`, {
         body: ops,
         contentType: "application/json-patch+json",
       }),
 
-    /** IDs na lixeira do projeto (excluídos, ainda restauráveis). */
     listRecycleBinIds: async (projectId: string) =>
       (await get<AzdoList<{ id: number }>>(`${seg(projectId)}/_apis/wit/recyclebin`, {
         "api-version": "7.1-preview.2",

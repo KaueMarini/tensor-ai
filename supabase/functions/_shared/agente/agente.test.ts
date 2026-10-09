@@ -72,7 +72,6 @@ describe("gerarCandidatos", () => {
 
   it("sobrecarregado: passa a menor task que resolve o excesso, para quem não estoura", () => {
     const [r] = por("rebalancear");
-    // excesso = 76 − 40 = 36h: a task de 40h é a menor que resolve
     expect(r!.acao).toMatchObject({ work_item_id: 3, de_pessoa_id: "kaue", para_pessoa_id: "ana" });
     expect(r!.fatos).toMatchObject({ de_antes_pct: 190, de_depois_pct: 90, de_acima_h: 36, para_depois_pct: 83 });
     expect(r!.gravidade).toBe("critico");

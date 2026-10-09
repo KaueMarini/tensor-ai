@@ -1,8 +1,3 @@
-// Sino de notificações (canto superior direito de todas as telas).
-//  - "Mensagens": linhas da tabela `notificacao` (a IA grava; clique marca como lida e abre o link).
-//  - "Alertas de agora": calculados pelo motor (mesmos do "Prioridades" do Início).
-// O número no sino = mensagens não lidas + alertas críticos.
-
 import { useRouter } from "@tanstack/react-router";
 import { AlertTriangle, Bell, CheckCheck, Info, OctagonAlert, Sparkles } from "lucide-react";
 import { useAlertasAtuais } from "@/lib/alertas";

@@ -1,8 +1,3 @@
--- Reconciliação a cada 5 minutos: pg_cron -> pg_net -> Edge Function devops-sync (mode=reconcile).
--- Pré-requisito (NÃO versionado; rodar uma vez com os valores reais, ver README):
---   select vault.create_secret('https://<ref>.supabase.co', 'radar_project_url');
---   select vault.create_secret('<SYNC_SECRET>', 'radar_sync_secret');
-
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 

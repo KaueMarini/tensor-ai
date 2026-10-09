@@ -1,11 +1,3 @@
-"""Cenário do `pnpm devops:seed` (projeto de pátio, antigo IportJLKN12), como o banco o teria.
-
-- Sprints de 2 semanas: S1 05–16/10, S2 19–30/10, S3 02–13/11; Capacity 6h/dia para todos.
-- Kauê: 16+20+16+10+8 = 70h na Sprint 1 contra 60h → ~117%.
-- Julliano de férias 19–23/10 com tasks na Sprint 2.
-- Feriado do time em 02/11 (Finados); "Testes de carga do websocket" sem estimativa.
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -32,7 +24,6 @@ SPRINTS = (
     Sprint(id="s3", projeto_id=PROJETO, nome="Sprint 3", inicio=date(2026, 11, 2), fim=date(2026, 11, 13)),
 )
 
-# (id, título, sprint, responsável, horas restantes, tags)
 _TASKS: list[tuple[int, str, str, str, float | None, tuple[str, ...]]] = [
     (101, "API de janelas disponíveis", "s1", "kaue", 16, ("back-end",)),
     (102, "Autenticação de transportadoras", "s1", "kaue", 20, ("back-end",)),

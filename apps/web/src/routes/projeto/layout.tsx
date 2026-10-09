@@ -20,7 +20,6 @@ type Aba = {
   icone: LucideIcon;
 };
 
-// Resumo primeiro: é o que o gestor quer ver ao abrir um projeto
 const ABAS: Aba[] = [
   { to: "/projetos/$projetoId/resumo", rotulo: "Resumo", icone: Gauge },
   { to: "/projetos/$projetoId/kanban", rotulo: "Kanban", icone: KanbanSquare },

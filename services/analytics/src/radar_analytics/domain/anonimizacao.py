@@ -1,12 +1,3 @@
-"""Pseudonimização do que vai para o LLM (LGPD): nada de nome, e-mail ou ID do DevOps.
-
-- Pessoa → "Dev <função> <skill principal> #A" (letra estável pela ordem do id interno).
-- Task → "T1", "T2"... (ordem do id); o ID do DevOps fica só no backend.
-- Textos livres (títulos) passam por `limpar_texto`: nomes, primeiros nomes e e-mails viram o
-  pseudônimo / "[e-mail]".
-O mapa pseudônimo → id real nunca sai do backend.
-"""
-
 from __future__ import annotations
 
 import re
@@ -52,7 +43,6 @@ def limpar_texto(texto: str, pessoas: Sequence[Pessoa], nomes: dict[str, str]) -
             primeiro = completo.split()[0]
             if len(primeiro) >= _MIN_NOME:
                 trocas.append((primeiro, pseudo))
-    # nomes maiores primeiro: "Ana Lima" antes de "Ana"
     for nome, pseudo in sorted(trocas, key=lambda t: -len(t[0])):
         out = re.sub(rf"(?<!\w){re.escape(nome)}(?!\w)", pseudo, out, flags=re.IGNORECASE)
     return out

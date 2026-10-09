@@ -1,12 +1,8 @@
-// Ajuda para quem não é da área: um "?" discreto ao lado de um termo e o glossário completo
-// na barra superior. Os textos vêm de lib/glossario.ts.
-
 import { BookOpen, CircleHelp } from "lucide-react";
 import { GLOSSARIO, type TermoGlossario } from "@/lib/glossario";
 import { cn } from "@/lib/utils";
 import { Popover } from "@/components/ui/popover";
 
-/** "?" pequeno que explica um termo do glossário (ou um texto livre). */
 export function Ajuda({ termo, texto, className }: { termo?: TermoGlossario; texto?: string; className?: string }) {
   const item = termo ? GLOSSARIO[termo] : null;
   return (
@@ -27,7 +23,6 @@ export function Ajuda({ termo, texto, className }: { termo?: TermoGlossario; tex
   );
 }
 
-/** Glossário completo (barra superior). */
 export function Glossario() {
   return (
     <Popover

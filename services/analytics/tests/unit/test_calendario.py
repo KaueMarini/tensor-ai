@@ -20,12 +20,10 @@ def test_horas_uteis_no_mesmo_dia() -> None:
 
 
 def test_horas_uteis_atravessando_fim_de_semana() -> None:
-    # sexta 16h → segunda 11h = 2h (sexta) + 2h (segunda)
     assert horas_uteis_entre(dt(9, 16), dt(12, 11), frozenset()) == 4
 
 
 def test_horas_uteis_com_feriado_no_meio() -> None:
-    # terça 9h → quinta 9h com quarta feriado: só terça inteira (9h)
     assert horas_uteis_entre(dt(6, 9), dt(8, 9), frozenset({d(7)})) == 9
 
 
@@ -35,7 +33,6 @@ def test_horas_uteis_fora_do_expediente_e_invertido() -> None:
 
 
 def test_horas_uteis_converte_fuso() -> None:
-    # 12:00 UTC = 09:00 em São Paulo; 15:00 UTC = 12:00
     ini = datetime(2026, 10, 5, 12, tzinfo=UTC)
     fim = datetime(2026, 10, 5, 15, tzinfo=UTC)
     assert horas_uteis_entre(ini, fim, frozenset(), Expediente()) == 3

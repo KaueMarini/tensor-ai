@@ -27,13 +27,11 @@ def test_sobrecarga_gera_reatribuicao_para_quem_tem_skill_e_mover_sprint() -> No
     assert reat.encaixe == 1
     assert reat.antes[0].pico_pct == 133
     assert reat.depois[0].pico_pct == 50
-    # pico da equipe: ana 133% → 50%, mas bia vai a 83%
     assert reat.impacto.reducao_pico_pp == 50
     assert reat.motivo == "sobrecarga"
     assert reat.semana_inicio == d(5)
     assert reat.acao_id == acao_id("reatribuir", 1, "bia")
     assert all(c.para_pessoa_id != "ana" for c in cands)
-    # ordenação: quick wins primeiro
     flags = [c.priorizacao.quick_win for c in cands]
     assert flags == sorted(flags, reverse=True)
     assert len(ids_validos(cands)) == len(cands)
@@ -50,7 +48,7 @@ def test_nao_reatribui_para_quem_ficaria_sobrecarregado() -> None:
     )
     cands = gerar_candidatos(e, SEMANAS, {"proj-1": frozenset({"ana", "bia"})})
     assert not [c for c in cands if c.tipo == "reatribuir"]
-    assert not [c for c in cands if c.tipo == "mover_sprint"]  # não há sprint seguinte
+    assert not [c for c in cands if c.tipo == "mover_sprint"]
 
 
 def test_pausar_so_baixa_prioridade() -> None:
@@ -78,7 +76,6 @@ def test_ausencia_gera_reatribuicao_e_resolve_conflito() -> None:
     assert all(c.motivo == "ausencia" for c in cands)
     assert reat[0].impacto.itens_desbloqueados == 1
     assert reat[0].evidencia.entradas["conflito_ausencia_resolvido"] is True
-    # sem gente com sql, a penalidade de skill aparece
     assert reat[0].esforco.penalidade_skill == 1
 
 

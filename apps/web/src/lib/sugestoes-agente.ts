@@ -1,6 +1,3 @@
-// Sugestões do agente de IA (tabela `sugestao`, gravada pela Edge Function `agente`).
-// Aprovar/ignorar passam pelo devops-acoes (revalida e aplica no DevOps com auditoria).
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Ferramenta } from "@shared/agente/explicacao";
@@ -27,7 +24,6 @@ export interface SugestaoAgente {
   prioridade: 1 | 2 | 3;
   gravidade: "critico" | "atencao" | "info";
   usouIA: boolean;
-  /** "gemini" | "claude" quando o texto veio de um LLM. */
   ia: string | null;
   criadaEm: string;
   workItemId: number | null;
@@ -85,7 +81,6 @@ export function useSugestoesAgente(projetoId?: string) {
 async function invocar(nome: string, body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke(nome, { body });
   if (error) {
-    // corpo do erro da function (ex.: "a situação mudou")
     const ctx = (error as { context?: Response }).context;
     const msg = ctx ? ((await ctx.json().catch(() => null)) as { error?: string } | null)?.error : null;
     throw new Error(msg ?? error.message);
@@ -120,15 +115,10 @@ export function useAnalisarAgora() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// IA explicável ("Entender análise"): visão micro gerada pelo agente, com cache na sugestão
-// ---------------------------------------------------------------------------
-
 export interface ExplicacaoAgente {
   ferramentas: Ferramenta[];
   resumo: string;
   leituras: Partial<Record<Ferramenta["tipo"], string>>;
-  /** De onde veio cada texto: "ia" (validado) ou "template". */
   origem: Record<string, "ia" | "template">;
   ia: string | null;
   gerado_em: string;

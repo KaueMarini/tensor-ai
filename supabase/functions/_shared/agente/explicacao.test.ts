@@ -64,7 +64,7 @@ describe("explicar", () => {
     expect(t.mapa.destaque).toEqual([0, 3]);
     const m = fs[2]!;
     if (m.tipo !== "matriz") throw new Error();
-    expect(m.fatos.esforco_pct).toBe(25); // 15 dos 60 pontos livres
+    expect(m.fatos.esforco_pct).toBe(25);
     expect(m.quadrante).toBe("quick-win");
   });
 
@@ -83,7 +83,7 @@ describe("explicar", () => {
     expect(fs.map((f) => f.tipo)).toEqual(["pareto", "matriz"]);
     const m = fs[1]!;
     if (m.tipo !== "matriz") throw new Error();
-    expect(m.fatos.sobrecarga_resolvida_pct).toBe(100); // 6h resolvem as 4h acima
+    expect(m.fatos.sobrecarga_resolvida_pct).toBe(100);
     expect(m.quadrante).toBe("quick-win");
   });
 

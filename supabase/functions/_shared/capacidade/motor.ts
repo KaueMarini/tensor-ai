@@ -1,11 +1,3 @@
-// Motor de capacidade (determinístico, sem IA). Por pessoa e sprint:
-//   capacidade = horas/dia × dias úteis − feriados − days off
-//                horas/dia: alocação do gestor no projeto → Capacity do DevOps → horas
-//                produtivas da pessoa (regras.ts: jornada × foco, padrão de mercado 6h)
-//   carga      = horas restantes das tasks abertas atribuídas na sprint
-//   utilização = carga / capacidade, classificada pelos limites (regras.ts)
-// Puro: sem React, sem Supabase. Datas no formato "YYYY-MM-DD".
-
 import { type Limites, type OrigemCapacidade, PADRAO_MERCADO } from "./regras.ts";
 
 export interface SprintCap {
@@ -16,9 +8,7 @@ export interface SprintCap {
 
 export interface PessoaCap {
   id: string;
-  /** Horas produtivas por dia já resolvidas (regras.ts → horasDaPessoa). */
   horasDia: number;
-  /** "gestor" quando a pessoa tem jornada/foco próprios. */
   origemHoras?: "gestor" | "padrao";
 }
 
@@ -28,7 +18,6 @@ export interface CapacidadeLinha {
   capacidadeDia: number;
 }
 
-/** pessoaId nulo = folga do time inteiro. */
 export interface Folga {
   sprintId: string;
   pessoaId: string | null;
@@ -42,9 +31,7 @@ export interface ItemCarga {
   horasRestantes: number | null;
   horasEstimadas: number | null;
   horasConcluidas: number | null;
-  /** Concluído/removido não pesa. */
   fechado: boolean;
-  /** Pai (ex.: User Story com tasks): as horas já estão nos filhos. */
   temFilhos: boolean;
 }
 
@@ -55,14 +42,11 @@ export interface Celula {
   pessoaId: string;
   diasUteis: number;
   capacidadeDia: number;
-  /** gestor (alocação no projeto ou jornada da pessoa), devops (Capacity) ou padrao. */
   origemCapacidade: OrigemCapacidade;
-  /** Limites usados para classificar esta célula. */
   limites: Limites;
   capacidadeH: number;
   cargaH: number;
   livreH: number;
-  /** null quando não há capacidade (ex.: férias a sprint toda). */
   utilizacao: number | null;
   status: StatusCarga;
   itens: number;
@@ -76,7 +60,6 @@ function* dias(inicio: string, fim: string) {
   }
 }
 
-/** Dias de segunda a sexta no intervalo (inclusivo), menos os excluídos. */
 export function diasUteis(inicio: string, fim: string, excluir: (dia: string) => boolean = () => false): number {
   let n = 0;
   for (const d of dias(inicio.slice(0, 10), fim.slice(0, 10))) {
@@ -88,7 +71,6 @@ export function diasUteis(inicio: string, fim: string, excluir: (dia: string) =>
   return n;
 }
 
-/** Horas que ainda pesam numa task: restante, ou estimado − concluído se não houver restante. */
 export function horasPendentes(i: Pick<ItemCarga, "horasRestantes" | "horasEstimadas" | "horasConcluidas">): number {
   if (i.horasRestantes !== null) return Math.max(0, i.horasRestantes);
   return Math.max(0, (i.horasEstimadas ?? 0) - (i.horasConcluidas ?? 0));
@@ -101,7 +83,6 @@ export function statusDe(
 ): { utilizacao: number | null; status: StatusCarga } {
   if (capacidadeH <= 0) return { utilizacao: null, status: cargaH > 0 ? "sem-capacidade" : "ok" };
   const utilizacao = cargaH / capacidadeH;
-  // arredonda antes de comparar: 80,0% não é "acima de 80%" por erro de ponto flutuante
   const u = Math.round(utilizacao * 1e6) / 1e6;
   return {
     utilizacao,
@@ -116,7 +97,6 @@ export function calcularCapacidade(entrada: {
   folgas: Folga[];
   feriados: string[];
   itens: ItemCarga[];
-  /** Horas/dia que o gestor dedicou de cada pessoa a este projeto (sobrepõe o DevOps). */
   alocacoes?: { pessoaId: string; horasDia: number }[];
   limites?: Limites;
 }): Celula[] {
@@ -126,7 +106,6 @@ export function calcularCapacidade(entrada: {
   const capPor = new Map<string, number>();
   for (const c of entrada.capacidades) {
     const k = `${c.sprintId}|${c.pessoaId}`;
-    // pessoa em mais de um time do projeto: a capacidade de cada time soma
     capPor.set(k, (capPor.get(k) ?? 0) + c.capacidadeDia);
   }
   const cargaPor = new Map<string, { h: number; n: number }>();

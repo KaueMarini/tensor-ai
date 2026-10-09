@@ -7,10 +7,6 @@ import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
 import { ProjetoLayout } from "@/routes/projeto/layout";
 
-/**
- * RBAC: telas executivas só para gestor/admin (o banco também bloqueia por RLS). O filtro fica
- * DENTRO do carregamento sob demanda: o lazy precisa ser o componente de fora (React use()).
- */
 function paginaDeGestor(carregar: () => Promise<ComponentType>) {
   return lazyRouteComponent(
     () =>
@@ -27,7 +23,6 @@ function paginaDeGestor(carregar: () => Promise<ComponentType>) {
   );
 }
 
-// Code-split: cada página vira um chunk carregado ao abrir (login e layouts ficam no principal)
 const InicioPage = lazyRouteComponent(() => import("@/routes/inicio"), "InicioPage");
 const ProjetosPage = lazyRouteComponent(() => import("@/routes/projetos"), "ProjetosPage");
 const MembrosPage = lazyRouteComponent(() => import("@/routes/membros"), "MembrosPage");
@@ -95,7 +90,6 @@ const projetosRoute = createRoute({
   component: ProjetosPage,
 });
 
-/** Equipe: ocupação (padrão), skills e tags, squads. "projeto" é o nome antigo de squads. */
 const membrosRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/membros",
@@ -154,7 +148,6 @@ const kanbanRoute = createRoute({
 const cronogramaRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/cronograma", component: CronogramaPage });
 const equipeRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/equipe", component: EquipeProjetoPage });
 const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: MetricasPage });
-// Abas antigas (links salvos continuam funcionando)
 const antigaAnalisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", beforeLoad: paraAba("resumo") });
 const antigaSquadRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/squad", beforeLoad: paraAba("equipe") });
 const antigaCapacidadeRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/capacidade", beforeLoad: paraAba("equipe") });

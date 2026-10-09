@@ -1,7 +1,3 @@
-// pnpm devops:latency <workItemId>
-// Mede a latência ponta a ponta: altera RemainingWork de um item no DevOps e espera
-// a nova revisão aparecer no Supabase (via webhook). Depois desfaz a alteração.
-
 import { createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import type { AzdoWorkItem } from "../supabase/functions/_shared/azdo/types.ts";
 
@@ -12,7 +8,7 @@ const need = (k: string) => {
 };
 const azdo = createAzdoClient({ orgUrl: need("AZDO_ORG_URL"), pat: need("AZDO_PAT") });
 const SUPABASE_URL = need("SUPABASE_URL");
-const KEY = need("SUPABASE_SERVICE_ROLE_KEY"); // só local, nunca no front
+const KEY = need("SUPABASE_SERVICE_ROLE_KEY");
 const id = Number(process.argv[2]);
 if (!id) throw new Error("uso: pnpm devops:latency <workItemId>");
 
@@ -50,7 +46,6 @@ for (let i = 0; i < 3; i++) {
   await new Promise((r) => setTimeout(r, 3000));
 }
 if (original === undefined) {
-  // campo estava vazio: remove em vez de gravar 0 (0h mudaria a carga da task)
   await azdo.request("PATCH", `_apis/wit/workitems/${id}`, {
     body: [{ op: "remove", path: `/fields/${FIELD}` }],
     contentType: "application/json-patch+json",

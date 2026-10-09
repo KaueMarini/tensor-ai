@@ -1,6 +1,3 @@
-// Log estruturado (uma linha JSON por evento), legível nos logs das Edge Functions.
-// LGPD: todo extra passa pelo sanitizador (e-mails mascarados, nomes de pessoa ocultos).
-
 import { sanitizarLog } from "./privacidade.ts";
 
 export type LogLevel = "info" | "warn" | "error";

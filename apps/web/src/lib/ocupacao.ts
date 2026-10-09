@@ -1,6 +1,3 @@
-// Ocupação GERAL da equipe (todos os projetos), compartilhada por Início, Equipe e a ficha da
-// pessoa. Uma única consulta (useCargaGlobal com todos os membros) alimenta todas as telas.
-
 import { useMemo } from "react";
 import type { CelulaGlobal } from "@shared/capacidade/global";
 import { useMembros } from "./queries";
@@ -25,7 +22,6 @@ function segundaDestaSemana(): Date {
   return new Date(base.getTime() - (dow - 1) * DIA);
 }
 
-/** Semana (seg–sex) a `offset` semanas desta. */
 export function semana(offset: number): Periodo {
   const seg = new Date(segundaDestaSemana().getTime() + offset * 7 * DIA);
   const sex = new Date(seg.getTime() + 4 * DIA);
@@ -38,10 +34,6 @@ export function semana(offset: number): Periodo {
 
 export const semanas = (n: number) => Array.from({ length: n }, (_, i) => semana(i));
 
-/**
- * n meses a partir do atual. O mês atual começa na segunda desta semana (dias que já
- * passaram não contam); os seguintes vão do dia 1 ao último dia.
- */
 export function meses(n: number): Periodo[] {
   const seg = segundaDestaSemana();
   return Array.from({ length: n }, (_, i) => {
@@ -53,7 +45,6 @@ export function meses(n: number): Periodo[] {
   });
 }
 
-/** Desta segunda até a sexta de daqui a n−1 semanas. */
 export function proximasSemanas(n: number): Periodo {
   const a = semana(0);
   const b = semana(n - 1);
@@ -77,7 +68,6 @@ export function useOcupacaoEquipe() {
     carregando: membrosQ.isLoading || (ids.length > 0 && global.carregando),
     erro: membrosQ.error ?? global.erro,
     regras: global.regras,
-    /** Célula da pessoa no período (null enquanto carrega). */
     celula: global.celula as ((p: Periodo, pessoaId: string) => CelulaGlobal | undefined) | null,
     nomeProjeto: (id: string) => nomesProjeto.get(id) ?? "Outro projeto",
   };

@@ -1,16 +1,3 @@
-// devops-acoes: ações do gestor que escrevem no Azure DevOps (hoje: mover card no Kanban).
-// Deploy com --no-verify-jwt; exige JWT de usuário logado, validado aqui.
-//
-// POST { acao: "estados", projeto_id }            -> { estados: { Task: [{ nome, categoria }] } }
-// POST { acao: "mover", devops_id, categoria }    -> { ok, de, para }
-// POST { acao: "atribuir", devops_id, pessoa_id, motivo? } -> { ok, para }
-//      (sugestão de alocação aprovada pelo gestor; motivo = encaixe/impacto, vai para a auditoria)
-// POST { acao: "aprovar_sugestao", sugestao_id }  -> aplica a ação da sugestão do agente
-//      (revalida antes: a task segue aberta e com o mesmo responsável) e marca aplicada
-// POST { acao: "ignorar_sugestao", sugestao_id }  -> marca ignorada (não volta por 7 dias)
-//
-// Toda tentativa fica registrada em `acao` (quem, quando, antes/depois, erro).
-
 import { errorMessage, log } from "../_shared/log.ts";
 import { AzdoHttpError } from "../_shared/azdo/client.ts";
 import {
@@ -155,7 +142,6 @@ async function mover(
   await db.from("acao").insert({ ...registro, status: "aplicada" });
   log("info", "estado movido pelo app", { devops_id: devopsId, de: item.estado, para, usuario: user.email });
 
-  // Grava já a nova revisão (o webhook/cron também trariam, mas o card não deve "voltar").
   const ctx = { db, azdo, filtro: [], deadline: Date.now() + 20_000 };
   const atualizados = await azdo.getWorkItemsBatch([devopsId]);
   await upsertWorkItems(ctx, atualizados, item.projeto_id, "app");
@@ -179,7 +165,6 @@ async function atribuir(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!item) return [{ error: "item não encontrado" }, 404];
-  // Regra do produto: o sistema só altera Tasks (e itens de trabalho), nunca Feature/Epic
   if (TIPOS_FORA_DO_KANBAN.has(item.tipo)) return [{ error: `${item.tipo} não pode ser alterada pelo app` }, 422];
 
   const { data: pessoa, error: e2 } = await db
@@ -190,12 +175,11 @@ async function atribuir(
   if (e2) throw new Error(e2.message);
   if (!pessoa?.unique_name) return [{ error: "pessoa sem usuário do DevOps" }, 422];
 
-  // O DevOps só aceita responsável com acesso ao projeto: exige estar num time dele
   const { data: vinculo, error: e3 } = await db
     .from("time_membro")
     .select("pessoa_id, time!inner(projeto_id)")
     .eq("pessoa_id", pessoaId)
-    .eq("ativo", true) // removido do time no DevOps não conta
+    .eq("ativo", true)
     .eq("time.projeto_id", item.projeto_id)
     .limit(1);
   if (e3) throw new Error(e3.message);
@@ -258,14 +242,12 @@ async function decidirSugestao(
   }
 
   const acao = s.acao as { tipo: string; work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
-  // Sem ação no DevOps (ex.: equipe sugerida): aprovar = "vou fazer", só registra a decisão
   if (!acao) {
     await decidir("aplicada");
     return [{ ok: true, status: "aplicada" }, 200];
   }
   if (acao.tipo !== "reatribuir") return [{ error: `ação ${acao.tipo} ainda não suportada` }, 422];
 
-  // A situação ainda é a mesma? (alguém pode ter mexido no DevOps depois da sugestão)
   const { data: item, error: e2 } = await db
     .from("work_item")
     .select("responsavel_id, deleted_at")

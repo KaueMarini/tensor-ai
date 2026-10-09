@@ -1,6 +1,3 @@
-// Monta regras e carga global a partir das linhas do banco (puro). O front (hooks) e o agente
-// (Edge Function) usam esta mesma função: os números da tela e os da IA são sempre iguais.
-
 import { type CelulaGlobal, cargaGlobal, type ItemGlobal } from "./global.ts";
 import {
   type AlocacaoProjeto,
@@ -30,9 +27,7 @@ export interface Regras {
   pessoas: Map<string, RegraPessoa>;
   projetos: Map<string, RegraProjeto>;
   alocacoes: AlocacaoProjeto[];
-  /** Horas produtivas resolvidas da pessoa (pessoa → geral → mercado). */
   horas: (pessoaId: string) => HorasPessoa;
-  /** Limites gerais, ou os do projeto quando informado. */
   limites: (projetoId?: string) => Limites;
 }
 
@@ -81,7 +76,6 @@ export interface LinhasCarga {
 
 export type CelulaDe = (periodo: { id: string; inicio: string; fim: string }, pessoaId: string) => CelulaGlobal | undefined;
 
-/** Célula global por (período, pessoa), com cache por período. */
 export function montarCargaGlobal(d: LinhasCarga, regras: Regras, pessoaIds: string[]): CelulaDe {
   const pais = new Set(d.itens.map((r) => r.item_parent_id).filter((x): x is number => x !== null));
   const itens: ItemGlobal[] = d.itens
@@ -110,7 +104,6 @@ export function montarCargaGlobal(d: LinhasCarga, regras: Regras, pessoaIds: str
     capacidades: d.capacidades.map((c) => ({ sprintId: c.sprint_id, pessoaId: c.pessoa_id, timeId: c.time_id, capacidadeDia: Number(c.capacidade_dia) })),
     folgas: [
       ...d.folgas.map((f) => ({ sprintId: f.sprint_id, timeId: f.time_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
-      // ausência registrada na Agenda: folga pessoal (o motor global filtra só por pessoa e data)
       ...d.ausencias.map((a) => ({ sprintId: "", timeId: "", pessoaId: a.pessoa_id, inicio: a.inicio, fim: a.fim })),
     ],
     feriados: d.feriados.map((f) => f.data),

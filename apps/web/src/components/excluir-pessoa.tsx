@@ -1,7 +1,3 @@
-// Direito ao esquecimento (LGPD): só admin. Apaga os dados pessoais que o app guarda e
-// anonimiza a pessoa de vez (rpc esquecer_pessoa, auditada). A pessoa continua no Azure DevOps,
-// que é a fonte; lá a remoção é feita pela empresa.
-
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";

@@ -1,8 +1,3 @@
-"""Markdown final (formato estrito, sempre montado pelo backend) e o template de fallback.
-
-O fallback é determinístico: usa só números dos dados enviados, então passa no validador.
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -19,7 +14,6 @@ QUADRANTES = {
 
 
 def fmt(n: float | int | None) -> str:
-    """Número em pt-BR, sem casas desnecessárias: 117.0 → "117", 62.5 → "62,5"."""
     if n is None:
         return "—"
     v = float(n)
@@ -45,7 +39,6 @@ def render(r: RespostaLLM) -> str:
 
 
 def fallback(dados: dict[str, Any], acao_id: str | None = None) -> RespostaLLM:
-    """Texto por template, a partir do candidato escolhido (ou do primeiro, que já é o mais prioritário)."""
     candidatos: list[dict[str, Any]] = dados["candidatos"]
     c = next((x for x in candidatos if x["acao_id"] == acao_id), candidatos[0])
     origem = c["antes"][0]

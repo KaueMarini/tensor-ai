@@ -2,7 +2,6 @@ import { type ReactNode, useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Modal acessível: role="dialog", fecha com Esc e clique no fundo, foco vai para dentro ao abrir. */
 export function Dialog({
   titulo,
   descricao,

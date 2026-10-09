@@ -1,6 +1,3 @@
-// Agrupa as linhas planas de v_backlog em Sprint → Feature → itens (com sub-árvore por parent,
-// ex.: Feature → User Story → Task). Função pura: sem React, sem Supabase.
-
 import type { Views } from "./supabase";
 
 export type BacklogRow = Views<"v_backlog">;
@@ -82,7 +79,6 @@ function acumular(dest: Totais, src: Totais) {
   dest.semEstimativa += src.semEstimativa;
 }
 
-/** Ordena os itens de uma feature como árvore (pai antes dos filhos) e calcula a profundidade. */
 function arvore(rows: BacklogRow[]): ItemNode[] {
   const ids = new Set(rows.map((r) => r.item_id));
   const filhos = new Map<number | null, BacklogRow[]>();
@@ -162,7 +158,6 @@ export function agruparBacklog(
         totais,
       };
     });
-    // Features nomeadas primeiro (por id), "Sem feature" no fim
     features.sort((a, b) => (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
     const totais = totaisVazios();
     for (const f of features) acumular(totais, f.totais);
@@ -171,7 +166,6 @@ export function agruparBacklog(
 
   for (const s of sprints) {
     const temLinhas = porSprint.has(s.id);
-    // Iterações sem data e sem itens (ex.: as padrão do DevOps) só poluem a tabela
     if (!temLinhas && (busca || !s.inicio)) continue;
     montar(s.id, { id: s.id, nome: s.nome, inicio: s.inicio, fim: s.fim });
   }

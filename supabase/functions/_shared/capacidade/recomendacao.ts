@@ -1,13 +1,3 @@
-// Sugestão de responsável para tasks sem dono (determinística, sem IA).
-//
-// Para cada task, ranqueia as pessoas do time do projeto por:
-//   - encaixe: tags da task + da Feature pai × skills da pessoa (confirmada vale mais que
-//     sugerida pelas tasks) e tags de função; sem tags na task, o encaixe é neutro;
-//   - folga: horas livres na sprint da task DEPOIS de receber a task (motor de capacidade).
-// Penaliza quem passaria do limite. Distribui em sequência: a carga da 1ª sugestão já conta
-// para as próximas tasks, para não empilhar tudo na mesma pessoa.
-// Fala de carga e encaixe, nunca de desempenho (CLAUDE.md §5).
-
 import { type Celula, type StatusCarga, statusDe } from "./motor.ts";
 
 export interface TaskAlocacao {
@@ -15,7 +5,6 @@ export interface TaskAlocacao {
   sprintId: string | null;
   tags: string[];
   featureTags: string[];
-  /** Horas pendentes da task; null = sem estimativa (não pesa na carga, vira alerta). */
   horas: number | null;
 }
 
@@ -38,9 +27,7 @@ export interface MatchSkill {
 
 export interface OpcaoAlocacao {
   pessoaId: string;
-  /** 0..1 — usado só para ordenar. */
   score: number;
-  /** 0..1 ou null quando a task não tem tags. */
   encaixe: number | null;
   matches: MatchSkill[];
   capacidadeH: number;
@@ -62,10 +49,8 @@ export interface RecomendacaoTask {
 
 const PESO_ENCAIXE = 0.65;
 const PESO_FOLGA = 0.35;
-// Sem capacidade na sprint (férias, sem Capacity) nunca é a sugestão principal: vai para o fim.
 const PENALIDADE: Record<StatusCarga, number> = { ok: 1, limite: 0.85, sobrecarga: 0.5, "sem-capacidade": 0 };
 
-/** Mesma regra do banco (skill_chave): "Back-end" = "backend" = "back end". */
 export function chaveSkill(tag: string): string {
   return tag
     .normalize("NFD")
@@ -109,16 +94,14 @@ function encaixe(tags: string[], c: CandidatoAlocacao): { valor: number | null; 
 }
 
 export function recomendarAlocacao(entrada: {
-  /** Na ordem em que devem ser distribuídas (ex.: sprint mais próxima e maiores primeiro). */
   tasks: TaskAlocacao[];
   candidatos: CandidatoAlocacao[];
   celula: (sprintId: string, pessoaId: string) => Celula | undefined;
-  /** Sprint usada para tasks sem sprint (ex.: a atual). */
   sprintPadrao: string | null;
   maxOpcoes?: number;
 }): RecomendacaoTask[] {
   const { tasks, candidatos, celula, sprintPadrao, maxOpcoes = 3 } = entrada;
-  const extra = new Map<string, number>(); // carga já sugerida nesta rodada, por sprint × pessoa
+  const extra = new Map<string, number>();
 
   return tasks.map((t) => {
     const sprintId = t.sprintId ?? sprintPadrao;

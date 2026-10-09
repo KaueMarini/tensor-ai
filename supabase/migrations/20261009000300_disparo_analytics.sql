@@ -1,14 +1,3 @@
--- Disparo do serviço de análise (services/analytics), sem mexer no sync:
---   1. Evento de work item processado (created/updated) → pg_net POST /analyze/event
---      (o serviço faz debounce de 30 s por work item).
---   2. pg_cron a cada 15 min → POST /analyze/sweep (o que não gera evento: sprint começando
---      com alguém acima de 100%, ausência cadastrada, regra de capacidade alterada...).
---
--- Pré-requisito (NÃO versionado; rodar uma vez com os valores reais):
---   select vault.create_secret('https://<servico-analytics>', 'radar_analytics_url');
---   select vault.create_secret('<ANALYTICS_SHARED_SECRET>', 'radar_analytics_secret');
--- Sem esses segredos, trigger e cron não fazem nada (o sync segue normal).
-
 create or replace function public.chamar_analytics(caminho text, corpo jsonb)
 returns bigint language plpgsql security definer set search_path = public as $$
 declare
@@ -27,7 +16,6 @@ begin
     timeout_milliseconds := 10000
   );
 exception when others then
-  -- análise é acessória: nunca derrubar quem chamou (o processamento do evento)
   raise warning 'chamar_analytics(%): %', caminho, sqlerrm;
   return null;
 end $$;

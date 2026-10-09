@@ -1,9 +1,3 @@
-"""Cliente SOMENTE LEITURA da REST API do Azure DevOps (api-version 7.1).
-
-Só existe `_get`: o serviço nunca escreve no DevOps (o executor é outra peça). Retry com
-backoff exponencial respeitando `Retry-After` em 429/5xx, igual a `_shared/azdo/client.ts`.
-"""
-
 from __future__ import annotations
 
 import time
@@ -70,7 +64,7 @@ class DevOpsLeitura:
             r.raise_for_status()
             corpo: dict[str, Any] = r.json()
             return corpo
-        raise RuntimeError("inalcançável")  # pragma: no cover
+        raise RuntimeError("inalcançável")
 
     def updates(self, work_item_id: int) -> Iterator[dict[str, Any]]:
         skip = 0

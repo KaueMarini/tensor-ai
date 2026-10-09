@@ -1,7 +1,3 @@
-// Motor de sincronização Azure DevOps -> Supabase.
-// Idempotente: o banco só aceita revisões mais novas (upsert_work_items), então rodar de novo,
-// em paralelo com o webhook ou fora de ordem nunca regride dados.
-
 import { AzdoHttpError, chunk } from "../_shared/azdo/client.ts";
 import type { AzdoProject, AzdoWorkItem } from "../_shared/azdo/types.ts";
 import { errorMessage, log } from "../_shared/log.ts";
@@ -23,7 +19,7 @@ export interface SyncCtx {
   db: Db;
   azdo: AzdoClient;
   filtro: string[];
-  deadline: number; // epoch ms; para antes disso e salva progresso
+  deadline: number;
   runId?: string;
 }
 
@@ -39,12 +35,10 @@ function must<T>(res: { data: T; error: { message: string } | null }, what: stri
   return res.data;
 }
 
-/** Como must, para consultas de lista. */
 function rows<T>(res: { data: T[] | null; error: { message: string } | null }, what: string): T[] {
   return must(res, what) ?? [];
 }
 
-/** Igualdade estrutural com chaves ordenadas (para evitar escritas e eventos Realtime à toa). */
 function canon(v: unknown): string {
   return JSON.stringify(v, (_k, val) =>
     val && typeof val === "object" && !Array.isArray(val)
@@ -52,10 +46,6 @@ function canon(v: unknown): string {
       : val,
   );
 }
-
-// ---------------------------------------------------------------------------
-// Work items
-// ---------------------------------------------------------------------------
 
 export async function upsertWorkItems(ctx: SyncCtx, items: AzdoWorkItem[], projetoId: string, origem: Origem) {
   if (items.length === 0) return 0;
@@ -92,7 +82,6 @@ async function fetchAndUpsert(ctx: SyncCtx, ids: number[], projetoId: string, or
   return { aplicados, maxChanged };
 }
 
-/** Todos os IDs vivos do projeto, paginando por ID (contorna o limite de 20k do WIQL). */
 async function allIds(ctx: SyncCtx, projetoId: string): Promise<number[]> {
   const ids: number[] = [];
   let last = 0;
@@ -108,15 +97,6 @@ async function allIds(ctx: SyncCtx, projetoId: string): Promise<number[]> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Projetos, sprints, times, membros, capacidade
-// ---------------------------------------------------------------------------
-
-/**
- * Projetos: cria/atualiza (nome, descrição, tags da descrição, processo), acompanha
- * renomeação (caminhos dos work items), arquiva os excluídos no DevOps e reativa os
- * restaurados (forçando uma carga completa).
- */
 export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   const todos = await ctx.azdo.listProjects();
   const alvo = todos.filter(
@@ -140,7 +120,6 @@ export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
       log("info", "projeto renomeado no DevOps", { projeto_id: p.id, de: atual.nome, para: novo.nome, work_items: n });
     }
     if (atual?.deleted_at) {
-      // Restaurado da lixeira do DevOps: volta e refaz a carga completa (itens estavam arquivados)
       must(await ctx.db.from("sync_state").delete().eq("projeto_id", p.id), "reiniciar sync_state");
       log("info", "projeto restaurado no DevOps", { projeto_id: p.id, nome: novo.nome });
     }
@@ -149,8 +128,6 @@ export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   }
   if (mudou.length) must(await ctx.db.from("projeto").upsert(mudou), "upsert projeto");
 
-  // Excluídos no DevOps (não aparecem mais na lista da org) → arquivar.
-  // Lista vazia é tratada como falha da API, nunca como "a org não tem projetos".
   if (todos.length > 0) {
     const vivos = new Set(todos.map((p) => p.id));
     for (const e of existentes.filter((e) => !e.deleted_at && !vivos.has(e.id))) {
@@ -161,12 +138,7 @@ export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   return detalhados;
 }
 
-/**
- * apenasAtivas (reconcile): relê capacidade e days off só da sprint atual e das futuras.
- * A sync completa relê todas.
- */
 export async function syncMeta(ctx: SyncCtx, projetoId: string, { apenasAtivas = false } = {}) {
-  // Sprints (iterações do projeto, com datas)
   const tree = await ctx.azdo.getIterationTree(projetoId);
   const sprints = flattenIterations(tree, projetoId);
   const atuais = rows(
@@ -181,7 +153,6 @@ export async function syncMeta(ctx: SyncCtx, projetoId: string, { apenasAtivas =
     must(await ctx.db.from("sprint").update({ deleted_at: new Date().toISOString() }).in("id", sumiram), "excluir sprints");
   }
 
-  // Times, membros e capacidade por sprint
   const comCapacidade = apenasAtivas ? sprintsAtivas(sprints, new Date().toISOString().slice(0, 10)) : ids;
   const times = await ctx.azdo.listTeams(projetoId);
   const timesAtuais = rows(await ctx.db.from("time").select("id, projeto_id, nome").eq("projeto_id", projetoId), "ler times");
@@ -189,7 +160,6 @@ export async function syncMeta(ctx: SyncCtx, projetoId: string, { apenasAtivas =
     .map((t) => ({ id: t.id, projeto_id: projetoId, nome: t.name }))
     .filter((t) => canon(t) !== canon(timesAtuais.find((a) => a.id === t.id)));
   if (timesMudaram.length) must(await ctx.db.from("time").upsert(timesMudaram), "upsert time");
-  // Time excluído no DevOps: sai daqui (membros, capacidade e folgas dele vão junto, em cascata)
   const idsTimes = new Set(times.map((t) => t.id));
   const timesSumiram = timesAtuais.filter((t) => !idsTimes.has(t.id)).map((t) => t.id);
   if (times.length > 0 && timesSumiram.length) {
@@ -257,10 +227,6 @@ async function replaceCapacidadeSeMudou(
   log("info", "capacidade atualizada", { sprint_id: sprintId, time_id: timeId, membros: capacidades.length, run_id: ctx.runId });
 }
 
-// ---------------------------------------------------------------------------
-// Estado e lease
-// ---------------------------------------------------------------------------
-
 type SyncState = Awaited<ReturnType<typeof readState>>;
 
 async function readState(ctx: SyncCtx, projetoId: string) {
@@ -284,10 +250,6 @@ export async function withLease<T>(ctx: SyncCtx, projetoId: string, fn: () => Pr
   }
 }
 
-// ---------------------------------------------------------------------------
-// Full (retomável) e reconcile
-// ---------------------------------------------------------------------------
-
 export interface ResultadoProjeto {
   projeto: string;
   modo: Modo;
@@ -299,7 +261,6 @@ export interface ResultadoProjeto {
 
 const FASES_FULL = ["meta", "itens", "sweep"];
 
-/** Avança a sync completa até acabar ou estourar o orçamento de tempo. Retoma de sync_state. */
 export async function runFull(ctx: SyncCtx, projetoId: string, reiniciar: boolean): Promise<ResultadoProjeto> {
   let state = await readState(ctx, projetoId);
   let aplicados = 0;
@@ -366,7 +327,6 @@ export async function runFull(ctx: SyncCtx, projetoId: string, reiniciar: boolea
 
 export async function runReconcile(ctx: SyncCtx, projetoId: string): Promise<ResultadoProjeto> {
   const state = await readState(ctx, projetoId);
-  // Sem full concluída (ou full em andamento): continua a full
   if (!state?.ultimo_changed_date || FASES_FULL.includes(state.fase)) {
     return runFull(ctx, projetoId, false);
   }
@@ -381,7 +341,6 @@ export async function runReconcile(ctx: SyncCtx, projetoId: string): Promise<Res
     );
     const { aplicados, maxChanged } = await fetchAndUpsert(ctx, ids, projetoId, "reconcile");
 
-    // Exclusões não geram ChangedDate consultável: compara com a lixeira
     let removidos = 0;
     const lixeira = await ctx.azdo.listRecycleBinIds(projetoId).catch((err) => {
       log("warn", "lixeira indisponível", { projeto_id: projetoId, erro: errorMessage(err) });
@@ -422,17 +381,12 @@ export async function runReconcile(ctx: SyncCtx, projetoId: string): Promise<Res
   }
 }
 
-// ---------------------------------------------------------------------------
-// Eventos de webhook
-// ---------------------------------------------------------------------------
-
 export interface EventoRow {
   id: number;
   payload: unknown;
   tentativas: number;
 }
 
-/** Processa um evento: rebusca o item na API (não confia no payload) e grava se o rev for maior. */
 export async function processarEvento(ctx: SyncCtx, evento: EventoRow): Promise<void> {
   const ref = extractWebhookRef(evento.payload as AzdoServiceHookPayload);
   const fim = (status: string, erro: string | null = null) =>
@@ -491,7 +445,6 @@ async function resolverProjeto(ctx: SyncCtx, projetoId: string | null, item: Azd
   return data?.id ?? null;
 }
 
-/** Eventos que falharam ou ficaram presos (ex.: a function morreu no meio). */
 async function reprocessarEventos(ctx: SyncCtx): Promise<number> {
   const umMinutoAtras = new Date(Date.now() - 60_000).toISOString();
   const pendentes = rows(

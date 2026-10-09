@@ -1,9 +1,3 @@
-// pnpm devops:datas
-// Preenche, nos work items já sincronizados, as datas usadas no diagnóstico de tempo da IA
-// explicável (criação, última mudança de estado, ativação, fechamento). A sync passou a trazer
-// esses campos; itens que não mudaram desde então ficam sem eles até este script rodar.
-// Idempotente: só acrescenta ao JSON `fields`, não mexe em rev nem no resto.
-
 import { createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 
 const need = (k: string) => {

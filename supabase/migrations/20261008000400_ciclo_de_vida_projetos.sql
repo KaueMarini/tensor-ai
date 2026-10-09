@@ -1,11 +1,3 @@
--- Ciclo de vida de projetos, times e membros vindos do Azure DevOps.
---  - Projeto excluído no DevOps → arquivado aqui (deleted_at), com work items e sprints
---    em soft delete e membros inativos: some do app e da carga global. Se o projeto for
---    restaurado no DevOps, a sync reativa e refaz a carga completa.
---  - Projeto renomeado → os caminhos (iteration/area path) dos work items acompanham.
---  - Membro removido do time → já ficava ativo=false; agora as views respeitam isso.
---  - Tags do projeto (linha "Tags: a, b" na descrição do DevOps) → tags_requeridas.
-
 alter table public.projeto add column if not exists deleted_at timestamptz;
 
 create or replace function public.arquivar_projeto(p_projeto_id uuid)
@@ -22,7 +14,6 @@ begin
    where t.id = tm.time_id and t.projeto_id = p_projeto_id and tm.ativo;
 end $$;
 
--- "Velho\Sprint 1" → "Novo\Sprint 1" (o DevOps renomeia os caminhos sem gerar revisão)
 create or replace function public.renomear_paths_projeto(p_projeto_id uuid, p_antigo text, p_novo text)
 returns integer language plpgsql security definer set search_path = public as $$
 declare n integer;
@@ -50,7 +41,6 @@ revoke execute on function public.arquivar_projeto(uuid), public.renomear_paths_
 grant execute on function public.arquivar_projeto(uuid), public.renomear_paths_projeto(uuid, text, text)
   to service_role;
 
--- Views: sem projetos arquivados e sem membros removidos dos times
 create or replace view public.v_projeto_resumo with (security_invoker = true) as
 select p.id,
        p.nome,

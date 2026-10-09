@@ -1,7 +1,3 @@
-// Importância (impacto) do projeto no cabeçalho: o gestor define, confirma ou troca o que veio
-// da descrição no DevOps ("Impacto: alto") ou foi sugerido pela IA. O agente usa isso para
-// apontar esforço desproporcional ao impacto.
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bot, Scale } from "lucide-react";

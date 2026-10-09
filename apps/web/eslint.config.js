@@ -1,4 +1,3 @@
-// ESLint (flat config): recomendados de JS/TypeScript + regras de hooks do React.
 import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -15,6 +14,7 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
 );

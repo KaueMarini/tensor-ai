@@ -1,9 +1,3 @@
--- Radar de Capacidade: schema inicial (fundação da sync com o Azure DevOps)
--- Chaves naturais do DevOps: projeto/time/sprint = GUID do DevOps, work_item = ID numérico.
-
--- =====================================================================
--- Utilitários
--- =====================================================================
 create or replace function public.set_atualizado_em()
 returns trigger language plpgsql as $$
 begin
@@ -11,21 +5,18 @@ begin
   return new;
 end $$;
 
--- =====================================================================
--- Tabelas
--- =====================================================================
 create table public.projeto (
-  id               uuid primary key,              -- GUID do projeto no DevOps
+  id               uuid primary key,
   nome             text not null,
   descricao        text,
-  descricao_extra  text,                          -- contexto adicionado pelo gestor
+  descricao_extra  text,
   tags_requeridas  text[] not null default '{}',
-  processo         text,                          -- Agile, Scrum, Basic...
+  processo         text,
   atualizado_em    timestamptz not null default now()
 );
 
 create table public.time (
-  id             uuid primary key,                -- GUID do time no DevOps
+  id             uuid primary key,
   projeto_id     uuid not null references public.projeto(id) on delete cascade,
   nome           text not null,
   atualizado_em  timestamptz not null default now()
@@ -34,9 +25,9 @@ create index on public.time (projeto_id);
 
 create table public.pessoa (
   id                 uuid primary key default gen_random_uuid(),
-  devops_user_id     uuid unique,                 -- identity id do DevOps
+  devops_user_id     uuid unique,
   nome               text not null,
-  unique_name        text,                        -- e-mail/UPN
+  unique_name        text,
   papel              text,
   horas_semana_base  numeric(5,2) not null default 40,
   atualizado_em      timestamptz not null default now()
@@ -51,10 +42,10 @@ create table public.time_membro (
 );
 
 create table public.sprint (
-  id              uuid primary key,               -- identifier da iteração no DevOps
+  id              uuid primary key,
   projeto_id      uuid not null references public.projeto(id) on delete cascade,
   nome            text not null,
-  iteration_path  text not null,                  -- normalizado: "Projeto\Sprint 1"
+  iteration_path  text not null,
   inicio          date,
   fim             date,
   deleted_at      timestamptz,
@@ -66,13 +57,12 @@ create table public.capacidade_sprint (
   sprint_id       uuid not null references public.sprint(id) on delete cascade,
   time_id         uuid not null references public.time(id) on delete cascade,
   pessoa_id       uuid not null references public.pessoa(id) on delete cascade,
-  capacidade_dia  numeric(6,2) not null default 0, -- soma das atividades
-  atividades      jsonb not null default '[]',     -- [{nome, capacidade_dia}]
+  capacidade_dia  numeric(6,2) not null default 0,
+  atividades      jsonb not null default '[]',
   atualizado_em   timestamptz not null default now(),
   primary key (sprint_id, time_id, pessoa_id)
 );
 
--- Days off do DevOps: pessoa_id nulo = folga do time inteiro
 create table public.dias_off (
   id         bigint generated always as identity primary key,
   sprint_id  uuid not null references public.sprint(id) on delete cascade,
@@ -113,7 +103,6 @@ create table public.skill_tag (
   unique (pessoa_id, tag)
 );
 
--- Todos os tipos (Feature, User Story, Task, Bug...) numa tabela só.
 create table public.work_item (
   devops_id          integer primary key,
   rev                integer not null,
@@ -122,15 +111,15 @@ create table public.work_item (
   estado             text,
   titulo             text not null,
   descritivo         text,
-  parent_devops_id   integer,                     -- sem FK: o pai pode chegar depois
-  feature_devops_id  integer,                     -- Feature ancestral mais próxima (resolvida)
-  sprint_id          uuid references public.sprint(id) on delete set null, -- resolvida pelo path
+  parent_devops_id   integer,
+  feature_devops_id  integer,
+  sprint_id          uuid references public.sprint(id) on delete set null,
   responsavel_id     uuid references public.pessoa(id) on delete set null,
   area_path          text,
   iteration_path     text,
-  horas_estimadas    numeric(8,2),                -- Microsoft.VSTS.Scheduling.OriginalEstimate
-  horas_restantes    numeric(8,2),                -- RemainingWork
-  horas_concluidas   numeric(8,2),                -- CompletedWork
+  horas_estimadas    numeric(8,2),
+  horas_restantes    numeric(8,2),
+  horas_concluidas   numeric(8,2),
   horas_origem       text not null default 'devops' check (horas_origem in ('devops','sistema')),
   start_date         timestamptz,
   finish_date        timestamptz,
@@ -138,7 +127,7 @@ create table public.work_item (
   tags               text[] not null default '{}',
   changed_date       timestamptz,
   deleted_at         timestamptz,
-  fields             jsonb not null default '{}', -- campos brutos recebidos
+  fields             jsonb not null default '{}',
   sync_origem        text check (sync_origem in ('webhook','reconcile','full')),
   criado_em          timestamptz not null default now(),
   atualizado_em      timestamptz not null default now()
@@ -164,8 +153,8 @@ create table public.sugestao (
 
 create table public.evento (
   id                  bigint generated always as identity primary key,
-  chave_idempotencia  text not null unique,       -- GUID do evento do Service Hook
-  tipo                text not null,              -- workitem.created/updated/deleted/restored
+  chave_idempotencia  text not null unique,
+  tipo                text not null,
   devops_id           integer,
   rev                 integer,
   payload             jsonb not null,
@@ -182,10 +171,10 @@ create index on public.evento (status, recebido_em);
 create table public.sync_state (
   projeto_id               uuid primary key references public.projeto(id) on delete cascade,
   fase                     text not null default 'pendente',
-  cursor                   jsonb not null default '{}',  -- progresso da full (ex: ultimo id)
+  cursor                   jsonb not null default '{}',
   run_id                   uuid,
-  lease_ate                timestamptz,                  -- trava contra execução concorrente
-  ultimo_changed_date      timestamptz,                  -- cursor do reconcile
+  lease_ate                timestamptz,
+  ultimo_changed_date      timestamptz,
   ultima_reconciliacao_em  timestamptz,
   ultima_reconciliacao_ok  boolean,
   ultimo_erro              text,
@@ -194,7 +183,6 @@ create table public.sync_state (
   atualizado_em            timestamptz not null default now()
 );
 
--- atualizado_em automático
 do $$
 declare t text;
 begin
@@ -205,9 +193,6 @@ begin
   end loop;
 end $$;
 
--- =====================================================================
--- Resolução de sprint por iteration_path (tolera ordem de chegada)
--- =====================================================================
 create or replace function public.tg_work_item_resolve_sprint()
 returns trigger language plpgsql as $$
 begin
@@ -242,9 +227,6 @@ create trigger trg_sprint_vincula_work_items
   after insert or update of iteration_path, deleted_at on public.sprint
   for each row execute function public.tg_sprint_vincula_work_items();
 
--- =====================================================================
--- Hierarquia genérica: Feature ancestral mais próxima
--- =====================================================================
 create or replace function public.feature_ancestral(p_devops_id integer)
 returns integer language sql stable as $$
   with recursive sobe as (
@@ -255,12 +237,11 @@ returns integer language sql stable as $$
     select w.devops_id, w.tipo, w.parent_devops_id, s.nivel + 1
       from public.work_item w
       join sobe s on w.devops_id = s.parent_devops_id
-     where s.tipo <> 'Feature' and s.nivel < 10      -- limite protege contra ciclos
+     where s.tipo <> 'Feature' and s.nivel < 10
   )
   select devops_id from sobe where tipo = 'Feature' order by nivel limit 1;
 $$;
 
--- Recalcula os itens informados e todos os seus descendentes
 create or replace function public.recompute_hierarquia(p_ids integer[])
 returns integer language plpgsql as $$
 declare n integer;
@@ -284,15 +265,6 @@ begin
   return n;
 end $$;
 
--- =====================================================================
--- RPCs de sync (idempotentes; só service_role executa)
--- =====================================================================
-
--- Upsert em lote. Só grava se rev > rev salvo (ou mesmo rev e item estava excluído = restore).
--- Cada item: {devops_id, rev, projeto_id, tipo, estado, titulo, descritivo, parent_devops_id,
---   responsavel_devops_id, responsavel_nome, responsavel_unique_name, area_path, iteration_path,
---   horas_estimadas, horas_restantes, horas_concluidas, start_date, finish_date, target_date,
---   tags, changed_date, fields}
 create or replace function public.upsert_work_items(p_items jsonb, p_origem text)
 returns table (devops_id integer, aplicado boolean)
 language plpgsql security definer set search_path = public as $
@@ -356,7 +328,6 @@ begin
   select i.devops_id, i.devops_id = any(coalesce(v_aplicados, '{}')) from _wi i;
 end $;
 
--- Soft delete. Ignora se já existe revisão mais nova que a do evento.
 create or replace function public.soft_delete_work_item(p_devops_id integer, p_rev integer default null)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare n integer;
@@ -370,7 +341,6 @@ begin
   return n > 0;
 end $$;
 
--- Marca como excluídos os itens do projeto que não estão na lista (sweep da full sync)
 create or replace function public.sweep_work_items(p_projeto_id uuid, p_ids_vivos integer[])
 returns integer language plpgsql security definer set search_path = public as $$
 declare n integer;
@@ -382,7 +352,6 @@ begin
   return n;
 end $$;
 
--- Substitui os membros do time. Membros: [{devops_user_id, nome, unique_name}]
 create or replace function public.sync_time_membros(p_time_id uuid, p_membros jsonb)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -407,9 +376,6 @@ begin
        join pessoa p on p.devops_user_id = m.devops_user_id);
 end $$;
 
--- Substitui capacidade e days off de um time numa sprint.
--- p_capacidades: [{devops_user_id, nome, capacidade_dia, atividades, dias_off:[{inicio,fim}]}]
--- p_dias_off_time: [{inicio, fim}]
 create or replace function public.replace_capacidade(
   p_sprint_id uuid, p_time_id uuid, p_capacidades jsonb, p_dias_off_time jsonb)
 returns void language plpgsql security definer set search_path = public as $$
@@ -438,7 +404,6 @@ begin
     from jsonb_array_elements(coalesce(p_dias_off_time, '[]')) d;
 end $$;
 
--- Lease de sync por projeto (evita duas execuções simultâneas)
 create or replace function public.acquire_sync_lease(p_projeto_id uuid, p_segundos integer default 170)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare ok boolean;
@@ -456,17 +421,12 @@ returns void language sql security definer set search_path = public as $$
   update sync_state set lease_ate = null where projeto_id = p_projeto_id;
 $$;
 
--- =====================================================================
--- Views para o front (security_invoker: respeitam RLS)
--- =====================================================================
 create view public.feature with (security_invoker = true) as
 select devops_id, projeto_id, sprint_id, titulo, descritivo as descricao, tags, estado,
        responsavel_id, changed_date, atualizado_em
   from public.work_item
  where tipo = 'Feature' and deleted_at is null;
 
--- Árvore Sprint → Feature → Item (linhas planas; o front agrupa).
--- Features sem filhos aparecem com as colunas de item nulas.
 create view public.v_backlog with (security_invoker = true) as
 select t.projeto_id,
        coalesce(t.sprint_id, f.sprint_id)      as sprint_id,
@@ -495,9 +455,6 @@ select f.projeto_id, f.sprint_id, s.nome, s.inicio, s.fim,
    and not exists (select 1 from public.work_item c
                     where c.feature_devops_id = f.devops_id and c.deleted_at is null);
 
--- =====================================================================
--- Segurança: RLS em tudo; leitura para autenticados; escrita só service_role
--- =====================================================================
 do $$
 declare t text;
 begin
@@ -523,9 +480,6 @@ grant execute on function
   public.release_sync_lease(uuid), public.recompute_hierarquia(integer[])
   to service_role;
 
--- =====================================================================
--- Realtime
--- =====================================================================
 alter publication supabase_realtime add table
   public.work_item, public.sprint, public.time_membro, public.capacidade_sprint,
   public.evento, public.sync_state;

@@ -1,12 +1,3 @@
-// pnpm devops:seed [--reset]
-// Completa o projeto de demo (IportJLKN12) que já tem 3 sprints, 6 Features e 21 Tasks:
-//   - responsáveis por skill, com uma pessoa sobrecarregada na Sprint 1 (~117%)
-//   - capacidade de 6h/dia para todos nas 3 sprints
-//   - férias de uma pessoa na Sprint 2 (com tasks atribuídas no período) e feriado do time na Sprint 3
-//   - uma cadeia Feature -> User Story -> Task (testa a hierarquia genérica)
-//   - mantém "Testes de carga do websocket" sem estimativa
-// Idempotente: compara antes de escrever. --reset desfaz (remove responsáveis, capacidade, folgas e itens seed-radar).
-
 import { chunk, createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import type { AzdoTeamMember, AzdoWorkItem } from "../supabase/functions/_shared/azdo/types.ts";
 
@@ -17,7 +8,6 @@ const need = (k: string) => {
 };
 
 const azdo = createAzdoClient({ orgUrl: need("AZDO_ORG_URL"), pat: need("AZDO_PAT") });
-// ID do projeto de pátio (antigo IportJLKN12): estável se ele for renomeado no DevOps
 const PROJETO = process.env.SEED_PROJETO?.trim() || "badd3c28-2533-4e04-9239-e79fa7f520f0";
 const RESET = process.argv.includes("--reset");
 const SEED_TAG = "seed-radar";
@@ -26,7 +16,6 @@ const enc = encodeURIComponent;
 
 type Pessoa = "kaue" | "laryssa" | "nicolas" | "julliano";
 
-// Distribuição por skill. Kauê: 16+20+16+10+8 = 70h na Sprint 1 contra 60h de capacidade.
 const RESPONSAVEIS: Record<string, Pessoa> = {
   "API de janelas disponíveis": "kaue",
   "Autenticação de transportadoras": "kaue",
@@ -40,10 +29,10 @@ const RESPONSAVEIS: Record<string, Pessoa> = {
   "Mapa do pátio": "laryssa",
   "Websocket de status das vagas": "nicolas",
   "Alertas de fila": "nicolas",
-  "Testes de carga do websocket": "nicolas", // continua sem estimativa
+  "Testes de carga do websocket": "nicolas",
   "Tópicos do bot de atendimento": "kaue",
   "Base de conhecimento do bot": "kaue",
-  "Conector Power Automate com a API de agendamento": "julliano", // Julliano de férias 19-23/10
+  "Conector Power Automate com a API de agendamento": "julliano",
   "Modelo de dados analítico": "julliano",
   "Dashboard de indicadores": "julliano",
   "Validação dos indicadores com a operação": "julliano",
@@ -55,7 +44,7 @@ const FERIAS: Record<string, { pessoa: Pessoa; start: string; end: string }[]> =
   "Sprint 2": [{ pessoa: "julliano", start: "2026-10-19T00:00:00Z", end: "2026-10-23T00:00:00Z" }],
 };
 const FOLGA_TIME: Record<string, { start: string; end: string }[]> = {
-  "Sprint 3": [{ start: "2026-11-02T00:00:00Z", end: "2026-11-02T00:00:00Z" }], // Finados
+  "Sprint 3": [{ start: "2026-11-02T00:00:00Z", end: "2026-11-02T00:00:00Z" }],
 };
 const SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3"];
 const ITERACOES_PADRAO = ["Iteration 1", "Iteration 2", "Iteration 3"];
@@ -80,7 +69,6 @@ async function main() {
   const itens = await todosItens(projeto.id);
   const porTitulo = new Map(itens.map((i) => [String(i.fields["System.Title"]), i]));
 
-  // 1. Responsáveis
   for (const [titulo, p] of Object.entries(RESPONSAVEIS)) {
     const item = porTitulo.get(titulo);
     if (!item) {
@@ -96,7 +84,6 @@ async function main() {
     console.log(`${alvo ? "→" : "×"} #${item.id} ${titulo}${alvo ? ` → ${pessoa(p).displayName}` : ""}`);
   }
 
-  // 2. Capacidade, férias e folga do time
   const iteracoesTime = await azdo.listTeamIterations(projeto.id, time.id);
   for (const nome of SPRINTS) {
     const it = iteracoesTime.find((i) => i.name === nome);
@@ -118,7 +105,6 @@ async function main() {
     console.log(`✓ capacidade ${nome}: ${RESET ? 0 : HORAS_DIA}h/dia x ${membros.length}`);
   }
 
-  // 3. Cadeia Feature -> User Story -> Task
   const feature = porTitulo.get("Painel de pátio em tempo real");
   const story = await garantirItem(projeto.id, porTitulo, {
     tipo: "User Story",
@@ -140,7 +126,6 @@ async function main() {
     horas: 6,
   });
 
-  // 4. Iterações padrão sem data (Iteration 1..3) saem do time para não poluir
   if (!RESET) {
     for (const it of iteracoesTime.filter((i) => ITERACOES_PADRAO.includes(i.name))) {
       await azdo.request("DELETE", `${enc(projeto.id)}/${enc(time.id)}/_apis/work/teamsettings/iterations/${it.id}`);

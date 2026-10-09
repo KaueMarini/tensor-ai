@@ -1,7 +1,3 @@
-// Dark mode via classe `.dark` no <html>. Preferência salva em localStorage; sem
-// preferência salva, cai no prefers-color-scheme do sistema. Script inline em
-// index.html já aplica a classe antes do React montar (evita flash).
-
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 
 export type Tema = "claro" | "escuro";
@@ -17,9 +13,7 @@ function aplicar(tema: Tema) {
   document.documentElement.classList.toggle("dark", tema === "escuro");
   try {
     localStorage.setItem(CHAVE, tema);
-  } catch {
-    // Storage indisponível (modo privado etc.): a preferência só não persiste.
-  }
+  } catch {}
 }
 
 interface ThemeCtx {

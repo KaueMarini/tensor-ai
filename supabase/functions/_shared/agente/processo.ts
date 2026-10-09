@@ -1,8 +1,3 @@
-// Agente, sugestões de MELHORIA DE PROCESSO (determinístico):
-//   gargalo  tasks paradas no mesmo estado muito além do normal do projeto (> 2× a mediana e > 7 dias)
-//   wip      pessoa com trabalho em andamento demais ao mesmo tempo (WIP acima do limite)
-// Números prontos para o LLM só explicar; pessoas por papel (pseudônimo).
-
 import type { Candidato } from "./candidatos.ts";
 import type { ItemTempo } from "./explicacao.ts";
 
@@ -32,7 +27,6 @@ export function gerarCandidatosProcesso(e: {
   const noEscopo = (id: string) => !e.escopo?.length || e.escopo.includes(id);
   const out: Candidato[] = [];
 
-  // Gargalos por projeto
   for (const p of e.projetos) {
     if (!noEscopo(p.id)) continue;
     const doProjeto = e.itens.filter((i) => i.projetoId === p.id && (i.mudouEstado || i.criado));
@@ -71,7 +65,6 @@ export function gerarCandidatosProcesso(e: {
     });
   }
 
-  // WIP alto por pessoa (todos os projetos)
   const emAndamento = new Map<string, ItemFluxo[]>();
   for (const i of e.itens) {
     if (i.categoria !== "InProgress" || !i.responsavelId) continue;

@@ -1,6 +1,3 @@
-// Work item do DevOps -> linha do RPC upsert_work_items.
-// Tolera qualquer campo ausente: a iPORT ainda não confirmou quais campos de horas/datas usa.
-
 import type { AzdoIdentityRef, AzdoWorkItem } from "../azdo/types.ts";
 import { normalizeIterationPath } from "./paths.ts";
 
@@ -41,7 +38,6 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** "a; b ;a" -> ["a","b"] (trim + dedup, mantém a grafia original da primeira ocorrência). */
 export function parseTags(raw: unknown): string[] {
   if (typeof raw !== "string") return [];
   const seen = new Set<string>();
@@ -56,7 +52,6 @@ export function parseTags(raw: unknown): string[] {
   return out;
 }
 
-/** Pai via System.Parent ou, na falta, pela relação Hierarchy-Reverse. */
 export function parentId(item: Pick<AzdoWorkItem, "fields" | "relations">): number | null {
   const direct = num(item.fields["System.Parent"]);
   if (direct !== null) return direct;

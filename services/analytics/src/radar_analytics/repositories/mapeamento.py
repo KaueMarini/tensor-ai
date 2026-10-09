@@ -1,5 +1,3 @@
-"""Linhas do banco → modelos do domínio. Puro (testável sem banco)."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -49,7 +47,6 @@ def regras(linha: Linha | None) -> RegrasGerais:
 
 
 def pessoa(linha: Linha) -> Pessoa:
-    """Colunas: id, nome, funcao, skills (text[] já ordenado), jornada_dia, foco."""
     return Pessoa(
         id=str(linha["id"]),
         nome=str(linha["nome"] or ""),
@@ -97,7 +94,6 @@ def _prioridade(fields: Mapping[str, Any]) -> int | None:
 
 
 def task(linha: Linha, campo_bloqueio: str | None) -> Task:
-    """Colunas de work_item + tem_filhos, feature_tags, depende_de, criado_devops."""
     fields: Mapping[str, Any] = linha.get("fields") or {}
     bloqueio = fields.get(campo_bloqueio) if campo_bloqueio else None
     return Task(
@@ -141,7 +137,6 @@ def transicao(linha: Linha) -> Transicao:
 
 
 def transicoes_de_updates(work_item_id: int, updates: Iterable[Mapping[str, Any]]) -> list[Transicao]:
-    """Resposta de GET _apis/wit/workItems/{id}/updates → transições de State/BoardColumn."""
     out: list[Transicao] = []
     for u in updates:
         fields: Mapping[str, Any] = u.get("fields") or {}
@@ -171,7 +166,6 @@ def transicoes_de_updates(work_item_id: int, updates: Iterable[Mapping[str, Any]
 
 
 def dependencias_de_relacoes(item: Mapping[str, Any]) -> list[tuple[str, int]]:
-    """Relações de dependência de um work item (`$expand=relations`) → [(tipo, id alvo)]."""
     out: list[tuple[str, int]] = []
     for r in item.get("relations") or []:
         tipo = str(r.get("rel") or "")

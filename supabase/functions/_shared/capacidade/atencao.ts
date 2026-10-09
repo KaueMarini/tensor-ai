@@ -1,7 +1,3 @@
-// "Precisa de você": transforma a ocupação geral (global.ts) e as tasks sem dono numa lista
-// curta de pendências para o gestor, da mais grave para a menos grave, cada uma com uma frase
-// pronta e o alvo da ação. Puro e determinístico: a tela só exibe.
-
 import type { CelulaGlobal } from "./global.ts";
 
 export type Gravidade = "critico" | "atencao";
@@ -13,9 +9,7 @@ export type ItemAtencao =
       pessoaId: string;
       titulo: string;
       detalhe: string;
-      /** Projeto que mais pesa na carga da pessoa (onde agir primeiro). */
       projetoId: string | null;
-      /** Para ordenar: horas acima da capacidade (ou % de uso no limite). */
       peso: number;
     }
   | {
@@ -50,9 +44,7 @@ export function itensDeAtencao(entrada: {
   celula: (pessoaId: string) => CelulaGlobal | undefined;
   nomeProjeto: (projetoId: string) => string;
   semDono: SemDonoProjeto[];
-  /** Projetos novos sem ninguém alocado (ganham sugestão de squad/pessoas). */
   semEquipe?: { projetoId: string; nome: string }[];
-  /** Ex.: "nas próximas 2 semanas" */
   periodo: string;
 }): ItemAtencao[] {
   const { pessoas, celula, nomeProjeto, semDono, periodo, semEquipe = [] } = entrada;

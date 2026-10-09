@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
-/** Backlog em tabela Sprint → Feature → itens (visão "Lista" do Kanban). */
 export function BacklogLista() {
   const { projetoId } = useParams({ strict: false }) as { projetoId: string };
   const sprints = useSprints(projetoId);

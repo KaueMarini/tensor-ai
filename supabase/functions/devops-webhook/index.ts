@@ -1,8 +1,3 @@
-// devops-webhook: recebe Service Hooks do Azure DevOps (workitem.created/updated/deleted/restored).
-// Deploy com --no-verify-jwt (o DevOps não envia JWT do Supabase); autenticação por basic auth.
-// Grava o evento bruto (idempotente pela chave), responde 200 na hora e processa em background:
-// rebusca o item na API e só grava se o rev for maior.
-
 import type { AzdoServiceHookPayload } from "../_shared/azdo/types.ts";
 import { extractWebhookRef } from "../_shared/mappers/webhook.ts";
 import { errorMessage, log } from "../_shared/log.ts";
@@ -23,7 +18,6 @@ async function basicAuthOk(req: Request): Promise<boolean> {
   const sep = decoded.indexOf(":");
   const user = decoded.slice(0, sep);
   const pass = decoded.slice(sep + 1);
-  // avalia os dois para não vazar qual falhou pelo tempo de resposta
   const okUser = safeEqual(user, env("WEBHOOK_BASIC_USER"));
   const okPass = await verificarSegredo(pass, "WEBHOOK_BASIC_PASS");
   return sep > 0 && okUser && okPass;
@@ -52,7 +46,6 @@ Deno.serve(async (req) => {
 
   if (error) {
     log("error", "falha ao gravar evento", { devops_id: ref.devopsId, erro: error.message });
-    // 500 faz o DevOps reenviar; a reconciliação cobre se ele desistir
     return jsonResponse({ error: "falha ao gravar evento" }, 500);
   }
 

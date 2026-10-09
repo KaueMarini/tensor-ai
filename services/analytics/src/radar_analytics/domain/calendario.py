@@ -1,5 +1,3 @@
-"""Calendário de trabalho: dias úteis, folgas e horas úteis entre dois instantes. Puro."""
-
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
@@ -24,7 +22,6 @@ def fim_de_semana(d: date) -> bool:
 
 
 def dias_uteis(inicio: date, fim: date, excluir: Callable[[date], bool] = lambda _d: False) -> list[date]:
-    """Segunda a sexta no intervalo (inclusivo), menos os dias em `excluir`."""
     return [d for d in dias(inicio, fim) if not fim_de_semana(d) and not excluir(d)]
 
 
@@ -33,7 +30,6 @@ def segunda_da_semana(d: date) -> date:
 
 
 def semanas(inicio: date, quantidade: int) -> list[tuple[date, date]]:
-    """`quantidade` semanas (segunda a domingo) a partir da semana de `inicio`."""
     seg = segunda_da_semana(inicio)
     return [(seg + timedelta(weeks=i), seg + timedelta(weeks=i, days=6)) for i in range(quantidade)]
 
@@ -56,10 +52,6 @@ def horas_uteis_entre(
     feriados: frozenset[date],
     expediente: Expediente = EXPEDIENTE_PADRAO,
 ) -> float:
-    """Horas dentro do expediente, em dias úteis sem feriado, entre dois instantes.
-
-    Os instantes são convertidos para America/Sao_Paulo. fim <= inicio → 0.
-    """
     ini = inicio.astimezone(FUSO)
     fi = fim.astimezone(FUSO)
     if fi <= ini:

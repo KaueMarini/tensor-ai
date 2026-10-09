@@ -1,7 +1,3 @@
--- Renomear projeto: as sprints precisam trocar de caminho ANTES dos work items. Senão o
--- trigger que resolve a sprint pelo iteration_path não acha a sprint (ainda com o nome
--- antigo) e as tasks ficam "sem sprint" até a próxima sync de metadados.
-
 create or replace function public.renomear_paths_projeto(p_projeto_id uuid, p_antigo text, p_novo text)
 returns integer language plpgsql security definer set search_path = public as $$
 declare n integer;

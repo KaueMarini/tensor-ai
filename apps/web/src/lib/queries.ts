@@ -21,7 +21,6 @@ export const keys = {
   estados: (projetoId: string) => ["estados", projetoId] as const,
   skillsCatalogo: ["skills_catalogo"] as const,
   funcaoTags: ["funcao_tags"] as const,
-  // começa com "backlog" para o Realtime de work_item invalidar junto
   semDono: ["backlog", "sem_dono_resumo"] as const,
 };
 
@@ -30,7 +29,6 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
-/** Chama uma Edge Function e devolve a mensagem de erro do corpo (não só "non-2xx"). */
 async function invocar<T>(nome: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke<T>(nome, { body });
   if (error) {
@@ -42,10 +40,6 @@ async function invocar<T>(nome: string, body: Record<string, unknown>): Promise<
   }
   return data as T;
 }
-
-// =====================================================================
-// Projetos (pensado para muitos: paginação e busca no banco)
-// =====================================================================
 
 export type ProjetoResumo = Views<"v_projeto_resumo">;
 export const POR_PAGINA = 20;
@@ -80,7 +74,6 @@ export function useProjetosPorIds(ids: string[]) {
   return useQuery({
     queryKey: keys.projetosPorIds(ids),
     enabled: ids.length > 0,
-    // arquivados (excluídos no DevOps) somem dos recentes
     queryFn: async () => unwrap(await supabase.from("projeto").select("id, nome").in("id", ids).is("deleted_at", null)),
   });
 }
@@ -119,13 +112,8 @@ export function useSyncState() {
   });
 }
 
-// =====================================================================
-// Membros: skills (skill_tag, já existente) + tags de função (funcao_tag, nova)
-// =====================================================================
-
 export type MembroRow = Views<"v_membros">;
 
-/** Todos os vínculos pessoa × time de todos os projetos; a tela agrupa por pessoa ou por projeto. */
 export function useMembros() {
   return useQuery({
     queryKey: keys.membros,
@@ -140,10 +128,6 @@ export function useMembrosProjeto(projetoId: string) {
       unwrap(await supabase.from("v_membros").select("*").eq("projeto_id", projetoId).order("nome")),
   });
 }
-
-// =====================================================================
-// Capacidade (insumos do motor em @shared/capacidade/motor)
-// =====================================================================
 
 export function useCapacidades(projetoId: string) {
   return useQuery({
@@ -179,10 +163,6 @@ export function useFeriados() {
   });
 }
 
-// =====================================================================
-// Notificações (sino): a IA grava em `notificacao`; o front lista e marca como lida
-// =====================================================================
-
 export type Notificacao = Tables<"notificacao">;
 
 export function useNotificacoes() {
@@ -196,7 +176,6 @@ export function useNotificacoes() {
 export function useMarcarLidas() {
   const qc = useQueryClient();
   return useMutation({
-    /** ids vazios = marcar todas as não lidas */
     mutationFn: async (ids: string[]) => {
       let q = supabase.from("notificacao").update({ lida_em: new Date().toISOString() }).is("lida_em", null);
       if (ids.length) q = q.in("id", ids);
@@ -207,7 +186,6 @@ export function useMarcarLidas() {
   });
 }
 
-/** Projetos ativos para seletores (limite de 500; acima disso vale trocar por busca). */
 export function useProjetosLista() {
   return useQuery({
     queryKey: ["projetos", "lista"],
@@ -216,17 +194,12 @@ export function useProjetosLista() {
   });
 }
 
-/** Ausências de todo mundo (tabela pequena): o motor de capacidade desconta como folga pessoal. */
 export function useAusencias() {
   return useQuery({
     queryKey: keys.ausencias,
     queryFn: async () => unwrap(await supabase.from("ausencia").select("pessoa_id, inicio, fim")),
   });
 }
-
-// =====================================================================
-// Agenda: sprints, feriados, ausências e entregas de features numa janela de datas
-// =====================================================================
 
 export const TIPOS_AUSENCIA = [
   { valor: "ferias", rotulo: "Férias" },
@@ -236,13 +209,11 @@ export const TIPOS_AUSENCIA = [
 ] as const;
 export type TipoAusencia = (typeof TIPOS_AUSENCIA)[number]["valor"];
 
-/** Janela [inicio, fim] em "YYYY-MM-DD"; projetoId vazio = todos os projetos. */
 export function useAgenda(inicio: string, fim: string, projetoId: string) {
   return useQuery({
     queryKey: keys.agenda(inicio, fim, projetoId),
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      // datas das features são timestamptz: o fim da janela vira "antes do dia seguinte"
       const d = new Date(Date.parse(`${fim}T00:00:00Z`) + 86_400_000);
       const depois = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 
@@ -279,7 +250,6 @@ export function useAgenda(inicio: string, fim: string, projetoId: string) {
         ausencias = ausencias.in("pessoa_id", pessoasDoProjeto ?? []);
       }
 
-      // folgas do Azure DevOps (days off): da pessoa = férias/folga; sem pessoa = o time inteiro
       let folgas = supabase
         .from("dias_off")
         .select("id, inicio, fim, pessoa_id, pessoa(nome), time!inner(nome, projeto_id, projeto(nome))")
@@ -304,7 +274,6 @@ function useInvalidarAgenda() {
   return () => {
     void qc.invalidateQueries({ queryKey: ["agenda"] });
     void qc.invalidateQueries({ queryKey: keys.ausencias });
-    // carga global (prefixo "backlog") também desconta ausências
     void qc.invalidateQueries({ queryKey: ["backlog"] });
   };
 }
@@ -323,7 +292,6 @@ export function useRegistrarAusencia() {
   });
 }
 
-/** Feriado regional ou recesso: uma linha por dia do período (fim de semana o motor já ignora). */
 export function useCadastrarFeriado() {
   const invalidar = useInvalidarAgenda();
   const qc = useQueryClient();
@@ -373,10 +341,6 @@ export function useRemoverAusencia() {
   });
 }
 
-// =====================================================================
-// Kanban: estados do processo e mover card (escreve no DevOps)
-// =====================================================================
-
 export function useEstados(projetoId: string) {
   return useQuery({
     queryKey: keys.estados(projetoId),
@@ -398,7 +362,6 @@ export function useMoverCard() {
   });
 }
 
-/** Projetos com tasks abertas sem responsável (para a tela Análises não carregar todos). */
 export function useSemDonoResumo() {
   return useQuery({
     queryKey: keys.semDono,
@@ -407,7 +370,6 @@ export function useSemDonoResumo() {
   });
 }
 
-/** Gestor aprova a sugestão: reatribui a task no DevOps (auditado em `acao`). */
 export function useAtribuirTask() {
   const qc = useQueryClient();
   return useMutation({
@@ -422,7 +384,6 @@ export function useAtribuirTask() {
   });
 }
 
-/** Skills já usadas por alguém, pra autocomplete — skill continua texto livre, sem catálogo rígido. */
 export function useSkillsCatalogo() {
   return useQuery({
     queryKey: keys.skillsCatalogo,
@@ -434,7 +395,6 @@ export function useSkillsCatalogo() {
   });
 }
 
-/** Catálogo de tags de função (Desenvolvedor, Tech Lead...) — gestor cria/edita/remove. */
 export function useFuncaoTags() {
   return useQuery({
     queryKey: keys.funcaoTags,
@@ -453,7 +413,6 @@ export function useAdicionarSkill() {
   return useMutation({
     mutationFn: async ({ pessoaId, skill }: { pessoaId: string; skill: string }) => {
       const tag = skill.trim();
-      // Já existe sugerida/descartada com o mesmo nome (sem diferenciar maiúsculas): confirma ela
       const { data: existentes, error: e1 } = await supabase
         .from("skill_tag")
         .select("id")
@@ -473,10 +432,6 @@ export function useAdicionarSkill() {
   });
 }
 
-/**
- * Remove uma skill. As inferidas das tasks não são apagadas, e sim descartadas
- * (rejeitada = true): assim a inferência automática não as sugere de novo.
- */
 export function useRemoverSkill() {
   const invalidar = useInvalidarMembros();
   return useMutation({
@@ -491,7 +446,6 @@ export function useRemoverSkill() {
   });
 }
 
-/** Gestor revisa as sugestões da inferência: confirmar uma ou várias, ou restaurar uma descartada. */
 export function useRevisarSkills() {
   const invalidar = useInvalidarMembros();
   return useMutation({

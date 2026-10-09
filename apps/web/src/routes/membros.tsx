@@ -1,7 +1,3 @@
-// Seção Membros: pessoas dos times sincronizados do Azure DevOps (time_membro), com
-// skills (skill_tag) e tags de função (funcao_tag) geridas pelo gestor no Supabase.
-// Duas visões: todos os membros (uma pessoa = um card) e por squads (membros-squads.tsx).
-
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -52,10 +48,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// ---------------------------------------------------------------------------
-// Dados
-// ---------------------------------------------------------------------------
-
 interface Filtros {
   busca: string;
   projeto: string;
@@ -102,10 +94,6 @@ async function tentar(acao: () => Promise<unknown>, sucesso?: string) {
     return false;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Página
-// ---------------------------------------------------------------------------
 
 export function MembrosPage() {
   const { visao } = useSearch({ from: "/app/membros" });
@@ -291,10 +279,6 @@ export function MembrosPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Cabeçalho, KPIs, filtros
-// ---------------------------------------------------------------------------
-
 function AlternarVisao({ aba }: { aba: "ocupacao" | "skills" | "squads" }) {
   const base = "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors";
   const ativo = "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white";
@@ -374,11 +358,6 @@ function Select({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Peças visuais
-// ---------------------------------------------------------------------------
-
-/** Chip de skill sugerida pela inferência das tasks (ainda não confirmada pelo gestor). */
 export function ChipSugerida({ texto, evidencias }: { texto: string; evidencias?: number }) {
   return (
     <span
@@ -592,10 +571,6 @@ function Esqueleto() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Perfil do membro (painel lateral)
-// ---------------------------------------------------------------------------
-
 function useEsc(onClose: () => void) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -615,7 +590,6 @@ export function PainelMembro({
   funcaoTags: FuncaoTag[];
   skillsCatalogo: string[];
   onClose: () => void;
-  /** Nome de qualquer projeto (a carga pode vir de projetos fora de membro.projetos). */
   nomeProjeto?: (id: string) => string;
 }) {
   useEsc(onClose);
@@ -634,7 +608,6 @@ export function PainelMembro({
   const disponiveis = funcaoTags.filter((t) => !membro.tags.some((mt) => mt.id === t.id));
   const sugestoesSkill = skillsCatalogo.filter((s) => !membro.skills.includes(s));
 
-  /** Inferida das tasks → descarta (não volta); cadastrada pelo gestor → apaga. */
   const remover = (skill: string) =>
     tentar(() =>
       removerSkill.mutateAsync({
@@ -917,10 +890,6 @@ function ChipRemovivel({
     </Badge>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Catálogo de tags (renomear / excluir afeta todos os membros)
-// ---------------------------------------------------------------------------
 
 function ModalGerenciarTags({
   tags,

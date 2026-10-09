@@ -1,6 +1,3 @@
-// Lista de projetos pensada para volume: busca e paginação no banco (v_projeto_resumo),
-// nunca carrega todos. Os recentes (deste navegador) ficam no topo para acesso rápido.
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRight, ChevronLeft, ChevronRight, Clock, FolderSearch, Search } from "lucide-react";
@@ -21,7 +18,6 @@ export function ProjetosPage() {
   const navigate = useNavigate({ from: "/projetos" });
   const [texto, setTexto] = useState(q);
 
-  // busca com debounce: a URL (e a consulta) só mudam 300 ms depois de parar de digitar
   useEffect(() => {
     if (texto === q) return;
     const t = setTimeout(() => void navigate({ search: { ...(texto ? { q: texto } : {}) }, replace: true }), 300);

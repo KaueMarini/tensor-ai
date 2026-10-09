@@ -1,7 +1,3 @@
-// Resumo do projeto (aba padrão): o estado da sprint em um olhar — números do time, o que
-// precisa de atenção (inclusive quem parece bem aqui mas está sobrecarregado somando outros
-// projetos), quem pode absorver trabalho e o mapa pessoa × sprint. Números vêm do motor.
-
 import { useMemo, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { AlertTriangle, ArrowRight, BatteryMedium, CalendarRange, Gauge, Grid3x3, Layers, Lightbulb, PartyPopper, UserRoundX } from "lucide-react";
@@ -36,7 +32,6 @@ interface Alerta {
 export function ResumoPage() {
   const { projetoId } = useParams({ strict: false }) as { projetoId: string };
   const projeto = useProjeto(projetoId);
-  // Projeto novo sem gente: a primeira coisa que o gestor precisa é de quem pode tocar
   if (precisaDeEquipe(projeto.data))
     return (
       <div className="space-y-5">
@@ -86,7 +81,6 @@ function ResumoSprint({ projetoId }: { projetoId: string }) {
         else out.push({ chave: `${s.id}${p.id}`, status: c.status, texto: `${p.nome} está no limite na ${s.nome} (${pct(c.utilizacao)})`, detalhe, acao: verEquipe });
       }
     }
-    // Parece bem aqui, mas está pior somando os outros projetos (sprint em foco)
     if (sprint && global.celula) {
       for (const p of cap.pessoas) {
         const c = cap.celula(sprint.id, p.id);
@@ -300,7 +294,6 @@ function BotaoAcao({ projetoId, acao, primaria }: { projetoId: string; acao: Des
   );
 }
 
-/** Horas que a pessoa ainda pode receber sem passar do limite de atenção (regras do gestor). */
 function livreAteAtencao(c: Celula) {
   return Math.max(0, Math.floor(c.capacidadeH * c.limites.atencao - c.cargaH));
 }

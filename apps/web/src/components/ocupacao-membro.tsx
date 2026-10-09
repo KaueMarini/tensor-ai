@@ -1,6 +1,3 @@
-// Ocupação de uma pessoa na ficha (drawer): próximas semanas, de onde vem a carga e a jornada
-// dela — tudo o que o gestor precisa para decidir sem trocar de tela.
-
 import { Link } from "@tanstack/react-router";
 import { Gauge } from "lucide-react";
 import { useCargaGlobal } from "@/lib/carga-global";

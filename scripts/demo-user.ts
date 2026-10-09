@@ -1,8 +1,3 @@
-// pnpm demo:user
-// Cria (ou atualiza a senha de) o usuário de demo no Supabase Auth via Admin API.
-// Idempotente. Lê DEMO_EMAIL / DEMO_PASSWORD do .env.local; se não houver senha, gera uma
-// e imprime (guarde no seu .env.local — nunca no repo).
-
 import { randomBytes } from "node:crypto";
 
 const need = (k: string) => {
@@ -12,7 +7,7 @@ const need = (k: string) => {
 };
 
 const URL_BASE = need("SUPABASE_URL").replace(/\/$/, "");
-const KEY = need("SUPABASE_SERVICE_ROLE_KEY"); // só local, nunca no front
+const KEY = need("SUPABASE_SERVICE_ROLE_KEY");
 const email = process.env.DEMO_EMAIL?.trim() || "demo@radar-capacidade.dev";
 const senhaInformada = process.env.DEMO_PASSWORD?.trim();
 const senha = senhaInformada || randomBytes(9).toString("base64url");

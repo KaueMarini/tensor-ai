@@ -1,16 +1,3 @@
-"""Ações candidatas, geradas de forma determinística. O LLM só ESCOLHE uma delas.
-
-Gatilhos:
-  - semana com o responsável em sobrecarga  → tasks dele que pesam naquela semana
-  - task cujo período cruza ausência do responsável
-Ações (só Tasks; Features e Sprints nunca mudam):
-  - reatribuir    para outra pessoa do time do projeto que, depois de receber a task, não
-                  passa do limite de sobrecarga em nenhuma semana da janela
-  - mover_sprint  para a próxima sprint datada do projeto
-  - pausar        task de baixa prioridade (Priority ≥ 3 no DevOps) sai da sprint
-Cada ação é simulada no motor de capacidade (antes × depois) e classificada em Esforço × Impacto.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -223,7 +210,7 @@ def _avaliar(
     if para and any(
         c.status in ("sobrecarga", "sem-capacidade") for c in celulas_depois if c.pessoa_id == para
     ):
-        return None  # não resolve um problema criando outro
+        return None
 
     lim = e.regras.sobrecarga
     antes = tuple(_estado(p, celulas_antes, semana, lim) for p in envolvidos)
@@ -241,7 +228,7 @@ def _avaliar(
     if conflito_resolvido:
         horas_atraso += horas.horas
     if horas_atraso <= 0 and pico_depois >= pico_antes and not conflito_resolvido:
-        return None  # não melhora nada
+        return None
 
     fit = None
     if para:

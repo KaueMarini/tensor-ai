@@ -1,7 +1,5 @@
 name: ci
 
-# Front (apps/web), código compartilhado (_shared) e Edge Functions. O serviço Python tem o
-# próprio workflow (analytics.yml).
 on:
   push:
     branches: [main]

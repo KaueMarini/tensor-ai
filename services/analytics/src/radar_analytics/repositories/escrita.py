@@ -1,8 +1,3 @@
-"""Escritas do serviço no banco (service role): sugestões, transições e cache de relações.
-
-Nada aqui toca o Azure DevOps.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
@@ -22,7 +17,7 @@ class SugestaoNova(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     projeto_id: str
-    origem: str  # 'evento' | 'sweep'
+    origem: str
     tipo: str
     markdown: str
     justificativa: str
@@ -46,7 +41,6 @@ def existe_pendente(conn: Conn, hash_payload: str) -> bool:
 
 
 def gravar_sugestao(conn: Conn, s: SugestaoNova) -> UUID | None:
-    """Insere como 'pendente'. Mesmo hash já pendente → None (idempotente)."""
     with conn.cursor() as cur:
         cur.execute(
             """insert into sugestao (projeto_id, origem, tipo, markdown, justificativa, payload, acao,
@@ -90,7 +84,6 @@ def gravar_transicoes(conn: Conn, transicoes: Sequence[Transicao]) -> int:
 
 
 def itens_sem_historico(conn: Conn, projeto_id: str | None, limite: int) -> list[int]:
-    """Work items (não Feature/Epic) que ainda não têm transição de backfill."""
     with conn.cursor() as cur:
         cur.execute(
             """select w.devops_id from work_item w
@@ -105,7 +98,6 @@ def itens_sem_historico(conn: Conn, projeto_id: str | None, limite: int) -> list
 
 
 def gravar_relacoes(conn: Conn, relacoes: Iterable[tuple[int, str, int]]) -> None:
-    """Substitui o cache de dependências dos itens informados."""
     lista = list(relacoes)
     itens = sorted({r[0] for r in lista})
     with conn.cursor() as cur:

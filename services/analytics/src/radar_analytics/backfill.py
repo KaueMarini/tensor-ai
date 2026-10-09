@@ -1,5 +1,3 @@
-"""Backfill do histórico de transições e do cache de dependências a partir do DevOps (leitura)."""
-
 from __future__ import annotations
 
 from typing import Any

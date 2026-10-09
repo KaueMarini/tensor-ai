@@ -1,8 +1,3 @@
--- Feriados nacionais (Lei 662/1949 e alterações, incl. Consciência Negra pela Lei 14.759/2023)
--- de 2026 e 2027. Aparecem na Agenda e zeram a capacidade do dia no motor, para todos.
--- Carnaval e Corpus Christi são ponto facultativo, não feriado nacional: ficam de fora.
--- Idempotente: reaplicar não duplica (unique (data, abrangencia)).
-
 insert into public.feriado (data, nome, abrangencia) values
   ('2026-01-01', 'Confraternização Universal', 'nacional'),
   ('2026-04-03', 'Sexta-feira Santa', 'nacional'),

@@ -1,13 +1,3 @@
-// pnpm devops:organizar [--dry]
-// Organiza a org de demo como uma empresa: cada pessoa com um foco, tasks coerentes com
-// esse foco e alocação de horas realista por projeto (soma ≤ jornada de 8h/dia).
-//   1. Capacity por pessoa × time × sprint no Azure DevOps (ALOCACAO).
-//   2. Responsável das tasks ABERTAS conforme o foco (RESPONSAVEIS); fechadas ficam como estão
-//      (histórico). Algumas tasks ficam sem dono de propósito, para a tela Análises sugerir.
-//   3. No app (Supabase): tag de função e skills principais de cada pessoa, como o gestor
-//      faria (origem 'gestor', confirmadas).
-// Idempotente: compara antes de escrever. --dry só mostra o que faria.
-
 import { createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import type { AzdoCapacity, AzdoPatchOp, AzdoTeamMember, AzdoWorkItem } from "../supabase/functions/_shared/azdo/types.ts";
 
@@ -19,7 +9,7 @@ const need = (k: string) => {
 
 const azdo = createAzdoClient({ orgUrl: need("AZDO_ORG_URL"), pat: need("AZDO_PAT") });
 const SB = need("SUPABASE_URL").replace(/\/$/, "");
-const KEY = need("SUPABASE_SERVICE_ROLE_KEY"); // só local, nunca no front
+const KEY = need("SUPABASE_SERVICE_ROLE_KEY");
 const DRY = process.argv.includes("--dry");
 const enc = encodeURIComponent;
 const SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3"];
@@ -27,10 +17,6 @@ const SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3"];
 type Pessoa =
   | "kaue" | "laryssa" | "nicolas" | "julliano" | "abner" | "sebastiao" | "aaron"
   | "abigail" | "alexsandro" | "arao" | "thabata" | "valeria" | "wallace";
-
-// ---------------------------------------------------------------------------
-// A "empresa"
-// ---------------------------------------------------------------------------
 
 const PERFIL: Record<Pessoa, { funcao: string; skills: string[] }> = {
   kaue: { funcao: "Tech Lead", skills: ["back-end", "integracao-fiscal", "integracao", "api"] },
@@ -48,28 +34,23 @@ const PERFIL: Record<Pessoa, { funcao: string; skills: string[] }> = {
   wallace: { funcao: "Infra & Segurança", skills: ["infra", "seguranca"] },
 };
 
-/** Horas/dia por projeto (chave = ID do projeto, estável se ele for renomeado). Quem não aparece fica com 6h/dia. */
 const ALOCACAO: Record<string, Partial<Record<Pessoa, number>>> = {
-  "569342a3-1d76-4c48-8f9e-e8c635bb13d3": { kaue: 4 }, // fiscal e faturamento (antigo IportJLNK)
-  "badd3c28-2533-4e04-9239-e79fa7f520f0": { kaue: 2 }, // pátio e agendamento (antigo IportJLKN12)
-  "dbb885fc-cab5-4bc8-85d8-70da870e7b74": { kaue: 2 }, // app do motorista
-  "a8f446dd-64fb-44a7-a32c-10fe9584e646": { kaue: 0 }, // assistente virtual
+  "569342a3-1d76-4c48-8f9e-e8c635bb13d3": { kaue: 4 },
+  "badd3c28-2533-4e04-9239-e79fa7f520f0": { kaue: 2 },
+  "dbb885fc-cab5-4bc8-85d8-70da870e7b74": { kaue: 2 },
+  "a8f446dd-64fb-44a7-a32c-10fe9584e646": { kaue: 0 },
 };
 const PADRAO_H_DIA = 6;
 
-/** devops_id → responsável. Ausentes ficam como estão; null = deixar sem dono. */
 const RESPONSAVEIS: Record<number, Pessoa | null> = {
-  // IportJLKN12 — pátio e agendamento
   16: "laryssa", 28: "laryssa", 29: "laryssa",
   17: "nicolas", 18: "nicolas", 19: "nicolas", 26: "nicolas",
   20: "julliano", 21: "julliano", 22: "julliano", 23: "julliano", 24: "julliano", 25: "julliano",
   27: "kaue",
-  // Eu amo a Laryssa — app do motorista (Abner perto do limite na Sprint 1, de propósito)
   61: "abner", 63: "abner", 64: "abner", 66: "abner", 68: "abner", 75: "abner", 81: "abner", 85: "abner", 87: "abner",
   69: "sebastiao", 70: "sebastiao", 74: "sebastiao", 76: "sebastiao", 77: "sebastiao", 80: "sebastiao", 82: "sebastiao", 86: "sebastiao",
   65: "aaron", 72: "aaron", 78: "aaron", 83: "aaron", 88: "aaron",
   71: "kaue",
-  // Teste — bot de atendimento (54, 57 e 59 ficam sem dono para a tela Análises)
   35: "abigail", 36: "abigail", 49: "abigail",
   45: "alexsandro", 46: "alexsandro",
   51: "arao", 52: "arao", 53: "arao",
@@ -77,14 +58,11 @@ const RESPONSAVEIS: Record<number, Pessoa | null> = {
   41: "valeria", 42: "valeria", 43: "valeria", 56: "valeria",
   37: "wallace", 47: "wallace",
   54: null, 57: null, 59: null,
-  // IportJLNK — fiscal (só o Kauê no time: o resto fica sem dono até entrar gente)
   91: "kaue", 92: "kaue", 96: "kaue", 97: "kaue", 101: "kaue", 102: "kaue", 103: "kaue", 104: "kaue",
   109: "kaue", 112: "kaue", 113: "kaue",
 };
 
-const TAGS_DE_TESTE = ["kotlin"]; // sobras de testes manuais
-
-// ---------------------------------------------------------------------------
+const TAGS_DE_TESTE = ["kotlin"];
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const chave = (s: string) => norm(s).replace(/[^a-z0-9]+/g, "");
@@ -125,7 +103,6 @@ async function organizarProjeto(projeto: { id: string; name: string }) {
     if (p) porPessoa.set(p, m.identity);
   }
 
-  // 1. Capacity
   const iteracoes = (await azdo.listTeamIterations(projeto.id, time.id)).filter((i) => SPRINTS.includes(i.name));
   for (const it of iteracoes) {
     const base = `${enc(projeto.id)}/${enc(time.id)}/_apis/work/teamsettings/iterations/${it.id}`;
@@ -145,7 +122,6 @@ async function organizarProjeto(projeto: { id: string; name: string }) {
     }
   }
 
-  // 2. Responsáveis das tasks abertas + limpeza de tags de teste
   const ids = await azdo.wiqlIds(projeto.id, "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project");
   const itens: AzdoWorkItem[] = ids.length
     ? await azdo.getWorkItemsBatch(ids, ["System.Id", "System.Title", "System.State", "System.AssignedTo", "System.Tags", "System.WorkItemType"])
@@ -166,7 +142,6 @@ async function organizarProjeto(projeto: { id: string; name: string }) {
     const tags = String(i.fields["System.Tags"] ?? "").split(";").map((t) => t.trim()).filter(Boolean);
     const limpas = tags.filter((t) => !TAGS_DE_TESTE.includes(t.toLowerCase()));
     if (limpas.length !== tags.length) {
-      // "add" em System.Tags acrescenta; para tirar tag é preciso "replace" com a lista final
       ops.push({ op: "replace", path: "/fields/System.Tags", value: limpas.join("; ") });
       notas.push("remove tag de teste");
     }

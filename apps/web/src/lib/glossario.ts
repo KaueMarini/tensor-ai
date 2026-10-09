@@ -1,6 +1,3 @@
-// Termos do sistema em linguagem simples, para quem não é da área. Um só lugar para o
-// glossário da barra superior e os "?" ao lado dos números das telas.
-
 export const GLOSSARIO = {
   sprint: {
     termo: "Sprint",

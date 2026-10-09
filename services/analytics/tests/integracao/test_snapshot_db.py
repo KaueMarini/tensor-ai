@@ -1,8 +1,3 @@
-"""Integração com o banco real (só leitura). Pulado sem SUPABASE_DB_URL.
-
-Roda o SQL dos repositórios em todos os projetos ativos e passa o resultado pelo domínio.
-"""
-
 from __future__ import annotations
 
 import os

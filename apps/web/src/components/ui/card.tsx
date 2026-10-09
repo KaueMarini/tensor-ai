@@ -27,7 +27,6 @@ export function CardTitulo({
   titulo: string;
   descricao?: ReactNode;
   acao?: ReactNode;
-  /** Termo do glossário explicado num "?" ao lado do título. */
   ajuda?: TermoGlossario;
 }) {
   return (
@@ -49,7 +48,6 @@ export function CardTitulo({
   );
 }
 
-/** Indicador (stat tile): rótulo, valor e detalhe opcional. */
 export function Stat({
   icone: Icone,
   rotulo,
@@ -63,7 +61,6 @@ export function Stat({
   valor: ReactNode;
   detalhe?: ReactNode;
   alerta?: boolean;
-  /** Termo do glossário explicado num "?" ao lado do rótulo. */
   ajuda?: TermoGlossario;
 }) {
   return (

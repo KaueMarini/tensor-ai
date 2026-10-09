@@ -1,8 +1,3 @@
-// Sugestões (sidebar): sugestões de responsável para tasks abertas sem dono, em todos os projetos.
-// O ranking vem do motor determinístico (@shared/capacidade/recomendacao): encaixe de skills e
-// tags de função + horas livres na sprint (motor de capacidade). O gestor aprova com "Atribuir"
-// e a task é reatribuída no Azure DevOps (auditado em `acao`). Nada muda sem o clique.
-
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -182,14 +177,9 @@ export function AnalisesPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Projeto
-// ---------------------------------------------------------------------------
-
 function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string; projetoNome: string; busca: string }) {
   const cap = useCapacidadeProjeto(projetoId);
   const idsCandidatos = useMemo(() => cap.pessoas.filter((p) => !p.foraDoTime).map((p) => p.id), [cap.pessoas]);
-  // Ocupação no ÂMBITO GERAL: capacidade única da pessoa × tasks dela em todos os projetos
   const global = useCargaGlobal(idsCandidatos);
 
   const { tasks, recomendacoes, pessoas, detalhe } = useMemo(() => {
@@ -198,7 +188,6 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
       const s = sprintsComData.get(sprintId);
       return s && global.celula ? global.celula({ id: s.id, inicio: s.inicio, fim: s.fim }, pessoaId) : undefined;
     };
-    // Mais urgentes primeiro: sprint mais próxima, depois as maiores (as sugestões consideram as anteriores)
     const ordem = (r: BacklogRow) => (r.sprint_id && sprintsComData.get(r.sprint_id)?.inicio) || "9999";
     const tasks = [...cap.semResponsavel].sort(
       (a, b) => ordem(a).localeCompare(ordem(b)) || (b.horas_restantes ?? b.horas_estimadas ?? 0) - (a.horas_restantes ?? a.horas_estimadas ?? 0),
@@ -312,10 +301,6 @@ function ProjetoSugestoes({ projetoId, projetoNome, busca }: { projetoId: string
   );
 }
 
-// ---------------------------------------------------------------------------
-// Uma task e suas sugestões
-// ---------------------------------------------------------------------------
-
 function LinhaTask({
   task,
   rec,
@@ -338,7 +323,6 @@ function LinhaTask({
 
   return (
     <li className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-      {/* Task */}
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <IdLink id={task.item_id!} />
@@ -376,7 +360,6 @@ function LinhaTask({
         </div>
       </div>
 
-      {/* Sugestões */}
       <div className="min-w-0">
         {!melhor ? (
           <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
@@ -503,7 +486,6 @@ function Opcao({
         </Button>
       </div>
 
-      {/* Impacto na carga */}
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-200/70 pt-2 text-xs text-slate-600 dark:border-slate-700/70 dark:text-slate-300">
         {opcao.capacidadeH > 0 ? (
           <>
@@ -530,7 +512,6 @@ function Opcao({
   );
 }
 
-/** De onde vem a ocupação da pessoa no período: tasks em todos os projetos. */
 function OcupacaoProjetos({ celula }: { celula: CelulaGlobal }) {
   const ids = celula.porProjeto.map((p) => p.projetoId);
   const nomes = new Map((useProjetosPorIds(ids).data ?? []).map((p) => [p.id, p.nome]));

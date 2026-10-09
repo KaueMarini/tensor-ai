@@ -1,5 +1,3 @@
-"""Invariantes do motor, testados com dados gerados (hypothesis)."""
-
 from datetime import date, timedelta
 
 import pytest
@@ -50,7 +48,6 @@ def test_pareto_acumulado_termina_em_100(contagens: dict[str, int]) -> None:
     assert p.itens[0].vital
     vitais = [i for i in p.itens if i.vital]
     assert sum(i.ocorrencias for i in vitais) / p.total >= 0.8
-    # mínimo: sem a última vital, não chegaria a 80%
     assert sum(i.ocorrencias for i in vitais[:-1]) / p.total < 0.8
 
 

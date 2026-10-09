@@ -1,6 +1,3 @@
-// Caixa de sugestões do agente de IA: cada uma diz o problema, a ação e o efeito (números do
-// motor), com Aprovar (aplica no Azure DevOps, auditado) e Ignorar. A IA sugere, o gestor decide.
-
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Bot, Check, ExternalLink, GitCompareArrows, Hourglass, Layers, Loader2, OctagonAlert, RefreshCw, Scale, ScanSearch, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
@@ -25,7 +22,6 @@ const VISUAL: Record<SugestaoAgente["tipo"], { icone: typeof Bot; cor: string; a
 };
 const PRIORIDADE = { 1: "Hoje", 2: "Esta semana", 3: "Quando der" } as const;
 
-/** Frentes da tela Sugestões. */
 export const TIPOS_ALOCACAO: SugestaoAgente["tipo"][] = ["rebalancear", "ausencia", "atribuir", "equipe"];
 export const TIPOS_PROCESSO: SugestaoAgente["tipo"][] = ["gargalo", "wip", "portfolio", "similares"];
 
@@ -33,14 +29,12 @@ interface PropsCaixa {
   projetoId?: string;
   limite?: number;
   titulo?: string;
-  /** Só estes tipos (ex.: frente de processo ou de alocação). */
   tipos?: SugestaoAgente["tipo"][];
   descricao?: string;
   vazio?: string;
 }
 
 export function SugestoesAgente(props: PropsCaixa) {
-  // sugestões são executivas: membro não vê a caixa (o banco também não devolve as linhas)
   return (
     <SomenteGestor oculto>
       <CaixaSugestoes {...props} />
@@ -149,7 +143,7 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
           <div className="mt-2 flex flex-wrap gap-1.5">
             {s.antes.map((a, i) => {
               const d = s.depois[i];
-              if (d && d.pct === a.pct) return null; // ex.: task sem estimativa não muda o %
+              if (d && d.pct === a.pct) return null;
               const st = d ? STATUS_CARGA[d.status] : null;
               return (
                 <span key={a.pessoaId} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700 tabular-nums dark:bg-slate-800 dark:text-slate-200">

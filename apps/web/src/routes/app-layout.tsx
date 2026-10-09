@@ -18,7 +18,6 @@ export function AppLayout() {
   const [menuAberto, setMenuAberto] = useState(false);
   const caminho = useRouterState({ select: (s) => s.location.pathname });
 
-  // no celular/tablet a sidebar é uma gaveta: fecha ao navegar e com Esc
   useEffect(() => setMenuAberto(false), [caminho]);
   useEffect(() => {
     if (!menuAberto) return;
@@ -35,7 +34,6 @@ export function AppLayout() {
           <div className="anim-fade fixed inset-0 z-40 bg-slate-950/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* barra superior em todas as telas: menu (celular) à esquerda, notificações à direita */}
           <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <button
               onClick={() => setMenuAberto(true)}

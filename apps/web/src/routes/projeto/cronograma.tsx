@@ -1,7 +1,3 @@
-// Cronograma (Gantt): sprints como faixas de período e features como barras do início da
-// primeira à fim da última sprint em que têm itens. O preenchimento é o % concluído
-// (horas concluídas ÷ concluídas + restantes; sem horas, itens fechados ÷ itens).
-
 import { type ReactNode, useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
 import { CalendarRange, Layers } from "lucide-react";
@@ -85,7 +81,6 @@ export function CronogramaPage() {
     }
 
     if (comData.length === 0) return { comData, comPeriodo, semPeriodo, inicio: 0, total: 1, semanas: [] as number[] };
-    // eixo começa na segunda-feira da semana da 1ª sprint e termina no domingo da última
     let inicio = dia(comData[0]!.inicio);
     inicio -= ((new Date(inicio).getUTCDay() + 6) % 7) * DIA;
     let fim = Math.max(...comData.map((s) => dia(s.fim)));
@@ -139,7 +134,6 @@ export function CronogramaPage() {
       />
       <div className="overflow-x-auto">
         <div className="grid" style={{ gridTemplateColumns: `280px minmax(${larguraMin}px, 1fr)` }}>
-          {/* cabeçalho do eixo */}
           <div className="sticky left-0 z-10 border-r border-b border-slate-100 bg-white px-4 py-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
             Sprint / feature
           </div>

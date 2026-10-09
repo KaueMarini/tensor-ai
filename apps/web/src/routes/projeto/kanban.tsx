@@ -1,7 +1,3 @@
-// Kanban do projeto: colunas por categoria de estado do processo (A fazer, Em andamento,
-// Resolvido, Concluído). Arrastar um card muda o estado no Azure DevOps (Edge Function
-// devops-acoes), com atualização otimista e registro em `acao`. Features não entram.
-
 import { type DragEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -81,7 +77,6 @@ function Quadro({ projetoId, sprintParam, respParam }: { projetoId: string; spri
   const { destacados } = useRealtime();
 
   const [busca, setBusca] = useState("");
-  // vindo de "Ver tasks" (Início/Equipe): já filtra a pessoa, em todas as sprints
   const [responsavel, setResponsavel] = useState(respParam ?? "");
   const [tiposOcultos, setTiposOcultos] = useState<ReadonlySet<string>>(new Set());
   const [overrides, setOverrides] = useState<ReadonlyMap<number, Categoria>>(new Map());
@@ -111,7 +106,6 @@ function Quadro({ projetoId, sprintParam, respParam }: { projetoId: string; spri
 
   const categoria = (r: BacklogRow) => overrides.get(r.item_id!) ?? categoriaDe(r.item_tipo, r.item_estado, estados.data);
 
-  // quando o dado real (Realtime/refetch) já reflete a mudança, a sobreposição otimista sai
   useEffect(() => {
     if (overrides.size === 0) return;
     const resolvidos = [...overrides].filter(([id, cat]) => {
@@ -151,7 +145,6 @@ function Quadro({ projetoId, sprintParam, respParam }: { projetoId: string; spri
     return m;
   }, [visiveis, overrides, estados.data]);
 
-  // "Resolvido" só aparece se algum tipo do processo usa essa categoria
   const temResolvido =
     Object.values(estados.data ?? {}).some((l) => l.some((e) => e.categoria === "Resolved")) ||
     (porColuna.get("Resolved")?.length ?? 0) > 0;

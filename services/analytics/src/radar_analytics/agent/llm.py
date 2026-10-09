@@ -1,8 +1,3 @@
-"""Interface do LLM + adaptador Anthropic. O LLM só escolhe um `acao_id` e redige o texto.
-
-A saída é JSON garantido por structured outputs (`output_config.format`), validado por Pydantic.
-"""
-
 from __future__ import annotations
 
 import json
@@ -15,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 log = structlog.get_logger(__name__)
 
-# Recusa de segurança cai num modelo reserva no próprio servidor (sem lista de modelos para manter)
 BETA_FALLBACK = "server-side-fallback-2026-07-01"
 Esforco = Literal["low", "medium", "high", "xhigh", "max"]
 
@@ -59,8 +53,8 @@ SCHEMA_RESPOSTA: dict[str, Any] = {
 }
 
 
-class FalhaLLM(Exception):  # noqa: N818 - nome do domínio
-    """O LLM não devolveu uma resposta utilizável (erro de API, recusa, JSON inválido)."""
+class FalhaLLM(Exception):
+    pass
 
 
 class LLMClient(Protocol):
@@ -99,7 +93,6 @@ class AnthropicLLM:
         esforco: Esforco = "low",
         cliente: anthropic.Anthropic | None = None,
     ) -> None:
-        # O SDK já refaz 408/409/429/5xx e erros de conexão com backoff exponencial
         self._cliente = cliente or anthropic.Anthropic(
             api_key=api_key, timeout=timeout_s, max_retries=max_tentativas
         )
@@ -147,7 +140,6 @@ class AnthropicLLM:
 def mensagens_da_tentativa(
     entrada: dict[str, Any], rejeitada: RespostaLLM | None, erros: list[str] | None
 ) -> list[BetaMessageParam]:
-    """1ª tentativa: só os dados. 2ª: a resposta rejeitada + os erros do validador como feedback."""
     mensagens: list[BetaMessageParam] = [{"role": "user", "content": mensagem_usuario(entrada)}]
     if rejeitada is not None:
         mensagens.append({"role": "assistant", "content": rejeitada.model_dump_json()})

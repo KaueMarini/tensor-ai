@@ -1,26 +1,10 @@
--- LGPD (privacy by design), em camadas EM VOLTA do que já existe (triggers, políticas e funções;
--- nenhuma regra de negócio reescrita):
---   1. RBAC: papéis admin / gestor / membro (menor privilégio). Sugestões, auditoria, avaliação
---      de projetos e notificações executivas só para gestor/admin; configurações só gestor/admin.
---   2. Auditoria append-only com encadeamento de hash (adulteração detectável), ator anonimizado
---      (HMAC do id com sal no Vault), IP mascarado, zero PII em texto puro.
---   3. TTL: expurgo diário de sugestões, caches de explicação, notificações e histórico antigo.
---   4. Direito ao esquecimento: esquecer_pessoa (apaga dados pessoais e anonimiza de vez) e
---      esquecer_usuario (apaga a conta do app). Só admin.
---   5. Minimização: e-mail do autor na auditoria de ações (acao) passa a ser mascarado.
-
 create extension if not exists pgcrypto with schema extensions;
-
--- ============================================================================
--- 1. RBAC
--- ============================================================================
 
 create table public.usuario_papel (
   user_id        uuid primary key references auth.users on delete cascade,
   papel          text not null default 'membro' check (papel in ('admin', 'gestor', 'membro')),
   atualizado_em  timestamptz not null default now()
 );
--- quem já usa o app (demo e QA) continua com acesso total; contas novas entram como membro
 insert into public.usuario_papel (user_id, papel) select id, 'admin' from auth.users on conflict do nothing;
 
 create or replace function public.trg_papel_novo_usuario()
@@ -52,7 +36,6 @@ create policy "le_o_proprio_ou_admin" on public.usuario_papel for select to auth
 create policy "admin_gerencia" on public.usuario_papel for all to authenticated
   using (public.eh_admin()) with check (public.eh_admin());
 
--- Dados executivos: só gestor/admin leem
 alter policy "leitura_autenticados" on public.sugestao using (public.eh_gestor());
 alter policy "leitura_autenticados" on public.acao using (public.eh_gestor());
 alter policy "leitura_autenticados" on public.projeto_avaliacao using (public.eh_gestor());
@@ -60,7 +43,6 @@ alter policy "gestor_escreve" on public.projeto_avaliacao using (public.eh_gesto
 alter policy "le_proprias_ou_gerais" on public.notificacao
   using ((usuario_id is null or usuario_id = auth.uid()) and public.eh_gestor());
 
--- Configurações e cadastros: só gestor/admin escrevem (leitura continua para todos)
 alter policy "gestor_escreve" on public.regra_capacidade using (public.eh_gestor()) with check (public.eh_gestor());
 alter policy "gestor_escreve" on public.regra_capacidade_pessoa using (public.eh_gestor()) with check (public.eh_gestor());
 alter policy "gestor_escreve" on public.regra_capacidade_projeto using (public.eh_gestor()) with check (public.eh_gestor());
@@ -73,10 +55,6 @@ alter policy "gestor_exclui_ausencia" on public.ausencia using (public.eh_gestor
 alter policy "gestor_insere_feriado" on public.feriado with check (abrangencia in ('regional', 'recesso') and public.eh_gestor());
 alter policy "gestor_exclui_feriado" on public.feriado using (abrangencia in ('regional', 'recesso') and public.eh_gestor());
 
--- ============================================================================
--- 2. Auditoria append-only (hash encadeado)
--- ============================================================================
-
 do $$
 begin
   if not exists (select 1 from vault.secrets where name = 'radar_audit_salt') then
@@ -87,10 +65,10 @@ end $$;
 create table public.auditoria (
   id             bigint generated always as identity primary key,
   ocorrido_em    timestamptz not null default now(),
-  ator           text not null,           -- HMAC-SHA256 do user id (nunca id/e-mail em claro)
+  ator           text not null,
   papel          text,
   acao           text not null,
-  recurso        text,                    -- id técnico (uuid / devops_id), nunca nome
+  recurso        text,
   ip_mascarado   text,
   detalhe        jsonb,
   hash_anterior  text,
@@ -117,7 +95,6 @@ returns text language sql immutable as $$
   end
 $$;
 
-/** IP de quem chamou a API (PostgREST expõe os headers da requisição). */
 create or replace function public.ip_da_requisicao()
 returns text language sql stable as $$
   select coalesce(
@@ -143,7 +120,6 @@ end $$;
 create trigger trg_auditoria_encadear before insert on public.auditoria
   for each row execute function public.trg_auditoria_encadear();
 
--- Append-only: ninguém altera; apagar só o expurgo de retenção (TTL de 1 ano)
 create or replace function public.trg_auditoria_imutavel()
 returns trigger language plpgsql as $$
 begin
@@ -172,7 +148,6 @@ begin
     p_detalhe);
 end $$;
 
-/** Recalcula a corrente de hashes: ok=false aponta o primeiro registro adulterado. */
 create or replace function public.verificar_auditoria()
 returns table (ok boolean, registros bigint, primeiro_invalido bigint)
 language plpgsql stable security definer set search_path = public, extensions as $$
@@ -180,7 +155,6 @@ declare r record; v_ant text; v_n bigint := 0; v_primeiro boolean := true;
 begin
   for r in select * from public.auditoria order by id loop
     v_n := v_n + 1;
-    -- o 1º registro restante pode apontar para um já expurgado (TTL): confia no hash_anterior dele
     if v_primeiro then v_ant := r.hash_anterior; v_primeiro := false; end if;
     if r.hash_anterior is distinct from v_ant or r.hash <> encode(extensions.digest(
         coalesce(v_ant, '') || '|' || r.ocorrido_em::text || '|' || r.ator || '|' || coalesce(r.papel, '') || '|' ||
@@ -200,15 +174,12 @@ revoke insert, update, delete, truncate on public.auditoria from anon, authentic
 revoke execute on function public.registrar_auditoria(text, text, jsonb, uuid, text, text) from anon, authenticated, public;
 grant execute on function public.verificar_auditoria() to authenticated;
 
--- Wrapper de auditoria nas tabelas que o gestor altera pelo app: registra quem (anônimo),
--- o quê (tabela + operação), qual registro (id técnico) e quais colunas mudaram (sem valores).
 create or replace function public.trg_auditar()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_reg jsonb := to_jsonb(coalesce(new, old));
   v_cols text[];
 begin
-  -- só ações de pessoas (JWT): gravações do sistema (sync, inferência de skills, agente) não poluem
   if auth.uid() is null then return coalesce(new, old); end if;
   if tg_op = 'UPDATE' then
     select array_agg(k) into v_cols from jsonb_each(to_jsonb(new)) n(k, v)
@@ -232,13 +203,8 @@ begin
                     for each row execute function public.trg_auditar()', t);
   end loop;
 end $$;
--- decisão do gestor sobre sugestão (aprovar/ignorar) e expiração
 create trigger trg_auditar after update of status on public.sugestao
   for each row execute function public.trg_auditar();
-
--- ============================================================================
--- 5. Minimização: e-mail mascarado na auditoria de ações no DevOps
--- ============================================================================
 
 create or replace function public.mascarar_email(p_email text)
 returns text language sql immutable as $$
@@ -259,10 +225,6 @@ create trigger trg_acao_minimizar before insert or update of usuario_email on pu
   for each row execute function public.trg_acao_minimizar();
 update public.acao set usuario_email = public.mascarar_email(usuario_email) where usuario_email is not null;
 
--- ============================================================================
--- 3. TTL — expurgo diário
--- ============================================================================
-
 create or replace function public.expurgo_lgpd()
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare r jsonb := '{}'::jsonb; n bigint;
@@ -274,7 +236,6 @@ begin
   delete from public.sugestao where status <> 'pendente' and coalesce(decidida_em, criada_em) < now() - interval '90 days';
   get diagnostics n = row_count; r := r || jsonb_build_object('sugestoes_apagadas', n);
 
-  -- cache da IA explicável (análise já entregue): some em 7 dias
   update public.sugestao set payload = payload - 'explicacao'
    where payload ? 'explicacao' and coalesce((payload -> 'explicacao' ->> 'gerado_em')::timestamptz, criada_em) < now() - interval '7 days';
   get diagnostics n = row_count; r := r || jsonb_build_object('explicacoes_apagadas', n);
@@ -301,13 +262,8 @@ revoke execute on function public.expurgo_lgpd() from anon, authenticated, publi
 
 select cron.schedule('radar-expurgo-lgpd', '41 3 * * *', $job$ select public.expurgo_lgpd(); $job$);
 
--- ============================================================================
--- 4. Direito ao esquecimento
--- ============================================================================
-
 alter table public.pessoa add column esquecida_em timestamptz;
 
--- A sync atualiza nome/e-mail de quem aparece no DevOps: para quem foi esquecida, nunca mais
 create or replace function public.trg_pessoa_esquecida()
 returns trigger language plpgsql as $$
 begin
@@ -321,7 +277,6 @@ end $$;
 create trigger trg_pessoa_esquecida before update on public.pessoa
   for each row execute function public.trg_pessoa_esquecida();
 
--- E a inferência de skills não recria perfil de quem foi esquecida
 create or replace function public.trg_skill_de_esquecida()
 returns trigger language plpgsql as $$
 begin
@@ -355,7 +310,6 @@ begin
    where position(p_pessoa_id::text in coalesce(acao::text, '') || coalesce(payload::text, '') || coalesce(impacto_antes::text, '')) > 0
       or position(v_nome in coalesce(markdown, '')) > 0;
   get diagnostics n = row_count; r := r || jsonb_build_object('sugestoes', n);
-  -- histórico de ações no DevOps: some o nome, fica o fato (auditoria legítima)
   update public.acao set
     antes = replace(antes::text, v_nome, 'Pessoa removida')::jsonb,
     depois = replace(replace(depois::text, v_nome, 'Pessoa removida'), p_pessoa_id::text, '00000000-0000-0000-0000-000000000000')::jsonb

@@ -1,6 +1,3 @@
-// Visual da carga de uma pessoa (saída do motor). Status sempre com ícone + texto,
-// nunca só cor; o texto usa tinta neutra, a cor fica no ícone e na barra.
-
 import { AlertTriangle, CalendarOff, CircleCheck, OctagonAlert, type LucideIcon } from "lucide-react";
 import type { Celula, StatusCarga } from "@shared/capacidade/motor";
 import type { OrigemCapacidade } from "@shared/capacidade/regras";
@@ -13,7 +10,6 @@ export const STATUS_CARGA: Record<StatusCarga, { rotulo: string; icone: LucideIc
   "sem-capacidade": { rotulo: "Sem capacidade", icone: CalendarOff, cor: "var(--status-critico)" },
 };
 
-/** De onde veio a capacidade (o gestor sabe onde mexer). */
 export const ORIGEM_CAPACIDADE: Record<OrigemCapacidade, { rotulo: string; detalhe: string }> = {
   gestor: { rotulo: "Gestor", detalhe: "definida pelo gestor (Regras de capacidade ou aba Equipe do projeto)" },
   devops: { rotulo: "DevOps", detalhe: "Capacity configurada no Azure DevOps" },
@@ -31,7 +27,6 @@ export function StatusCargaTag({ status, className }: { status: StatusCarga; cla
   );
 }
 
-/** Medidor: carga sobre capacidade. Passa de 100% marca o excesso. */
 export function MedidorCarga({ celula, compacto }: { celula: Celula; compacto?: boolean }) {
   const s = STATUS_CARGA[celula.status];
   const fracao = celula.capacidadeH > 0 ? Math.min(1, celula.cargaH / celula.capacidadeH) : celula.cargaH > 0 ? 1 : 0;

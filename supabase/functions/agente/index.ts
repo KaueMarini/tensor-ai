@@ -1,17 +1,3 @@
-// agente: o agente de IA do Radar. Calcula as ações candidatas com o motor determinístico
-// (_shared/agente/candidatos.ts), pede ao LLM (Gemini ou Claude) só a prioridade e a explicação (com
-// pseudônimos), valida o texto contra os fatos e grava `sugestao` PENDENTE + notificação no
-// sino. Nunca escreve no DevOps: quem aplica é o gestor, pelo devops-acoes (aprovar_sugestao).
-//
-// Rotas (deploy com --no-verify-jwt; autorização aqui):
-//   POST .../agente/analyze/event { work_item_id }  ← trigger em `evento` (pg_net), só o projeto do item
-//   POST .../agente/analyze/sweep                   ← pg_cron a cada 15 min, todos os projetos
-//   POST .../agente { projeto_id? }                 ← botão "Analisar agora" (JWT do gestor)
-// Segredo: header x-analytics-secret (Vault radar_analytics_secret) ou x-sync-secret.
-//
-// Idempotente: a chave da situação (hash_payload) não gera duas pendentes; ignorada não volta
-// por 7 dias; pendente cuja situação sumiu vira 'expirada'. O LLM só é chamado para as novas.
-
 import { errorMessage, log } from "../_shared/log.ts";
 import { normalizarNome } from "../_shared/nomes.ts";
 import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "../_shared/kanban.ts";
@@ -60,7 +46,6 @@ function rows<T>(r: { data: T[] | null; error: { message: string } | null }, ond
   return r.data ?? [];
 }
 
-/** Hoje em São Paulo e o horizonte "próximas 2 semanas" (mesmo do front). */
 function horizonte() {
   const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
   const d = new Date(`${hoje}T00:00:00Z`);
@@ -71,7 +56,6 @@ function horizonte() {
   return {
     hoje,
     periodo: { id: `prox-${iso(seg)}-2`, inicio: iso(seg), fim: iso(sexta) },
-    // portfólio olha um pouco mais longe: próximas 4 semanas
     periodo4: { id: `prox-${iso(seg)}-4`, inicio: iso(seg), fim: iso(sexta4) },
   };
 }
@@ -107,7 +91,6 @@ async function carregar(db: Db) {
     db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"),
   ]);
   if (regraG.error) throw new Error(regraG.error.message);
-  // LGPD: nomes e e-mails de todo mundo entram no dicionário de anonimização do LLM
   definirPessoasPII(
     [...new Map(rows(membros, "membros").filter((m) => m.pessoa_id).map((m) => [m.pessoa_id, { nome: normalizarNome(m.nome ?? ""), email: m.unique_name }])).values()].filter(
       (p) => p.nome,
@@ -132,7 +115,6 @@ async function carregar(db: Db) {
 
 type Dados = ReturnType<typeof montarEntrada>;
 
-/** Impacto do projeto: gestor > DevOps ("Impacto:" na descrição) > estimado pela IA. */
 function impactoDe(id: string, brutos: Awaited<ReturnType<typeof carregar>>): { impacto: Impacto | null; origem: OrigemImpacto | null } {
   const a = brutos.avaliacoes.find((x) => x.projeto_id === id);
   if (a?.impacto_gestor) return { impacto: a.impacto_gestor as Impacto, origem: "gestor" };
@@ -230,7 +212,6 @@ function montarEntrada(d: Awaited<ReturnType<typeof carregar>>) {
 
 type RespostaLLM = { id: number; prioridade: number; titulo: string; texto: string }[];
 
-/** Pede ao LLM prioridade + texto; devolve por índice da candidata (null = usar template). */
 async function redigirComLLM(cands: Candidato[], apelidos: Map<string, string>): Promise<Map<number, TextoSugestao> | null> {
   if (cands.length === 0) return null;
   const r = await pedirJSON<{ sugestoes?: RespostaLLM }>({
@@ -249,11 +230,6 @@ async function redigirComLLM(cands: Candidato[], apelidos: Map<string, string>):
   return out;
 }
 
-/**
- * Importância dos projetos que ninguém classificou (nem o gestor nem a linha "Impacto:" do
- * DevOps): a IA estima pela descrição e grava como SUGERIDA (projeto_avaliacao.impacto_ia),
- * uma vez por projeto. O gestor confirma ou troca na tela.
- */
 async function estimarImpactos(db: Db, projetos: { id: string; nome: string; descricao: string | null; tags: string[] }[]) {
   const alvo = projetos.filter((p) => p.descricao || p.tags.length).slice(0, 15);
   if (alvo.length === 0) return 0;
@@ -279,7 +255,6 @@ async function estimarImpactos(db: Db, projetos: { id: string; nome: string; des
   return n;
 }
 
-/** Tasks abertas (folhas) com as datas do DevOps: base do diagnóstico de tempo, gargalos e WIP. */
 async function itensComDatas(db: Db, dados: Dados): Promise<ItemFluxo[]> {
   const datas = new Map(
     rows(await db.from("work_item").select("devops_id, fields").is("deleted_at", null), "datas").map((d) => [d.devops_id, (d.fields ?? {}) as Record<string, unknown>]),
@@ -300,11 +275,9 @@ async function itensComDatas(db: Db, dados: Dados): Promise<ItemFluxo[]> {
 }
 
 const VERSAO_EXPLICACAO = "explica.v6";
-/** O LLM às vezes se repete: fica com as 2 primeiras frases (já validadas). */
 const duasFrases = (t: string) => (t.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [t]).slice(0, 2).join("").trim() || t;
 const texto = (v: unknown) => (typeof v === "string" && v ? v : null);
 
-/** "Entender análise": visão micro da sugestão (ferramentas do motor + leitura da IA, validada). */
 async function explicarSugestao(db: Db, sugestaoId: string): Promise<[unknown, number]> {
   const { data: s, error } = await db.from("sugestao").select("id, tipo, projeto_id, acao, payload, markdown").eq("id", sugestaoId).maybeSingle();
   if (error) throw new Error(error.message);
@@ -317,7 +290,6 @@ async function explicarSugestao(db: Db, sugestaoId: string): Promise<[unknown, n
   const dados = montarEntrada(brutos);
   const todos = await itensComDatas(db, dados);
   const acao = s.acao as { work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
-  // quem perde carga (rebalancear/ausência) ou quem está com WIP alto
   const pessoaFoco = acao?.de_pessoa_id ?? (p as { pessoas?: { de?: { id?: string } } }).pessoas?.de?.id ?? null;
   const pf = montarPortfolio(dados, brutos, periodo4);
   const nomeProj = new Map(dados.projetos.map((x) => [x.id, x.nome]));
@@ -366,7 +338,6 @@ async function explicarSugestao(db: Db, sugestaoId: string): Promise<[unknown, n
     erro_ia: ultimoErroLLM(),
     gerado_em: new Date().toISOString(),
   };
-  // guarda para não chamar a IA de novo; se a IA estava fora do ar, a próxima abertura tenta outra vez
   if (resultado.ia || !provedorLLM()) {
     const { error: e2 } = await db.from("sugestao").update({ payload: asJson({ ...p, explicacao: resultado }) }).eq("id", s.id);
     if (e2) log("warn", "explicação: não guardou no cache", { erro: e2.message });
@@ -380,7 +351,6 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
   let brutos = await carregar(db);
   const dados = montarEntrada(brutos);
 
-  // Projeto sem importância definida (nem gestor nem DevOps) e ainda não estimado: a IA estima
   let impactosEstimados = 0;
   const semImpacto = dados.projetos.filter((p) => impactoDe(p.id, brutos).impacto === null);
   if (semImpacto.length && provedorLLM()) {
@@ -395,7 +365,6 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
   const nomePessoa = new Map(dados.pessoas.map((p) => [p.id, p.nome]));
   const nomeProjeto = new Map(dados.projetos.map((p) => [p.id, p.nome]));
 
-  // O que já existe (pendente, ignorada há < 7 dias, aplicada há < 1 dia) não volta
   const desde = new Date(Date.now() - 7 * DIA).toISOString();
   const existentes = rows(
     await db.from("sugestao").select("id, hash_payload, status, decidida_em, projeto_id").not("hash_payload", "is", null).or(`status.eq.pendente,decidida_em.gte.${desde}`),
@@ -408,7 +377,6 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
   );
   const chavesAtuais = new Set(candidatos.map((c) => c.chave));
 
-  // Pendente cuja situação não existe mais (task já atribuída, sobrecarga resolvida...) expira
   const expirar = existentes
     .filter((s) => s.status === "pendente" && !chavesAtuais.has(s.hash_payload!) && (escopo.length === 0 || (s.projeto_id && escopo.includes(s.projeto_id))))
     .map((s) => s.id);
@@ -464,7 +432,7 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
       usou_fallback: !usouLLM,
     });
     if (error) {
-      if (error.code === "23505") continue; // outra execução gravou a mesma situação
+      if (error.code === "23505") continue;
       throw new Error(`gravar sugestão: ${error.message}`);
     }
     gravadas++;
@@ -507,7 +475,6 @@ Deno.serve(protegido("agente", ["admin", "gestor"], async (req) => {
     if (caminho.endsWith("/analyze/event")) {
       const { data } = await db.from("work_item").select("projeto_id").eq("devops_id", Number(body.work_item_id)).maybeSingle();
       if (!data) return jsonResponse({ ok: true, ignorado: "item não encontrado" });
-      // pg_net espera só 10 s: responde já e analisa em segundo plano (o LLM pode levar mais)
       EdgeRuntime.waitUntil(emSegundoPlano(analisar(db, "evento", [data.projeto_id])));
       return jsonResponse({ ok: true, aceito: true }, 202);
     }

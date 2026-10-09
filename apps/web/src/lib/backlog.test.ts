@@ -47,12 +47,9 @@ describe("agruparBacklog", () => {
   const rows = [
     row({ item_id: 1, item_titulo: "API", horas_estimadas: 8, horas_restantes: 6, responsavel_nome: "Kauê" }),
     row({ item_id: 2, item_titulo: "Tela", horas_restantes: 4, tags: ["front-end"] }),
-    // Feature B → User Story 20 → Task 21 (hierarquia com nível intermediário)
     row({ sprint_id: "s2", feature_id: 11, feature_titulo: "Feature B", item_id: 20, item_tipo: "User Story", item_parent_id: 11, sem_estimativa: true }),
     row({ sprint_id: "s2", feature_id: 11, feature_titulo: "Feature B", item_id: 21, item_parent_id: 20, sem_estimativa: true }),
-    // Feature sem filhos
     row({ sprint_id: "s2", feature_id: 12, feature_titulo: "Feature C", item_id: null, item_tipo: null }),
-    // item sem sprint e sem feature
     row({ sprint_id: null, feature_id: null, feature_titulo: null, item_id: 99, item_parent_id: null }),
   ];
 

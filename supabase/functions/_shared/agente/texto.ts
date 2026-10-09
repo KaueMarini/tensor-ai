@@ -1,7 +1,3 @@
-// Agente, parte de linguagem: o LLM recebe as candidatas com PSEUDÔNIMOS (LGPD: nomes reais
-// nunca saem do sistema), devolve prioridade + título + explicação, e um validador garante que
-// ele não inventou números nem pessoas. Se reprovar, vale o template determinístico.
-
 import type { Candidato } from "./candidatos.ts";
 import type { Ferramenta } from "./explicacao.ts";
 
@@ -12,10 +8,6 @@ export interface TextoSugestao {
   titulo: string;
   texto: string;
 }
-
-// ---------------------------------------------------------------------------
-// Pseudônimos
-// ---------------------------------------------------------------------------
 
 export function pseudonimos(candidatos: Candidato[]): Map<string, string> {
   const m = new Map<string, string>();
@@ -29,10 +21,6 @@ export function pseudonimos(candidatos: Candidato[]): Map<string, string> {
   return m;
 }
 
-/**
- * Tira artigo/contração antes do pseudônimo ("à Pessoa B" → "para Pessoa B", "da Pessoa A" →
- * "de Pessoa A"): "Pessoa" é feminino, o nome real pode não ser. Rode ANTES de despseudonimizar.
- */
 export function semArtigo(texto: string): string {
   return texto
     .replace(/(^|[\s(])para a (Pessoa [A-Z]\d*)/g, "$1para $2")
@@ -46,17 +34,12 @@ export function semArtigo(texto: string): string {
     .replace(/(^|\s)a (Pessoa [A-Z]\d*)/g, "$1$2");
 }
 
-/** Troca "Pessoa A" pelo nome real (do maior para o menor, para "Pessoa A1" não virar "Pessoa A"+"1"). */
 export function despseudonimizar(texto: string, apelidos: Map<string, string>, nomeDe: (id: string) => string): string {
   const pares = [...apelidos].sort((a, b) => b[1].length - a[1].length);
   let out = semArtigo(texto);
   for (const [id, apelido] of pares) out = out.split(apelido).join(nomeDe(id));
   return out;
 }
-
-// ---------------------------------------------------------------------------
-// Template (sem LLM, e fallback quando o LLM reprova)
-// ---------------------------------------------------------------------------
 
 const h = (n: unknown) => `${String(n).replace(".", ",")}h`;
 
@@ -146,10 +129,6 @@ export function template(c: Candidato, nome: (papel: string) => string): TextoSu
   }
 }
 
-// ---------------------------------------------------------------------------
-// Pedido ao LLM
-// ---------------------------------------------------------------------------
-
 export const SISTEMA = `Você é o agente do Radar de Capacidade, que ajuda um gestor de projetos de software MUITO ocupado a decidir alocações antes que virem problema.
 Você recebe AÇÕES CANDIDATAS já calculadas por um motor determinístico, com todos os números prontos. Seu trabalho:
 1. Dar prioridade a cada uma: 1 = fazer hoje (alguém acima da capacidade ou ausente com trabalho), 2 = esta semana (inclui esforço desproporcional ao impacto), 3 = quando der (ex.: projetos parecidos).
@@ -189,7 +168,6 @@ export const FERRAMENTA = {
   },
 } as const;
 
-/** Mensagem do usuário: candidatas com pseudônimos e fatos (sem nomes reais). */
 export function mensagemCandidatas(candidatos: Candidato[], apelidos: Map<string, string>): string {
   const lista = candidatos.map((c, id) => ({
     id,
@@ -209,10 +187,6 @@ export function mensagemCandidatas(candidatos: Candidato[], apelidos: Map<string
     JSON.stringify(lista)
   );
 }
-
-// ---------------------------------------------------------------------------
-// Importância dos projetos (quando ninguém definiu)
-// ---------------------------------------------------------------------------
 
 export const SISTEMA_IMPACTO = `Você avalia a IMPORTÂNCIA para o negócio de projetos de software de uma empresa de tecnologia que atende o setor portuário e de logística.
 Para cada projeto, a partir só do nome, da descrição e das tags, dê o impacto:
@@ -244,10 +218,6 @@ export const FERRAMENTA_IMPACTO = {
   },
 } as const;
 
-// ---------------------------------------------------------------------------
-// Validador anti-alucinação
-// ---------------------------------------------------------------------------
-
 const PROIBIDAS = /desempenh|produtividad|\brend[ae]\b|preguiç|lent[oa] demais|baixa performance/i;
 const numeros = (s: string) => (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((x) => String(Number(x.replace(",", "."))));
 
@@ -258,7 +228,7 @@ export function validar(t: { titulo: string; texto: string }, c: Candidato, apel
   if (PROIBIDAS.test(tudo)) return "fala de desempenho";
   if (/[*#`_]{2,}|^\s*[-*] /m.test(tudo)) return "markdown";
 
-  const permitidos = new Set<string>(["2"]); // "próximas 2 semanas" está no contexto
+  const permitidos = new Set<string>(["2"]);
   for (const v of Object.values(c.fatos)) for (const x of numeros(String(v))) permitidos.add(x);
   for (const x of numeros(tudo.replace(/Pessoa [A-Z]\d*/g, ""))) if (!permitidos.has(x)) return `número inventado: ${x}`;
 
@@ -267,11 +237,6 @@ export function validar(t: { titulo: string; texto: string }, c: Candidato, apel
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// IA explicável: leitura de cada ferramenta do modal "Entender análise"
-// ---------------------------------------------------------------------------
-
-
 export interface Explicacao {
   resumo: string;
   leituras: Partial<Record<Ferramenta["tipo"], string>>;
@@ -279,7 +244,6 @@ export interface Explicacao {
 
 const diasTxt = (v: unknown) => (v === 1 || v === "1" ? "1 dia" : `${String(v).replace(".", ",")} dias`);
 
-/** Texto automático (sem LLM ou quando o LLM reprova). */
 export function explicacaoTemplate(fs: Ferramenta[]): Explicacao {
   const leituras: Explicacao["leituras"] = {};
   for (const f of fs) {
@@ -333,7 +297,6 @@ export const FERRAMENTA_EXPLICACAO = {
   },
 } as const;
 
-/** Só tipo e números: nomes de pessoas nunca vão para o LLM (LGPD). */
 export function mensagemExplicacao(sugestao: { tipo: string; fatos: Record<string, string | number> }, fs: Ferramenta[]): string {
   return JSON.stringify({
     sugestao,
@@ -341,7 +304,6 @@ export function mensagemExplicacao(sugestao: { tipo: string; fatos: Record<strin
   });
 }
 
-/** null = texto ok; senão o motivo da reprovação. */
 export function validarExplicacao(texto: string, fs: Ferramenta[], extras: Record<string, string | number>): string | null {
   if (!texto.trim()) return "vazio";
   if (texto.length > 600) return "longo demais";

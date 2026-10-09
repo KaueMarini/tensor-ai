@@ -1,10 +1,3 @@
-"""Linha de comando.
-
-uv run radar-analytics backfill [--projeto ID] [--limite N]   histórico via /updates
-uv run radar-analytics analisar --projeto ID                  uma análise agora (grava sugestão)
-uv run radar-analytics sweep                                  todos os projetos
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -29,7 +22,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         srv = r.servico
         if args.comando == "backfill":
-            if srv.devops is None:  # pragma: no cover - montar() sempre cria
+            if srv.devops is None:
                 raise SystemExit("DevOps não configurado")
             with srv.pool.connection() as conn:
                 saida: object = backfill(conn, srv.devops, args.projeto, args.limite)
@@ -42,5 +35,5 @@ def main(argv: list[str] | None = None) -> None:
         r.fechar()
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main()

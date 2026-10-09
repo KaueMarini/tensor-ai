@@ -1,5 +1,3 @@
-"""Carrega o system prompt versionado: `prompts/analista-fluxo.<versao>.md`."""
-
 from __future__ import annotations
 
 import re
@@ -8,7 +6,6 @@ from pathlib import Path
 
 NOME = "analista-fluxo"
 _VERSAO = re.compile(r"^v\d+$")
-# services/analytics/src/radar_analytics/agent/prompt_loader.py → raiz do repositório
 PADRAO_DIR = Path(__file__).resolve().parents[5] / "prompts"
 
 
@@ -22,7 +19,7 @@ class Prompt:
         return f"{NOME}.{self.versao}"
 
 
-class PromptAusente(FileNotFoundError):  # noqa: N818 - nome do domínio
+class PromptAusente(FileNotFoundError):
     pass
 
 

@@ -1,18 +1,3 @@
-"""Matriz Esforço × Impacto de uma ação candidata. Puro.
-
-Cada componente é normalizado por uma referência fixa (min(1, x / ref)) e combinado por média
-ponderada — referências absolutas, para que uma ação isolada também tenha quadrante:
-
-  impacto = 0,5 · redução do pico de utilização (ref 20 p.p.)
-          + 0,3 · horas de atraso destravadas     (ref 16 h)
-          + 0,2 · itens desbloqueados             (ref 2)
-  esforço = 0,5 · horas movidas                   (ref 24 h)
-          + 0,3 · nº de reatribuições             (ref 2)
-          + 0,2 · penalidade por falta de skill   (1 − encaixe, 0..1)
-
-Alto = ≥ 0,5. Quick Win = impacto alto e esforço baixo.
-"""
-
 from __future__ import annotations
 
 from typing import Literal

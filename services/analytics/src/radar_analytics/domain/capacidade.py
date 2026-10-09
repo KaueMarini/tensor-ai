@@ -1,20 +1,3 @@
-"""Capacidade e utilização semanal por pessoa (todos os projetos). Puro e determinístico.
-
-Porta a cascata do app (`_shared/capacidade/regras.ts` + `global.ts`) para que o serviço e as
-telas mostrem os mesmos números, com a utilização por SEMANA pedida no CLAUDE.md:
-
-  horas produtivas/dia (teto) = jornada × foco                       pessoa → regra geral
-  capacidade do dia           = Σ por projeto com sprint no dia de
-                                  alocação do gestor  → Capacity do DevOps (times; folga do
-                                  time tira só a parcela daquele time)
-                                limitada ao teto; sem nada configurado, o teto.
-                                Fim de semana, feriado e ausência da pessoa → 0.
-  carga do dia                = horas da task ÷ dias disponíveis da pessoa no período da task
-                                (datas da task; sem elas, as da sprint). Sem dia disponível,
-                                cai no calendário do período (o alerta certo é "sem capacidade").
-  utilização                  = carga / capacidade da semana; status pelos limites.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -50,7 +33,6 @@ class _Base(BaseModel):
 
 
 class EntradaCapacidade(_Base):
-    """Tudo que o motor precisa, já lido do banco. Trocar `tasks` simula uma ação."""
 
     pessoas: tuple[Pessoa, ...]
     sprints: tuple[Sprint, ...]
@@ -84,9 +66,6 @@ class CelulaSemana(_Base):
     por_projeto: dict[str, float]
 
 
-# --------------------------------------------------------------------------- regras
-
-
 def horas_produtivas(regras: RegrasGerais, pessoa: Pessoa) -> float:
     jornada = pessoa.jornada_dia if pessoa.jornada_dia is not None else regras.jornada_dia
     foco = pessoa.foco if pessoa.foco is not None else regras.foco
@@ -97,17 +76,12 @@ def status_de(carga_h: float, capacidade_h: float, regras: RegrasGerais) -> tupl
     if capacidade_h <= 0:
         return None, ("sem-capacidade" if carga_h > 0 else "ok")
     u = carga_h / capacidade_h
-    # arredonda antes de comparar: 80,0% não é "acima de 80%" por erro de ponto flutuante
     r = round(u, 6)
     status: StatusCarga = "sobrecarga" if r > regras.sobrecarga else "limite" if r > regras.atencao else "ok"
     return u, status
 
 
-# --------------------------------------------------------------------------- horas da task
-
-
 def horas_da_task(task: Task, config: ConfigAnalise) -> HorasTask:
-    """Horas que ainda pesam. Sem estimativa → fallback marcado como 'sistema'."""
     r, e, c = task.horas_restantes, task.horas_estimadas, task.horas_concluidas
     valor: float | None
     if config.campo_horas_carga == "restante":
@@ -142,7 +116,6 @@ def distribuir(
     feriados: frozenset[date],
     ausente: Iterable[Folga] = (),
 ) -> dict[date, float]:
-    """Reparte as horas igualmente pelos dias disponíveis. A soma é sempre `horas`."""
     folgas = list(ausente)
     ini, fim = periodo
     dias = dias_uteis(ini, fim, lambda d: d in feriados or any(em(d, f) for f in folgas))
@@ -154,11 +127,7 @@ def distribuir(
     return dict.fromkeys(dias, parte)
 
 
-# --------------------------------------------------------------------------- capacidade do dia
-
-
 class _Contexto:
-    """Índices calculados uma vez por entrada."""
 
     def __init__(self, e: EntradaCapacidade) -> None:
         self.e = e
@@ -173,10 +142,9 @@ class _Contexto:
         self.folgas_time = [f for f in e.folgas if f.pessoa_id is None]
 
     def projetos_no_dia(self, d: date) -> set[str]:
-        return {s.projeto_id for s in self.datadas if s.inicio <= d <= s.fim}  # type: ignore[operator]
+        return {s.projeto_id for s in self.datadas if s.inicio <= d <= s.fim}
 
     def capacidade_dia(self, pessoa: Pessoa, d: date, teto: float) -> tuple[float, OrigemCapacidade]:
-        """Capacidade da pessoa num dia útil sem feriado nem ausência pessoal."""
         por_projeto: dict[str, float] = {}
         origem: OrigemCapacidade = "padrao"
         for c in self.caps.get(pessoa.id, []):
@@ -194,18 +162,14 @@ class _Contexto:
         ativos = self.projetos_no_dia(d)
         for a in self.aloc.get(pessoa.id, []):
             if a.projeto_id in ativos:
-                por_projeto[a.projeto_id] = a.horas_dia  # gestor sobrepõe a Capacity do DevOps
+                por_projeto[a.projeto_id] = a.horas_dia
                 origem = "gestor"
         if not por_projeto:
             return teto, "gestor" if pessoa.jornada_dia is not None or pessoa.foco is not None else "padrao"
         return max(0.0, min(sum(por_projeto.values()), teto)), origem
 
 
-# --------------------------------------------------------------------------- carga por dia
-
-
 def carga_por_dia(e: EntradaCapacidade) -> dict[str, dict[date, list[tuple[int, str, float, OrigemHoras]]]]:
-    """pessoa → dia → [(task_id, projeto_id, horas, origem)]."""
     ctx = _Contexto(e)
     out: dict[str, dict[date, list[tuple[int, str, float, OrigemHoras]]]] = defaultdict(
         lambda: defaultdict(list)
@@ -222,9 +186,6 @@ def carga_por_dia(e: EntradaCapacidade) -> dict[str, dict[date, list[tuple[int, 
         for d, parte in distribuir(h.horas, periodo, e.feriados, minhas).items():
             out[pid][d].append((t.id, t.projeto_id, parte, h.origem))
     return out
-
-
-# --------------------------------------------------------------------------- utilização semanal
 
 
 def utilizacao_semanal(e: EntradaCapacidade, semanas: Sequence[tuple[date, date]]) -> list[CelulaSemana]:
@@ -301,9 +262,6 @@ def evidencia_utilizacao(c: CelulaSemana, regras: RegrasGerais) -> Evidencia:
     )
 
 
-# --------------------------------------------------------------------------- alertas
-
-
 class ConflitoAusencia(_Base):
     task_id: int
     pessoa_id: str
@@ -314,7 +272,6 @@ class ConflitoAusencia(_Base):
 
 
 def conflitos_ausencia(e: EntradaCapacidade) -> list[ConflitoAusencia]:
-    """Task aberta cujo período cruza ausência do responsável (férias, licença, day off)."""
     sprints = {s.id: s for s in e.sprints}
     out: list[ConflitoAusencia] = []
     for t in e.tasks:

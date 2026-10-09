@@ -1,10 +1,3 @@
-"""Leitura do banco para montar o `Snapshot` de um projeto (somente leitura).
-
-Carrega o projeto + a carga GLOBAL das pessoas dele: tasks abertas delas em qualquer projeto,
-sprints, Capacity, folgas, ausências, feriados, regras e alocações — o mesmo recorte que
-`apps/web/src/lib/carga-global.ts` usa.
-"""
-
 from __future__ import annotations
 
 from datetime import date

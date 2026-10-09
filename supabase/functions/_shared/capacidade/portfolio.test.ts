@@ -13,9 +13,9 @@ const proj = (id: string, impacto: ProjetoPortfolio["impacto"], extra: Partial<P
 
 describe("avaliarPortfolio", () => {
   const esforcos: Record<string, EsforcoProjeto> = {
-    interno: { horasHorizonte: 120, pessoas: 4, horasAbertas: 200 }, // 30% da equipe
+    interno: { horasHorizonte: 120, pessoas: 4, horasAbertas: 200 },
     docas: { horasHorizonte: 60, pessoas: 3, horasAbertas: 100 },
-    portal: { horasHorizonte: 4, pessoas: 1, horasAbertas: 80 }, // impacto alto, quase parado
+    portal: { horasHorizonte: 4, pessoas: 1, horasAbertas: 80 },
     novo: { horasHorizonte: 0, pessoas: 0, horasAbertas: 0 },
     talvez: { horasHorizonte: 30, pessoas: 2, horasAbertas: 30 },
   };

@@ -1,8 +1,3 @@
-// Modal "Entender análise" (IA explicável): a visão MICRO e técnica por trás de uma sugestão.
-// Só aparecem as ferramentas que fazem sentido para o caso (o agente escolhe):
-// diagnóstico de tempo + mapa de calor, Pareto 80/20 e matriz Esforço × Impacto.
-// Os números vêm do motor; a leitura de cada ferramenta, da IA (validada) ou do texto automático.
-
 import { useEffect } from "react";
 import { BarChart3, Bot, Clock, Grid2x2, Loader2, X } from "lucide-react";
 import type { FerramentaMatriz, FerramentaPareto, FerramentaTempo, Quadrante } from "@shared/agente/explicacao";
@@ -230,7 +225,6 @@ function Matriz({ f }: { f: FerramentaMatriz }) {
                 key={k}
                 className={cn(
                   "flex p-1.5",
-                  // rótulo no canto de dentro (perto do centro): os pontos ficam nos cantos de fora
                   { "quick-win": "items-end justify-end", "grande-aposta": "items-end justify-start", preenchimento: "items-start justify-end", evitar: "items-start justify-start" }[k],
                   k === f.quadrante ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500",
                 )}
@@ -252,7 +246,6 @@ function Matriz({ f }: { f: FerramentaMatriz }) {
                 <span
                   className={cn(
                     "absolute left-1/2 -translate-x-1/2 rounded bg-white/85 px-1 text-[10px] font-semibold whitespace-nowrap text-slate-800 dark:bg-slate-900/85 dark:text-slate-100",
-                    // pontos próximos: alterna o nome acima/abaixo para não sobrepor
                     idx % 2 ? "bottom-full mb-0.5" : "top-full mt-0.5",
                   )}
                 >

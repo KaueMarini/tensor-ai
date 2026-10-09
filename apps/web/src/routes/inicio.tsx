@@ -1,8 +1,3 @@
-// Início: a tela que o gestor abre de manhã. Em segundos responde "quem está em risco e o que
-// eu faço agora?": prioridades com ação de um clique, mapa de ocupação pessoa × semana (todos
-// os projetos somados) e a saúde de cada projeto. Números vêm do motor global.
-// Visual: neutro por padrão; cor só onde há risco (status com ícone + texto, nunca só cor).
-
 import { type ReactNode, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -99,7 +94,6 @@ export function InicioPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:py-8">
-      {/* Cabeçalho */}
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[11px] font-semibold tracking-wider text-brand-600 uppercase dark:text-brand-300">{hoje}</div>
@@ -131,7 +125,6 @@ export function InicioPage() {
         </div>
       </header>
 
-      {/* Indicadores: um painel só, cor apenas quando há problema */}
       <Card className="mb-6 grid grid-cols-2 gap-px overflow-hidden bg-slate-100 lg:grid-cols-4 dark:bg-slate-800 [&>*]:bg-white dark:[&>*]:bg-slate-900">
         <Indicador
           rotulo="Acima da capacidade"
@@ -171,7 +164,6 @@ export function InicioPage() {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        {/* Prioridades */}
         <Card id="prioridades" className="scroll-mt-6 overflow-hidden">
           <CabecalhoCard
             icone={Lightbulb}
@@ -214,7 +206,6 @@ export function InicioPage() {
           )}
         </Card>
 
-        {/* Mapa de ocupação */}
         <Card className="min-w-0 overflow-hidden">
           <CabecalhoCard
             icone={Grid3x3}
@@ -245,7 +236,6 @@ export function InicioPage() {
         </Card>
       </div>
 
-      {/* Projetos */}
       <section className="mt-8">
         <div className="mb-3 flex items-end justify-between">
           <div>
@@ -300,10 +290,6 @@ export function InicioPage() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Peças
-// ---------------------------------------------------------------------------
 
 function CabecalhoCard({
   icone: Icone,
@@ -364,7 +350,6 @@ function Indicador({
 }) {
   const Icone = status === "critico" ? OctagonAlert : status === "atencao" ? AlertTriangle : status === "ok" ? CircleCheck : null;
   const cor = status === "neutro" ? undefined : COR_STATUS[status];
-  // o cartão não é um link (tem o "?" dentro); a ação fica num "Ver detalhes" explícito
   const verDetalhes = "inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline underline-offset-2 dark:text-brand-300";
   return (
     <div className="flex flex-col px-5 py-4">
@@ -405,7 +390,6 @@ function ItemPrioridade({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: 
   const t = TIPO_ITEM[item.tipo];
   return (
     <li className="relative flex gap-3.5 py-4 pr-5 pl-6">
-      {/* faixa de gravidade */}
       <span className="absolute inset-y-3 left-0 w-[3px] rounded-r-full" style={{ background: t.cor }} aria-hidden />
       <t.icone className="mt-0.5 size-4 shrink-0" style={{ color: t.cor }} aria-hidden />
       <div className="min-w-0 flex-1">
@@ -454,7 +438,6 @@ function ItemPrioridade({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: 
   );
 }
 
-/** Ação discreta em formato de link (o filho é <Link> ou <button>). */
 function AcaoLink({ children, secundaria }: { children: ReactNode; secundaria?: boolean }) {
   return (
     <span

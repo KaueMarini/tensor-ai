@@ -1,7 +1,3 @@
-// RBAC no front (espelho do que o banco já garante por RLS e as Edge Functions por middleware):
-// o papel vem do servidor (rpc papel_atual, a partir do JWT assinado), nunca de algo editável
-// no navegador. Esconder na tela é conforto; a proteção de verdade está no banco.
-
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert } from "lucide-react";
@@ -23,7 +19,6 @@ export function usePapel() {
   return { papel, carregando: q.isLoading, ehGestor: papel === "admin" || papel === "gestor", ehAdmin: papel === "admin" };
 }
 
-/** Conteúdo só para gestor/admin; membro vê o aviso (ou nada, com `oculto`). */
 export function SomenteGestor({ children, oculto }: { children: ReactNode; oculto?: boolean }) {
   const { ehGestor, carregando } = usePapel();
   if (carregando) return null;

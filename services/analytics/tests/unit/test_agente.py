@@ -1,5 +1,3 @@
-"""Agente: entrada pseudonimizada, validador, render, fallback e orquestração (LLM sempre mockado)."""
-
 from __future__ import annotations
 
 import json
@@ -88,9 +86,6 @@ class FakeLLM:
         return r
 
 
-# --------------------------------------------------------------------------- entrada
-
-
 def test_entrada_sem_nome_email_nem_id_real(cenario: Any) -> None:
     a, s, dados = cenario
     texto = json.dumps(dados, ensure_ascii=False)
@@ -98,7 +93,7 @@ def test_entrada_sem_nome_email_nem_id_real(cenario: Any) -> None:
         assert p.nome not in texto
         assert f'"{p.id}"' not in texto
     assert s.projeto_id not in texto
-    assert '"s1"' not in texto  # id de sprint vira nome
+    assert '"s1"' not in texto
     assert all(c["task"].startswith("T") for c in dados["candidatos"])
     assert "Kauê" not in texto
     _, mapa = montar_entrada(a, s, "Atlântico Docas")
@@ -120,9 +115,6 @@ def test_hash_ignora_hoje_e_muda_com_versao(cenario: Any) -> None:
     assert h != hash_entrada({**dados, "candidatos": []}, "v1")
 
 
-# --------------------------------------------------------------------------- validador
-
-
 def test_resposta_correta_passa(cenario: Any) -> None:
     _, _, dados = cenario
     ids = [c["acao_id"] for c in dados["candidatos"]]
@@ -141,9 +133,9 @@ def test_tolerancia_de_arredondamento(cenario: Any) -> None:
     _, _, dados = cenario
     assert 116.7 not in numeros_permitidos(dados)
     r = _boa(dados).model_copy(update={"alerta": "Utilização de 116,7% na semana."})
-    assert validar(r, dados, [r.acao_id]) == []  # 117 ± 1 p.p.
+    assert validar(r, dados, [r.acao_id]) == []
     r2 = _boa(dados).model_copy(update={"alerta": "São 35,05h de carga."})
-    assert validar(r2, dados, [r2.acao_id]) == []  # 35 ± 0,1 h
+    assert validar(r2, dados, [r2.acao_id]) == []
     r3 = _boa(dados).model_copy(update={"alerta": "São 35,5h de carga."})
     assert validar(r3, dados, [r3.acao_id]) != []
 
@@ -196,9 +188,6 @@ def test_tamanhos(cenario: Any) -> None:
     assert any("justificativa.pareto" in e for e in erros2)
 
 
-# --------------------------------------------------------------------------- render e fallback
-
-
 def test_render_formato_estrito(cenario: Any) -> None:
     _, _, dados = cenario
     md = render(_boa(dados))
@@ -231,9 +220,6 @@ def test_fallback_sem_pareto_e_com_referencia(cenario: Any) -> None:
     assert "Sem causas" in r.justificativa.pareto
     assert "4,5 dias" in r.justificativa.tempo_ciclo
     assert fmt(None) == "—"
-
-
-# --------------------------------------------------------------------------- orquestração
 
 
 def test_llm_ok_na_primeira(cenario: Any) -> None:
@@ -331,9 +317,6 @@ def test_acao_estruturada_mover_sprint(cenario: Any) -> None:
     }
 
 
-# --------------------------------------------------------------------- adaptador Anthropic (cliente falso)
-
-
 def _resp(texto: str | None, stop: str = "end_turn") -> SimpleNamespace:
     conteudo = [] if texto is None else [SimpleNamespace(type="text", text=texto)]
     return SimpleNamespace(
@@ -356,7 +339,7 @@ class _ClienteFalso:
 
 def _llm(efeito: Any) -> tuple[AnthropicLLM, _ClienteFalso]:
     c = _ClienteFalso(efeito)
-    return AnthropicLLM("k", "claude-opus-5-5", cliente=c), c  # type: ignore[arg-type]
+    return AnthropicLLM("k", "claude-opus-5-5", cliente=c), c
 
 
 def test_adaptador_anthropic_monta_pedido_e_interpreta(cenario: Any) -> None:
@@ -392,9 +375,6 @@ def test_mensagens_da_segunda_tentativa(cenario: Any) -> None:
     msgs = mensagens_da_tentativa(dados, _boa(dados), ["erro x"])
     assert [m["role"] for m in msgs] == ["user", "assistant", "user"]
     assert "erro x" in str(msgs[2]["content"])
-
-
-# --------------------------------------------------------------------------- prompt
 
 
 def test_prompt_loader(tmp_path: Path) -> None:

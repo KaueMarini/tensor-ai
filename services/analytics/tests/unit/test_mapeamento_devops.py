@@ -70,7 +70,7 @@ def test_task_de_linha() -> None:
         "horas_restantes": Decimal("3.5"),
         "horas_estimadas": None,
         "horas_concluidas": 2,
-        "start_date": datetime(2026, 10, 6, 2, tzinfo=UTC),  # 23h do dia 5 em São Paulo
+        "start_date": datetime(2026, 10, 6, 2, tzinfo=UTC),
         "finish_date": None,
         "target_date": datetime(2026, 10, 9, 12, tzinfo=UTC),
         "tags": ["a"],
@@ -137,17 +137,14 @@ def test_pessoa_e_data_local() -> None:
     assert (p.nome, p.skills, p.foco) == ("", ("a",), 0.5)
     assert m.data_local(None) is None
     assert m.data_local(date(2026, 1, 1)) == date(2026, 1, 1)
-    assert m.data_local(datetime(2026, 1, 1, 12)) == date(2026, 1, 1)  # noqa: DTZ001 - sem fuso vira São Paulo
-
-
-# --------------------------------------------------------------------------- cliente DevOps
+    assert m.data_local(datetime(2026, 1, 1, 12)) == date(2026, 1, 1)
 
 
 def _cliente(handler: object, pausas: list[float]) -> DevOpsLeitura:
     return DevOpsLeitura(
         "https://dev.azure.com/org",
         "pat",
-        transport=httpx.MockTransport(handler),  # type: ignore[arg-type]
+        transport=httpx.MockTransport(handler),
         dormir=pausas.append,
     )
 

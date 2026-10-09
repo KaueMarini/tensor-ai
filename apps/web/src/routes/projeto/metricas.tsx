@@ -1,6 +1,3 @@
-// Métricas de andamento do projeto. Itens contados = folhas (tasks/bugs; histórias com
-// filhos não somam de novo). Cores: paleta categórica de referência em ordem fixa.
-
 import { type ReactNode, useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
 import { AlertTriangle, BarChart3, CheckCircle2, Clock, Layers, ListChecks, UserRound } from "lucide-react";
@@ -276,7 +273,6 @@ function BarraLinha({ rotulo, valor, max, detalhe, apagado }: { rotulo: string; 
   );
 }
 
-/** Colunas empilhadas (concluídas embaixo, restantes em cima), um eixo só. */
 function ColunasSprint({
   dados,
 }: {

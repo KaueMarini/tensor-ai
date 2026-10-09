@@ -1,16 +1,3 @@
-"""Validador anti-alucinação da resposta do LLM. Devolve a lista de erros (vazia = aprovada).
-
-Regras:
-1. `acao_id` existe entre os candidatos (o LLM não inventa ação).
-2. Todo número citado no texto existe nos dados enviados, dentro da tolerância de
-   arredondamento de `numeros.py` (±1 para %, ±0,1 para o resto).
-3. Alerta ≤ 2 linhas; recomendação = 1 linha (e limites de caracteres).
-4. Sem termos de avaliação de desempenho ("lento", "improdutivo", "não rende"...): o produto
-   fala de carga e encaixe, nunca de quanto alguém rende.
-5. Sem verbos de ação concluída ("executei", "realoquei", "movi"...): nada foi feito ainda,
-   o gestor é quem aprova.
-"""
-
 from __future__ import annotations
 
 import re
@@ -29,7 +16,6 @@ MAX_CHARS_JUSTIFICATIVA = 400
 _NUMERO = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)(\s*%)?")
 _NUMERO_EM_TEXTO = re.compile(r"\d+(?:[.,]\d+)?")
 
-# comparados sem acento e em minúsculas
 TERMOS_DESEMPENHO = (
     r"\blent[oa]s?\b",
     r"\blentidao\b",
@@ -47,7 +33,6 @@ TERMOS_DESEMPENHO = (
     r"\bfraco\b|\bfraca\b",
     r"\bculpa\b",
 )
-# comparados no texto original em minúsculas (o acento muda o tempo verbal: "reatribuí" × "reatribui")
 VERBOS_CONCLUIDOS = (
     r"\bexecutei\b",
     r"\brealoquei\b",
@@ -73,7 +58,6 @@ def _paraf(v: str) -> float:
 
 
 def numeros_permitidos(dados: Any) -> set[float]:
-    """Todos os números dos dados: valores numéricos e dígitos dentro de textos (datas, T3, Sprint 2)."""
     out: set[float] = set()
 
     def visitar(v: Any) -> None:

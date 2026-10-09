@@ -1,8 +1,3 @@
-// Painel "Equipe sugerida": para projeto novo sem pessoas (ou para reforço), mostra o que o
-// projeto pede (tags + descrição), o squad de um projeto parecido que pode assumir e uma
-// montagem com pessoas avulsas que têm as skills e tempo livre. Só sugere: quem decide e
-// coloca as pessoas no time do Azure DevOps é o gestor.
-
 import { useState } from "react";
 import { toast } from "sonner";
 import { CircleAlert, Copy, ExternalLink, Info, Puzzle, Sparkles, UsersRound, UserRoundPlus } from "lucide-react";
@@ -89,7 +84,6 @@ export function EquipeSugeridaPainel({ projetoId, projetoNome, motivo }: { proje
         </div>
       ) : (
         <div className="grid gap-px bg-slate-100 lg:grid-cols-2 dark:bg-slate-800">
-          {/* Squad pronto */}
           <section className="bg-white p-5 dark:bg-slate-900">
             <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
               <UsersRound className="size-4 text-brand-700 dark:text-brand-300" /> Um squad que já atua em algo parecido
@@ -108,7 +102,6 @@ export function EquipeSugeridaPainel({ projetoId, projetoNome, motivo }: { proje
             )}
           </section>
 
-          {/* Pessoas avulsas */}
           <section className="bg-white p-5 dark:bg-slate-900">
             <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
               <Puzzle className="size-4 text-brand-700 dark:text-brand-300" /> Ou monte com pessoas de vários squads

@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { type CapacidadeTime, cargaGlobal, type FolgaTime, type ItemGlobal } from "./global.ts";
 
-// Sprint 1 de cada projeto: 05/10 a 16/10/2026 = 10 dias úteis
 const S = (id: string, inicio = "2026-10-05", fim = "2026-10-16", projetoId = `p-${id}`) => ({ id, inicio, fim, projetoId });
 const periodo = { id: "jan", inicio: "2026-10-05", fim: "2026-10-16" };
-// 8h produtivas/dia para facilitar as contas (o padrão de mercado é 6h, ver regras.ts)
 const kaue = { id: "kaue", horasDia: 8 };
 
 const item = (over: Partial<ItemGlobal>): ItemGlobal => ({
@@ -69,18 +67,16 @@ describe("cargaGlobal", () => {
   });
 
   it("sprint que só cobre parte do período conta proporcional", () => {
-    // sprint de 12/10 a 23/10: 5 dos 10 dias úteis caem no período
     const c = rodar({ sprints: [S("x", "2026-10-12", "2026-10-23")], itens: [item({ sprintId: "x", horasRestantes: 20 })] });
     expect(c.cargaH).toBe(10);
   });
 
   it("folga pessoal zera o dia; folga do time tira só a parcela daquele time", () => {
     const folgas: FolgaTime[] = [
-      { sprintId: "a1", timeId: "ta", pessoaId: "kaue", inicio: "2026-10-05", fim: "2026-10-06" }, // 2 dias de férias
-      { sprintId: "b1", timeId: "tb", pessoaId: null, inicio: "2026-10-07", fim: "2026-10-07" }, // folga do time B
+      { sprintId: "a1", timeId: "ta", pessoaId: "kaue", inicio: "2026-10-05", fim: "2026-10-06" },
+      { sprintId: "b1", timeId: "tb", pessoaId: null, inicio: "2026-10-07", fim: "2026-10-07" },
     ];
     const c = rodar({ capacidades: [cap("a1", "ta", 4), cap("b1", "tb", 4)], folgas });
-    // 8 dias úteis; no dia 07 só o time A conta (4h): 7×8 + 4 = 60
     expect(c.diasUteis).toBe(8);
     expect(c.capacidadeH).toBe(60);
   });
@@ -92,7 +88,6 @@ describe("cargaGlobal", () => {
   });
 
   it("alocação do gestor no projeto sobrepõe a Capacity do DevOps daquele projeto", () => {
-    // DevOps: 6h em A e 6h em B (teto 8h). Gestor: só 1h/dia em A → 1 + 6 = 7h/dia
     const c = rodar({
       capacidades: [cap("a1", "ta", 6), cap("b1", "tb", 6)],
       alocacoes: [{ projetoId: "p-a1", pessoaId: "kaue", horasDia: 1 }],
@@ -106,7 +101,6 @@ describe("cargaGlobal", () => {
       sprints: [S("a1", "2026-10-12", "2026-10-16")],
       alocacoes: [{ projetoId: "p-a1", pessoaId: "kaue", horasDia: 2 }],
     });
-    // 5 dias sem sprint de A (8h padrão) + 5 dias com A (2h do gestor)
     expect(c.capacidadeH).toBe(50);
   });
 
@@ -124,7 +118,6 @@ describe("cargaGlobal", () => {
   });
 
   it("carga da sprint vai para os dias em que a pessoa está disponível", () => {
-    // Sprint de 2 semanas, 28h; pessoa de folga na 1ª semana inteira
     const folgas: FolgaTime[] = [{ sprintId: "a1", timeId: "ta", pessoaId: "kaue", inicio: "2026-10-05", fim: "2026-10-09" }];
     const base = { capacidades: [cap("a1", "ta", 6)], folgas, itens: [item({ sprintId: "a1", horasRestantes: 28 })] };
     const sem1 = rodar({ ...base, periodo: { id: "s1", inicio: "2026-10-05", fim: "2026-10-09" } });

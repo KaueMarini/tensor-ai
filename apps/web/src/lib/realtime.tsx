@@ -1,8 +1,3 @@
-// Assina postgres_changes e mantém o front em dia sem refresh:
-//  - invalida as queries afetadas do TanStack Query
-//  - destaca por ~2s as linhas alteradas (por devops_id)
-//  - mostra um toast discreto (agrupado quando chega uma rajada, ex.: sync completa)
-
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -21,7 +16,6 @@ const Ctx = createContext<RealtimeCtx>({ status: "conectando", destacados: new S
 
 const DESTAQUE_MS = 2200;
 const JANELA_TOAST_MS = 600;
-// Junta rajadas (ex.: 50 tasks movidas de uma vez) em um único refetch por query
 const JANELA_INVALIDACAO_MS = 500;
 
 type WorkItem = Tables<"work_item">;
@@ -38,7 +32,6 @@ function descrever(p: RealtimePostgresChangesPayload<WorkItem>): string {
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  // ref: o botão "Ver" do aviso navega sem recriar o canal do Realtime
   const roteador = useRef(useRouter());
   const [status, setStatus] = useState<RealtimeStatus>("conectando");
   const [destacados, setDestacados] = useState<ReadonlySet<number>>(new Set());
@@ -109,11 +102,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "time_membro" }, () => {
         invalidar("membros", "projetos", "backlog");
       })
-      // renomeado, descrição/tags alteradas ou excluído (arquivado) no DevOps
       .on("postgres_changes", { event: "*", schema: "public", table: "projeto" }, () => {
         invalidar("projetos", "membros", "backlog");
       })
-      // regras de capacidade do gestor (outra aba/outro gestor): recalcula tudo na hora
       .on("postgres_changes", { event: "*", schema: "public", table: "regra_capacidade" }, () => invalidar("regras"))
       .on("postgres_changes", { event: "*", schema: "public", table: "regra_capacidade_pessoa" }, () => invalidar("regras"))
       .on("postgres_changes", { event: "*", schema: "public", table: "regra_capacidade_projeto" }, () => invalidar("regras"))
@@ -124,7 +115,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "ausencia" }, () => {
         invalidar("agenda", "ausencias", "backlog");
       })
-      // notificação nova (ex.: gravada pela IA): atualiza o sino e avisa na hora
       .on<Tables<"notificacao">>("postgres_changes", { event: "*", schema: "public", table: "notificacao" }, (p) => {
         invalidar("notificacoes");
         if (p.eventType !== "INSERT") return;
@@ -134,9 +124,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           action: n.link ? { label: "Ver", onClick: () => roteador.current.history.push(n.link!) } : undefined,
         });
       })
-      // sugestão do agente de IA (nova, aprovada, ignorada, expirada): atualiza as caixas
       .on("postgres_changes", { event: "*", schema: "public", table: "sugestao" }, () => invalidar("sugestoes_agente"))
-      // importância do projeto (gestor ou estimada pela IA)
       .on("postgres_changes", { event: "*", schema: "public", table: "projeto_avaliacao" }, () => invalidar("projetos"))
       .on("postgres_changes", { event: "*", schema: "public", table: "usuario_papel" }, () => invalidar("papel"))
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
@@ -153,7 +141,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       })
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
-          // ao reconectar, recarrega tudo: podemos ter perdido eventos enquanto estava offline
           if (jaConectou.current) void qc.invalidateQueries();
           jaConectou.current = true;
           setStatus("ao-vivo");

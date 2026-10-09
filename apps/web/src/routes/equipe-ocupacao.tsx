@@ -1,7 +1,3 @@
-// Equipe › Ocupação: mapa pessoa × período de todo mundo (todos os projetos somados), com
-// quem está pior primeiro. Até 3 meses as colunas são semanas; 1 e 2 anos, meses.
-// Clique abre a ficha da pessoa.
-
 import { useMemo, useState } from "react";
 import { Grid3x3 } from "lucide-react";
 import type { Membro } from "@/lib/membros";

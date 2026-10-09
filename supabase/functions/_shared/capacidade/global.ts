@@ -1,27 +1,8 @@
-// Carga GLOBAL de uma pessoa num período (todos os projetos), para decisões de alocação.
-//
-// O motor por projeto (motor.ts) responde "quanto da pessoa está alocado neste projeto".
-// Para sugerir quem pega uma task, isso engana: quem está em 4 projetos com 6h/dia em cada
-// parece ter 24h/dia. Aqui:
-//   capacidade/dia = soma, por projeto com sprint no dia, da alocação do gestor naquele
-//                    projeto (ou, sem ela, da Capacity da pessoa nos times do projeto),
-//                    limitada às horas produtivas da pessoa (regras.ts: jornada × foco);
-//                    sem nada configurado, as horas produtivas. Folga pessoal zera o dia;
-//                    folga de um time tira só a parcela daquele time; feriado zera.
-//   status         = pelos limites gerais (os do projeto valem só na visão do projeto).
-//   carga          = horas pendentes das tasks abertas da pessoa em TODOS os projetos,
-//                    distribuída pelos dias em que a PESSOA está disponível na sprint da
-//                    task (sem feriados e sem folgas dela) e somada nos que caem no período.
-//                    Quem está ausente a sprint toda fica com a carga no calendário da
-//                    sprint (vira "sem capacidade", que é o alerta certo).
-// Puro e determinístico (CLAUDE.md §5: números vêm do motor).
-
 import { type Celula, diasUteis, horasPendentes, type ItemCarga, type PessoaCap, statusDe } from "./motor.ts";
 import { type AlocacaoProjeto, type Limites, type OrigemCapacidade, PADRAO_MERCADO } from "./regras.ts";
 
 export interface SprintPeriodo {
   id: string;
-  /** Necessário para aplicar a alocação do gestor por projeto. */
   projetoId?: string;
   inicio: string | null;
   fim: string | null;
@@ -34,7 +15,6 @@ export interface CapacidadeTime {
   capacidadeDia: number;
 }
 
-/** pessoaId nulo = folga do time inteiro (tira só a capacidade daquele time). */
 export interface FolgaTime {
   sprintId: string;
   timeId: string;
@@ -48,7 +28,6 @@ export interface ItemGlobal extends ItemCarga {
 }
 
 export interface CelulaGlobal extends Celula {
-  /** Carga por projeto no período (h), para explicar de onde vem a ocupação. */
   porProjeto: { projetoId: string; cargaH: number }[];
 }
 
@@ -83,13 +62,10 @@ export function cargaGlobal(entrada: {
   );
   const diasPeriodo = [...dias(periodo.inicio, periodo.fim)].filter((d) => !feriados.has(d));
   const projetoDa = (sprintId: string) => sprints.get(sprintId)?.projetoId ?? sprintId;
-  // projetos com sprint em cada dia (para saber quando a alocação do gestor vale)
   const projetosNoDia = new Map(
     diasPeriodo.map((d) => [d, new Set([...sprints.values()].filter((s) => dentro(d, s.inicio, s.fim)).map((s) => projetoDa(s.id)))]),
   );
 
-  // Fração da sprint que cai no período: dias em comum / dias da sprint, contando só os dias
-  // que passam no filtro (úteis, sem feriado e, por pessoa, sem as folgas dela)
   const fracaoSprint = (s: { inicio: string; fim: string }, fora: (d: string) => boolean) => {
     const total = diasUteis(s.inicio, s.fim, fora);
     const ini = s.inicio > periodo.inicio ? s.inicio : periodo.inicio;
@@ -125,7 +101,7 @@ export function cargaGlobal(entrada: {
       }
       for (const a of alocacoes) {
         if (!projetosNoDia.get(d)?.has(a.projetoId)) continue;
-        porProjetoDia.set(a.projetoId, a.horasDia); // gestor sobrepõe a Capacity do DevOps
+        porProjetoDia.set(a.projetoId, a.horasDia);
         usouGestor = true;
       }
       if (porProjetoDia.size === 0) {

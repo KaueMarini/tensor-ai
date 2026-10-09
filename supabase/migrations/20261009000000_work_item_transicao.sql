@@ -1,17 +1,6 @@
--- Histórico de transições de State e BoardColumn por work item (base das métricas de fluxo do
--- serviço services/analytics: waiting time, cycle/lead time, aging).
---
--- Duas fontes, ambas idempotentes pela chave (work_item_id, campo, changed_rev):
---   1. Backfill: o serviço lê GET _apis/wit/workItems/{id}/updates e grava (origem 'backfill').
---   2. Incremental: trigger em `evento` extrai oldValue/newValue do payload do Service Hook
---      (origem 'evento'). O sync (devops-sync/devops-webhook) não muda.
---
--- No workitem.created o Service Hook manda os campos "planos" (sem oldValue/newValue); no
--- updated manda só o que mudou, como {oldValue, newValue}. A função aceita os dois formatos.
-
 create table public.work_item_transicao (
   id            bigint generated always as identity primary key,
-  work_item_id  integer not null,                   -- sem FK: o evento pode chegar antes do item
+  work_item_id  integer not null,
   campo         text not null check (campo in ('System.State', 'System.BoardColumn')),
   de            text,
   para          text,
@@ -28,7 +17,6 @@ alter table public.work_item_transicao enable row level security;
 create policy "leitura_autenticados" on public.work_item_transicao
   for select to authenticated using (true);
 
--- Valor novo/antigo de um campo no payload, nos dois formatos do Service Hook
 create or replace function public.transicao_valor(campo jsonb, qual text)
 returns text language sql immutable as $$
   select case
@@ -62,7 +50,6 @@ begin
     nullif(r ->> 'revisedDate', '')::timestamptz,
     new.recebido_em
   );
-  -- revisedDate do item vivo é 9999-01-01: não é data de mudança
   if quando > now() + interval '1 day' then
     quando := new.recebido_em;
   end if;
@@ -83,7 +70,6 @@ begin
   end loop;
   return new;
 exception when others then
-  -- Nunca derrubar a gravação do evento (o sync depende dela); a varredura do backfill cobre.
   raise warning 'registrar_transicoes_evento(%): %', new.id, sqlerrm;
   return new;
 end $$;

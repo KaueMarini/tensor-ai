@@ -1,10 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Painel que abre ao clicar no gatilho e fecha ao clicar fora, com Esc ou ao clicar de
- * novo no gatilho. Cliques dentro do painel não fecham.
- */
 export function Popover({
   gatilho,
   rotulo,
@@ -13,9 +9,7 @@ export function Popover({
   className,
   painelClassName,
 }: {
-  /** Conteúdo do botão (ícone, texto). Recebe se está aberto. */
   gatilho: (aberto: boolean) => ReactNode;
-  /** aria-label do botão. */
   rotulo: string;
   children: ReactNode | ((fechar: () => void) => ReactNode);
   alinhar?: "direita" | "esquerda";

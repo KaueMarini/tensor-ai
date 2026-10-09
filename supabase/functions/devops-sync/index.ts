@@ -1,11 +1,3 @@
-// devops-sync: sincronização completa (retomável) ou reconciliação incremental.
-// Deploy com --no-verify-jwt; a autorização é feita aqui:
-//   - cron (pg_net): header x-sync-secret = SYNC_SECRET
-//   - front: JWT de um usuário autenticado (validado via Auth)
-//
-// POST { "mode": "full" | "reconcile", "restart"?: boolean }
-// Resposta: { done, projetos: [{ projeto, modo, fase, done, aplicados }] }. Se done=false, chame de novo.
-
 import { errorMessage, log } from "../_shared/log.ts";
 import {
   corsHeaders,
@@ -20,7 +12,7 @@ import {
 import { protegido } from "../_lib/seguranca.ts";
 import { type Modo, type ResultadoProjeto, runFull, runReconcile, type SyncCtx, syncProjetos, withLease } from "../_lib/sync.ts";
 
-const ORCAMENTO_MS = 110_000; // limite de wall clock no free tier é 150s
+const ORCAMENTO_MS = 110_000;
 
 async function autorizado(req: Request, db: Db): Promise<boolean> {
   const secret = req.headers.get("x-sync-secret");

@@ -1,13 +1,6 @@
--- Navegação para muitos projetos + Kanban que escreve no DevOps + auditoria de ações.
-
--- =====================================================================
--- Busca de projetos por nome (ilike '%x%') escalável
--- =====================================================================
 create extension if not exists pg_trgm with schema extensions;
 create index if not exists projeto_nome_trgm on public.projeto using gin (nome extensions.gin_trgm_ops);
 
--- Resumo por projeto pra listagem paginada. As subconsultas só rodam para as
--- linhas da página (limit/offset aplicados antes do select list).
 create view public.v_projeto_resumo with (security_invoker = true) as
 select p.id,
        p.nome,
@@ -28,7 +21,6 @@ select p.id,
   from public.projeto p
   left join public.sync_state ss on ss.projeto_id = p.id;
 
--- Nome do projeto direto na view de membros (a tela não precisa carregar todos os projetos)
 create or replace view public.v_membros with (security_invoker = true) as
 select p.id as pessoa_id,
        p.nome,
@@ -58,13 +50,9 @@ select p.id as pessoa_id,
      where pft.pessoa_id = p.id
   ) ft on true;
 
--- =====================================================================
--- Ações feitas pelo app no DevOps (ex.: mover card no Kanban). Auditoria:
--- quem, quando, o que mudou. Só a Edge Function (service_role) grava.
--- =====================================================================
 create table public.acao (
   id             bigint generated always as identity primary key,
-  tipo           text not null,                    -- 'mover_estado'
+  tipo           text not null,
   projeto_id     uuid references public.projeto(id) on delete set null,
   devops_id      integer,
   antes          jsonb,
@@ -81,7 +69,6 @@ create index on public.acao (devops_id);
 alter table public.acao enable row level security;
 create policy "leitura_autenticados" on public.acao for select to authenticated using (true);
 
--- Escrita feita pelo próprio app (Kanban) passa a ser uma origem válida
 alter table public.work_item drop constraint if exists work_item_sync_origem_check;
 alter table public.work_item add constraint work_item_sync_origem_check
   check (sync_origem in ('webhook','reconcile','full','app'));

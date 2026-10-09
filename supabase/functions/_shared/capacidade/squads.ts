@@ -1,6 +1,3 @@
-// Resumo de capacidade de um squad (time do DevOps) numa sprint, a partir das células do motor.
-// Puro e determinístico: a tela só exibe.
-
 import { type Celula, type StatusCarga, statusDe } from "./motor.ts";
 
 export interface ResumoSquad {
@@ -11,7 +8,6 @@ export interface ResumoSquad {
   utilizacao: number | null;
   status: StatusCarga;
   itens: number;
-  /** Pessoas do squad por status individual (o agregado pode estar ok com alguém sobrecarregado). */
   porStatus: Record<StatusCarga, number>;
 }
 
@@ -35,7 +31,6 @@ export function resumirSquad(celulas: (Celula | undefined)[]): ResumoSquad {
   return { pessoas, capacidadeH, cargaH, livreH: Math.max(0, capacidadeH - cargaH), utilizacao, status, itens, porStatus };
 }
 
-/** "IportJLKN12 Team" é o time padrão que o DevOps cria com o projeto. */
 export function ehTimePadrao(nomeTime: string, nomeProjeto: string): boolean {
   return nomeTime.trim().toLowerCase() === `${nomeProjeto} team`.trim().toLowerCase();
 }

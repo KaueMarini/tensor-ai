@@ -1,9 +1,3 @@
-"""Golden test: o cenário do devops:seed precisa gerar os dois alertas da demo.
-
-`seed_esperado.json` guarda o resumo aprovado. Mudou o motor de propósito? Rode com
-UPDATE_GOLDEN=1, revise o diff do JSON e commite.
-"""
-
 from __future__ import annotations
 
 import json
@@ -63,7 +57,6 @@ def test_seed_gera_alerta_de_sobrecarga_e_de_ferias_com_task() -> None:
     assert {(x.pessoa_id, x.task_id) for x in ferias} == {("julliano", 116), ("julliano", 117)}
     assert all(x.evidencia.resultado == 5 for x in ferias)
 
-    # os alertas graves vêm primeiro e há ação para os dois casos
     assert a.alertas[0].gravidade == 3
     assert any(c.de_pessoa_id == "kaue" and c.tipo == "reatribuir" for c in a.candidatos)
     assert any(c.task_id in (116, 117) for c in a.candidatos)

@@ -1,6 +1,3 @@
-// Contexto de runtime das Edge Functions (Deno): env, cliente Supabase (service_role) e cliente DevOps.
-// Código puro e reaproveitável pelo front fica em _shared; aqui fica o que depende do runtime.
-
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { Database, Json } from "../_shared/db.types.ts";
 import { type AzdoClient, createAzdoClient } from "../_shared/azdo/client.ts";
@@ -24,7 +21,6 @@ export function createAzdo(): AzdoClient {
   return createAzdoClient({ orgUrl: env("AZDO_ORG_URL"), pat: env("AZDO_PAT"), log });
 }
 
-/** AZDO_PROJECTS: lista opcional (nomes ou IDs, separados por vírgula). Vazio = todos. */
 export function projectFilter(): string[] {
   return env("AZDO_PROJECTS", false)
     .split(",")
@@ -40,11 +36,6 @@ export const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-/**
- * Cabeçalhos de segurança de toda resposta: HSTS (só HTTPS, 2 anos, inclui subdomínios),
- * sem sniffing de tipo, sem cache de dados (respostas têm dado de pessoas) e sem referrer.
- * O TLS em si é terminado pela plataforma do Supabase (só HTTPS, TLS 1.2+/1.3).
- */
 export const securityHeaders = {
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
   "X-Content-Type-Options": "nosniff",
@@ -65,11 +56,6 @@ async function sha256Hex(texto: string): Promise<string> {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Confere um segredo recebido (header) sem precisar guardá-lo em texto puro: compara o SHA-256
- * com `${nome}_SHA256` quando existir (preferido), senão com `${nome}` (legado). Sempre em
- * tempo constante.
- */
 export async function verificarSegredo(recebido: string | null | undefined, nome: string): Promise<boolean> {
   if (!recebido) return false;
   const hash = env(`${nome}_SHA256`, false).toLowerCase();
@@ -78,7 +64,6 @@ export async function verificarSegredo(recebido: string | null | undefined, nome
   return !!plano && safeEqual(recebido, plano);
 }
 
-/** Comparação em tempo constante (para segredos). */
 export function safeEqual(a: string, b: string): boolean {
   const ea = new TextEncoder().encode(a);
   const eb = new TextEncoder().encode(b);

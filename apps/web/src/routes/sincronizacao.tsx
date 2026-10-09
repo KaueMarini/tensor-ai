@@ -1,7 +1,3 @@
-// Ajustes › Sincronização: saúde da ligação com o Azure DevOps (estado por projeto, sincronizar
-// agora), os últimos eventos recebidos dos Service Hooks e a AUDITORIA de tudo que o app escreveu
-// no DevOps (mover, atribuir, sugestões aprovadas): quem, quando, antes e depois.
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -79,7 +75,6 @@ function useSincronizar() {
   });
 }
 
-/** "antes → depois" legível para a auditoria. */
 function mudanca(tipo: string, antes: unknown, depois: unknown): string {
   const a = (antes ?? {}) as Record<string, unknown>;
   const d = (depois ?? {}) as Record<string, unknown>;

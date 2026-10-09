@@ -1,16 +1,3 @@
-"""Pareto das causas de atraso. Categorias só determinísticas (nenhuma vem do LLM):
-
-  sla:<coluna>     tempo em fila acima do SLA da coluna de espera
-  bloqueado        tag de bloqueio (config) ou campo de bloqueio
-  ausente          período da task cruza ausência do responsável
-  sobrecarga       responsável acima do limite de sobrecarga numa semana em que a task pesa
-  sem_estimativa   task sem horas no DevOps (usa a estimativa do sistema)
-  dependencia      depende de item ainda aberto
-
-Peso = nº de tasks afetadas (uma task pode ter várias causas). Ordena desc (empate: nome),
-calcula % e % acumulado e marca o conjunto mínimo do topo que soma ≥ 80% ("poucos vitais").
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -103,7 +90,6 @@ def pareto(ocorrencias: Iterable[Ocorrencia]) -> Pareto:
     itens: list[ItemPareto] = []
     acumulado = 0
     for causa, ids in ordem:
-        # vital: o acumulado ANTES dela ainda não chegou ao corte (inclui a que cruza os 80%)
         vital = acumulado / total < CORTE_VITAIS
         acumulado += len(ids)
         itens.append(
@@ -112,7 +98,6 @@ def pareto(ocorrencias: Iterable[Ocorrencia]) -> Pareto:
                 rotulo=rotulos[causa],
                 ocorrencias=len(ids),
                 pct=numeros.arredondar(100 * len(ids) / total, 1),
-                # acumulado calculado sobre contagens: o último é exatamente 100
                 pct_acumulado=numeros.arredondar(100 * acumulado / total, 1),
                 vital=vital,
                 tasks=tuple(sorted(ids)),

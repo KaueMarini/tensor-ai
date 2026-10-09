@@ -1,13 +1,3 @@
-// Portfólio (determinístico): ESFORÇO × IMPACTO de cada projeto e projetos PARECIDOS.
-//
-// Esforço = horas planejadas no horizonte (motor global, todos os projetos) e a fatia da
-// capacidade da equipe que isso consome; impacto = 1 baixo, 2 médio, 3 alto (gestor > DevOps >
-// sugerido pela IA). Leituras:
-//   esforco-alto-impacto-baixo  impacto baixo consumindo muito (≥ 15% da equipe ou ≥ 1,5× a média)
-//   impacto-alto-pouco-esforco  impacto alto com trabalho aberto, mas quase ninguém nele (< ½ média)
-//   equilibrado | sem-impacto (ninguém definiu nem a IA estimou) | sem-trabalho
-// Parecidos: semelhança entre descrição + tags (mesmo cálculo da equipe sugerida).
-
 import { similaridade, termosDoProjeto } from "./equipe-sugerida.ts";
 
 export type Impacto = 1 | 2 | 3;
@@ -26,11 +16,8 @@ export interface ProjetoPortfolio {
 }
 
 export interface EsforcoProjeto {
-  /** Horas de tasks do projeto que caem no horizonte (todas as pessoas). */
   horasHorizonte: number;
-  /** Pessoas com carga do projeto no horizonte. */
   pessoas: number;
-  /** Horas pendentes de todas as tasks abertas (qualquer sprint). */
   horasAbertas: number;
 }
 
@@ -38,11 +25,8 @@ export interface AvaliacaoProjeto extends EsforcoProjeto {
   projetoId: string;
   impacto: Impacto | null;
   impactoOrigem: OrigemImpacto | null;
-  /** Fatia da capacidade total da equipe no horizonte (0..1). */
   fatia: number;
-  /** Média da fatia dos projetos com trabalho no horizonte. */
   fatiaMedia: number;
-  /** 1 = projeto que mais consome a equipe. */
   rankEsforco: number;
   leitura: Leitura;
 }

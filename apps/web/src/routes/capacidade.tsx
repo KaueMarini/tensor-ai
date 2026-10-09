@@ -1,7 +1,3 @@
-// Ajustes › Regras de capacidade: tudo o que o gestor configura (raramente) num lugar só.
-// Regras gerais → exceções por pessoa → alertas por projeto. O dia a dia (ocupação) fica em
-// Início e Equipe. Cascata e padrão de mercado em @shared/capacidade/regras.
-
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";

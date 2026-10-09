@@ -48,9 +48,9 @@ def test_board_column_tem_preferencia_sobre_state() -> None:
 def test_item_que_volta_de_coluna_soma_as_passagens() -> None:
     hist = por_item(
         [
-            trans(1, BOARD, "Doing", "Code Review", dt(5, 9), 2),  # 9h (segunda inteira)
+            trans(1, BOARD, "Doing", "Code Review", dt(5, 9), 2),
             trans(1, BOARD, "Code Review", "Doing", dt(6, 9), 3),
-            trans(1, BOARD, "Doing", "Code Review", dt(7, 9), 4),  # quarta + quinta = 18h
+            trans(1, BOARD, "Doing", "Code Review", dt(7, 9), 4),
             trans(1, BOARD, "Code Review", "Done", dt(9, 9), 5),
         ]
     )[1]
@@ -68,7 +68,7 @@ def test_espera_em_curso_conta_ate_agora_e_ignora_colunas_ativas() -> None:
     ]
     esp = tempo_em_espera(task(1, estado="Active"), hist, CONFIG, frozenset(), dt(6, 12))
     assert len(esp) == 1
-    assert esp[0].horas_uteis == 7  # 4h segunda + 3h terça
+    assert esp[0].horas_uteis == 7
     assert esp[0].em_curso
     assert esp[0].excesso_horas == 0
 

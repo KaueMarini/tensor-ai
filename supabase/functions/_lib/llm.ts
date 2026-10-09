@@ -1,8 +1,3 @@
-// Cliente de LLM das Edge Functions: pede uma resposta JSON com esquema fixo ao Gemini
-// (GEMINI_API_KEY, preferido) ou ao Claude (ANTHROPIC_API_KEY). Sem chave → null (quem chama
-// usa o template). O plano gratuito do Gemini às vezes responde 503/429: tenta de novo e cai
-// para modelos irmãos. Nunca lança: erro vira null + ultimoErroLLM() para diagnóstico.
-
 import { errorMessage, log } from "../_shared/log.ts";
 import { mapearStrings, mascararPII, type PessoaPII, restaurarPII } from "../_shared/privacidade.ts";
 import { env } from "./context.ts";
@@ -10,9 +5,7 @@ import { env } from "./context.ts";
 export interface PedidoLLM {
   sistema: string;
   mensagem: string;
-  /** Nome/descrição da "ferramenta" (Claude); o Gemini usa só o esquema. */
   ferramenta: { nome: string; descricao: string };
-  /** JSON Schema do objeto de resposta. */
   esquema: Record<string, unknown>;
   timeoutMs?: number;
 }
@@ -20,9 +13,6 @@ export interface PedidoLLM {
 let erro: string | null = null;
 export const ultimoErroLLM = () => erro;
 
-// LGPD — middleware de anonimização: nada que identifique uma pessoa chega ao LLM. Quem usa
-// o LLM registra as pessoas conhecidas; o texto sai com [USER_nn]/[EMAIL_HIDDEN] e a resposta
-// tem os tokens restaurados aqui dentro.
 let pessoasPII: PessoaPII[] = [];
 export function definirPessoasPII(pessoas: PessoaPII[]) {
   pessoasPII = pessoas;
@@ -34,7 +24,6 @@ export function provedorLLM(): "gemini" | "claude" | null {
   return null;
 }
 
-/** Gemini não aceita `enum` de números: tira (o validador confere depois). */
 function paraGemini(esquema: unknown): unknown {
   if (Array.isArray(esquema)) return esquema.map(paraGemini);
   if (!esquema || typeof esquema !== "object") return esquema;
@@ -91,7 +80,6 @@ async function geminiModelo<T>(modelo: string, p: PedidoLLM, signal: AbortSignal
 
 async function gemini<T>(p: PedidoLLM, signal: AbortSignal): Promise<T | null> {
   const preferido = env("LLM_MODEL", false).startsWith("gemini") ? env("LLM_MODEL") : "gemini-3.5-flash";
-  // cada modelo tem a própria cota no plano gratuito: cair para outro resolve o 429/503
   const reservas = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-2.5-flash"];
   const tentativas = [preferido, ...reservas.filter((m) => m !== preferido)];
   for (const [i, modelo] of tentativas.entries()) {
@@ -102,7 +90,6 @@ async function gemini<T>(p: PedidoLLM, signal: AbortSignal): Promise<T | null> {
   return null;
 }
 
-/** Resposta JSON do LLM configurado, ou null. Envolve a chamada com a anonimização de PII. */
 export async function pedirJSON<T>(p: PedidoLLM): Promise<T | null> {
   const sistema = mascararPII(p.sistema, pessoasPII);
   const mensagem = mascararPII(p.mensagem, pessoasPII);
@@ -120,7 +107,7 @@ async function pedirJSONBruto<T>(p: PedidoLLM): Promise<T | null> {
   const timer = setTimeout(() => ctrl.abort(), p.timeoutMs ?? 60_000);
   try {
     const r = provedor === "gemini" ? await gemini<T>(p, ctrl.signal) : await claude<T>(p, ctrl.signal);
-    if (r !== null) erro = null; // uma tentativa seguinte deu certo
+    if (r !== null) erro = null;
     else if (erro) log("warn", "LLM sem resposta", { erro });
     return r;
   } catch (err) {

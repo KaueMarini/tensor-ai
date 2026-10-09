@@ -1,5 +1,3 @@
-// Últimos projetos abertos (por navegador). Com muitos projetos, a sidebar mostra só estes.
-
 import { useSyncExternalStore } from "react";
 
 const CHAVE = "projetos_recentes";
@@ -25,9 +23,7 @@ export function registrarRecente(id: string) {
   cache = [id, ...atual.filter((x) => x !== id)].slice(0, MAX);
   try {
     localStorage.setItem(CHAVE, JSON.stringify(cache));
-  } catch {
-    // sem storage (modo privado): a lista vale só para esta aba
-  }
+  } catch {}
   window.dispatchEvent(new Event(EVENTO));
 }
 
@@ -35,9 +31,7 @@ export function esquecerRecente(id: string) {
   cache = ler().filter((x) => x !== id);
   try {
     localStorage.setItem(CHAVE, JSON.stringify(cache));
-  } catch {
-    // idem
-  }
+  } catch {}
   window.dispatchEvent(new Event(EVENTO));
 }
 

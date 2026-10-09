@@ -1,12 +1,3 @@
-// Privacidade (LGPD, privacy by design): mascaramento de dados pessoais (PII) para tudo o que
-// SAI do sistema (LLM) ou vai para LOGS. Puro e testado; usado como middleware em volta de
-// _lib/llm.ts (pedirJSON) e de _shared/log.ts, sem mudar quem chama.
-//
-//   Pessoas conhecidas (nome completo, primeiro nome, e-mail/usuário do DevOps) → [USER_01]...
-//   E-mails soltos → [EMAIL_HIDDEN]   CPF → [CPF_HIDDEN]   telefone → [PHONE_HIDDEN]
-//   IP em log → 189.12.xxx.xxx       e-mail em log/auditoria → k***@g***.com
-// Os tokens [USER_nn] podem ser restaurados localmente na resposta (a IA nunca vê o nome).
-
 export interface PessoaPII {
   nome: string;
   email?: string | null;
@@ -14,7 +5,6 @@ export interface PessoaPII {
 
 export interface Mascara {
   texto: string;
-  /** token → valor original (só existe na memória do sistema). */
   tokens: Map<string, string>;
 }
 
@@ -26,7 +16,6 @@ const PARTICULAS = new Set(["da", "de", "do", "das", "dos", "e"]);
 const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-/** Termos que identificam a pessoa: nome completo, primeiro nome (≥ 3 letras), e-mail. */
 function termosDe(p: PessoaPII): string[] {
   const nome = p.nome.trim();
   const partes = nome.split(/\s+/).filter((x) => !PARTICULAS.has(x.toLowerCase()));
@@ -37,10 +26,6 @@ function termosDe(p: PessoaPII): string[] {
   return [...new Set(out.filter((t) => t.length >= 3))];
 }
 
-/**
- * Troca PII por tokens. Os nomes mais longos primeiro ("Kauê Nebot Marini" antes de "Kauê"),
- * sem diferenciar maiúsculas nem acentos.
- */
 export function mascararPII(texto: string, pessoas: PessoaPII[] = []): Mascara {
   const tokens = new Map<string, string>();
   let out = texto;
@@ -61,14 +46,12 @@ export function mascararPII(texto: string, pessoas: PessoaPII[] = []): Mascara {
   return { texto: out, tokens };
 }
 
-/** Volta os tokens [USER_nn] para os nomes (só dentro do sistema, depois da resposta da IA). */
 export function restaurarPII(texto: string, tokens: Map<string, string>): string {
   let out = texto;
   for (const [token, valor] of tokens) out = out.split(token).join(valor);
   return out;
 }
 
-/** Aplica a máscara a todas as strings de um objeto (resposta JSON do LLM, extras de log...). */
 export function mapearStrings<T>(valor: T, fn: (s: string) => string): T {
   if (typeof valor === "string") return fn(valor) as T;
   if (Array.isArray(valor)) return valor.map((v) => mapearStrings(v, fn)) as T;
@@ -78,7 +61,6 @@ export function mapearStrings<T>(valor: T, fn: (s: string) => string): T {
   return valor;
 }
 
-/** "kauemarini@gmail.com" → "k***@g***.com" (auditoria e logs). */
 export function mascararEmail(email: string): string {
   const [usuario, dominio] = email.split("@");
   if (!usuario || !dominio) return "[EMAIL_HIDDEN]";
@@ -87,7 +69,6 @@ export function mascararEmail(email: string): string {
   return `${usuario[0]}***@${partes[0]![0]}***${tld ? `.${tld}` : ""}`;
 }
 
-/** IPv4 → dois últimos octetos ocultos; IPv6 → só o prefixo /48. */
 export function mascararIP(ip: string | null | undefined): string | null {
   if (!ip) return null;
   const v = ip.split(",")[0]!.trim();
@@ -96,10 +77,8 @@ export function mascararIP(ip: string | null | undefined): string | null {
   return null;
 }
 
-/** Chaves de log que carregam dado pessoal: o valor vira um rótulo, nunca o texto. */
 const CHAVES_PII = /^(usuario|usuario_email|email|pessoa|nome|responsavel|de_pessoa|para_pessoa)$/i;
 
-/** Remove PII de extras de log (chaves conhecidas + e-mails em qualquer texto). */
 export function sanitizarLog(extra: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(extra).map(([k, v]) => {

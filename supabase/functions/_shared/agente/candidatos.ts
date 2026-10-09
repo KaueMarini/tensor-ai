@@ -1,15 +1,3 @@
-// Agente, parte determinística: a partir da ocupação geral (motor global), das tasks e dos
-// projetos, monta as AÇÕES CANDIDATAS com todos os números já calculados. O LLM depois só
-// prioriza e explica (CLAUDE.md §5: números vêm do motor). Puro e testado.
-//
-// Tipos de sugestão:
-//   atribuir    task aberta sem responsável → quem tem skill e folga (recomendarAlocacao)
-//   rebalancear pessoa acima da capacidade  → passar UMA task dela para quem tem folga
-//   ausencia    pessoa ausente com tasks    → passar a maior task para quem está disponível
-//   equipe      projeto novo sem pessoas    → squad parecido / montagem (equipe-sugerida)
-//   portfolio   esforço desproporcional ao impacto do projeto (portfolio.ts)
-//   similares   dois projetos muito parecidos (retrabalho / sinergia)
-
 import type { CelulaGlobal } from "../capacidade/global.ts";
 import type { StatusCarga } from "../capacidade/motor.ts";
 import { type CandidatoAlocacao, recomendarAlocacao } from "../capacidade/recomendacao.ts";
@@ -26,7 +14,6 @@ export interface Periodo {
 
 export interface PessoaAgente extends CandidatoAlocacao {
   nome: string;
-  /** Projetos em que a pessoa está num time ativo (só esses podem receber task do projeto). */
   projetos: string[];
 }
 
@@ -36,11 +23,9 @@ export interface TarefaAgente {
   projetoId: string;
   sprint: { id: string; nome: string; inicio: string; fim: string } | null;
   responsavelId: string | null;
-  /** Horas pendentes; null = sem estimativa. */
   horas: number | null;
   tags: string[];
   featureTags: string[];
-  /** Categoria do estado (Proposed, InProgress, Resolved): usada na IA explicável. */
   categoria?: string;
 }
 
@@ -56,21 +41,17 @@ export interface Uso {
   pessoaId: string;
   cargaH: number;
   capacidadeH: number;
-  /** % inteiro (190 = 190%); null sem capacidade. */
   pct: number | null;
   status: StatusCarga;
 }
 
 export interface Candidato {
-  /** Chave de idempotência: a mesma situação não vira duas sugestões. */
   chave: string;
   tipo: TipoSugestao;
   gravidade: Gravidade;
   projetoId: string;
   acao: { tipo: "reatribuir"; work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
-  /** Papéis → pessoa (o LLM vê só pseudônimos dos papéis). */
   papeis: Record<string, string>;
-  /** Fatos numéricos e textuais; o texto só pode citar números daqui. */
   fatos: Record<string, string | number>;
   antes: Uso[];
   depois: Uso[];
@@ -99,17 +80,14 @@ const sobrepoe = (s: { inicio: string; fim: string }, p: Periodo) => s.inicio <=
 
 export function gerarCandidatos(e: {
   hoje: string;
-  /** Horizonte das sugestões de carga (ex.: próximas 2 semanas). */
   periodo: Periodo;
   pessoas: PessoaAgente[];
   projetos: ProjetoAgente[];
   tarefas: TarefaAgente[];
   squads: SquadPerfil[];
   celula: (p: Periodo, pessoaId: string) => CelulaGlobal | undefined;
-  /** Projetos analisados (evento de um item = só o projeto dele). Vazio = todos. */
   escopo?: string[];
   maxPorTipo?: number;
-  /** Esforço × impacto e projetos parecidos (horizonte de 4 semanas). */
   portfolio?: { avaliacoes: AvaliacaoProjeto[]; parecidos: ParParecido[] };
 }): Candidato[] {
   const { periodo, celula, maxPorTipo = 5 } = e;
@@ -121,7 +99,6 @@ export function gerarCandidatos(e: {
   const doProjeto = (projetoId: string, exceto?: string) => e.pessoas.filter((p) => p.projetos.includes(projetoId) && p.id !== exceto);
   const out: Candidato[] = [];
 
-  /** Melhor destino para uma task (skills + folga na sprint dela), só se não estourar ninguém. */
   function destino(t: TarefaAgente, exceto?: string) {
     const per = periodoDa(t);
     const candidatos = doProjeto(t.projetoId, exceto);
@@ -138,7 +115,6 @@ export function gerarCandidatos(e: {
     return { op, per };
   }
 
-  // 1. Tasks sem dono
   const semDono = e.tarefas
     .filter((t) => !t.responsavelId && vigente(t) && noEscopo(t.projetoId))
     .sort((a, b) => (a.sprint?.inicio ?? "9999").localeCompare(b.sprint?.inicio ?? "9999") || (b.horas ?? 0) - (a.horas ?? 0))
@@ -177,7 +153,6 @@ export function gerarCandidatos(e: {
     n++;
   }
 
-  // 2 e 3. Sobrecarga e ausência no horizonte: tirar UMA task da pessoa
   const pessoasRisco = e.pessoas
     .map((p) => ({ p, c: celula(periodo, p.id) }))
     .filter((x): x is { p: PessoaAgente; c: CelulaGlobal } => !!x.c && (x.c.status === "sobrecarga" || x.c.status === "sem-capacidade"))
@@ -191,7 +166,6 @@ export function gerarCandidatos(e: {
     );
     if (minhas.length === 0) continue;
     const excesso = c.cargaH - c.capacidadeH * c.limites.sobrecarga;
-    // ausência: a maior primeiro; sobrecarga: a menor que resolve, senão a maior
     const ordenadas =
       tipo === "ausencia"
         ? [...minhas].sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0))
@@ -235,11 +209,10 @@ export function gerarCandidatos(e: {
         detalhe: { matches: d.op.matches, sprintId: t.sprint?.id ?? null },
       });
       contagem[tipo]++;
-      break; // uma por pessoa por rodada: depois de aplicar, a próxima análise reavalia
+      break;
     }
   }
 
-  // 4. Projeto novo sem equipe
   for (const pr of e.projetos) {
     if (!noEscopo(pr.id)) continue;
     const semEquipe = pr.nMembros === 0 || (pr.nMembros === 1 && pr.nItens === 0);
@@ -286,7 +259,6 @@ export function gerarCandidatos(e: {
     });
   }
 
-  // 5. Esforço × impacto
   for (const a of e.portfolio?.avaliacoes ?? []) {
     if (!noEscopo(a.projetoId) || a.impacto === null) continue;
     if (a.leitura !== "esforco-alto-impacto-baixo" && a.leitura !== "impacto-alto-pouco-esforco") continue;
@@ -315,7 +287,6 @@ export function gerarCandidatos(e: {
     });
   }
 
-  // 6. Projetos parecidos
   for (const par of (e.portfolio?.parecidos ?? []).slice(0, maxPorTipo)) {
     if (!noEscopo(par.a) && !noEscopo(par.b)) continue;
     out.push({

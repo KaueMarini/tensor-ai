@@ -1,8 +1,3 @@
-"""Análise completa de um projeto: junta capacidade, fluxo, Pareto e candidatos. Puro.
-
-É a única entrada do agente (depois de pseudonimizada) e o que o teste golden compara.
-"""
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -72,7 +67,6 @@ class Analise(_Base):
 
 
 class Snapshot(_Base):
-    """Dados de um projeto + a carga global das pessoas dele (tasks de todos os projetos)."""
 
     projeto_id: str
     capacidade: EntradaCapacidade

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { metricasFluxo, percentil, previsaoSprint, type ItemFluxoMetrica } from "./fluxo.ts";
 
-const HOJE = "2026-10-21"; // quarta-feira
+const HOJE = "2026-10-21";
 const fechado = (ativado: string, fechadoEm: string, criado = "2026-09-01T00:00:00Z"): ItemFluxoMetrica => ({
   categoria: "Completed",
   criado,
@@ -20,10 +20,10 @@ describe("percentil", () => {
 
 describe("metricasFluxo", () => {
   const itens: ItemFluxoMetrica[] = [
-    fechado("2026-10-05T00:00:00Z", "2026-10-07T00:00:00Z"), // cycle 2d, semana de 05/10
-    fechado("2026-10-05T00:00:00Z", "2026-10-09T00:00:00Z"), // 4d
-    fechado("2026-10-12T00:00:00Z", "2026-10-13T00:00:00Z"), // 1d, semana de 12/10
-    fechado("2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z"), // semana atual
+    fechado("2026-10-05T00:00:00Z", "2026-10-07T00:00:00Z"),
+    fechado("2026-10-05T00:00:00Z", "2026-10-09T00:00:00Z"),
+    fechado("2026-10-12T00:00:00Z", "2026-10-13T00:00:00Z"),
+    fechado("2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z"),
     { categoria: "InProgress", criado: "2026-10-10T00:00:00Z", ativado: "2026-10-14T00:00:00Z", fechado: null, mudouEstado: "2026-10-14T12:00:00Z" },
     { categoria: "Proposed", criado: "2026-10-15T00:00:00Z", ativado: null, fechado: null, mudouEstado: null },
   ];

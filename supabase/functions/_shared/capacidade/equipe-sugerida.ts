@@ -1,13 +1,3 @@
-// Equipe sugerida para um projeto sem pessoas (determinístico, sem IA).
-//
-// 1. Termos do projeto: tags (linha "Tags:" da descrição no DevOps, peso 1) + skills conhecidas
-//    que aparecem na descrição (peso 0,6) + sinônimos comuns ("React" → front-end, peso 0,5).
-// 2. Squads de outros projetos: semelhança entre os projetos (termos em comum) + cobertura
-//    dos termos pelas skills dos membros + disponibilidade (horas livres no horizonte).
-// 3. Pessoas avulsas: encaixe de skills × folga, penalizando quem está no limite/sobrecarregado,
-//    e uma montagem gulosa que cobre o máximo de termos com o mínimo de gente disponível.
-// Fala de skills e carga, nunca de desempenho (CLAUDE.md §5). Números vêm daqui, não do LLM.
-
 import type { StatusCarga } from "./motor.ts";
 import { chaveSkill, type SkillCandidato } from "./recomendacao.ts";
 
@@ -22,7 +12,6 @@ export interface PessoaPerfil {
   id: string;
   skills: SkillCandidato[];
   funcoes: string[];
-  /** Ocupação geral no horizonte (motor global). */
   capacidadeH: number;
   livreH: number;
   status: StatusCarga;
@@ -46,12 +35,10 @@ export interface SquadSugerido {
   squadId: string;
   nome: string;
   projetoId: string;
-  /** 0..1 */
   score: number;
   similaridade: number;
   cobertura: number;
   disponibilidade: number;
-  /** Termos que o projeto de origem tem em comum com o novo. */
   emComum: string[];
   cobertos: { termo: string; pessoaIds: string[] }[];
   faltando: string[];
@@ -73,16 +60,13 @@ export interface EquipeSugerida {
   termos: Termo[];
   squads: SquadSugerido[];
   pessoas: PessoaSugerida[];
-  /** Menor grupo de pessoas disponíveis que cobre o máximo dos termos. */
   montagem: {
     pessoaIds: string[];
-    /** O que cada escolhida traz (só termos que ela cobre) e quanto tem livre. */
     pessoas: { pessoaId: string; cobre: string[]; livreH: number; status: StatusCarga }[];
     cobertos: string[];
     faltando: string[];
     livreH: number;
   };
-  /** Termos que ninguém da empresa tem como skill. */
   semNinguem: string[];
 }
 
@@ -90,7 +74,6 @@ const STOP = new Set(
   "a o os as um uma uns umas de da do das dos em no na nos nas para por com sem e ou que se ao aos sua seu suas seus como mais entre pelo pela pelos pelas sobre via the and for with of to in on".split(" "),
 );
 
-/** Palavras comuns em descrições → skill do catálogo (só vale se a skill existir no catálogo). */
 const SINONIMOS: Record<string, string> = {
   react: "front-end",
   angular: "front-end",
@@ -135,20 +118,17 @@ const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
 export function tokens(texto: string | null): Set<string> {
   const out = new Set<string>();
   for (const t of norm(texto ?? "").split(/[^a-z0-9]+/)) if (t.length >= 2 && !STOP.has(t)) out.add(t);
-  // "NF-e", "Power BI", "tempo real": junta pares vizinhos também
   const lista = norm(texto ?? "").split(/[^a-z0-9]+/).filter(Boolean);
   for (let i = 0; i + 1 < lista.length; i++) out.add(lista[i]! + lista[i + 1]!);
   return out;
 }
 
-/** Termos do projeto a partir de tags + descrição, usando o catálogo de skills da empresa. */
 export function termosDoProjeto(p: Pick<ProjetoPerfil, "descricao" | "tags">, catalogo: string[]): Termo[] {
   const termos = new Map<string, Termo>();
   const add = (termo: string, peso: number, origem: Termo["origem"]) => {
     const chave = chaveSkill(termo);
     if (!chave) return;
     const atual = termos.get(chave);
-    // mantém a grafia que apareceu primeiro (a tag do projeto) e o maior peso
     if (!atual) termos.set(chave, { termo, chave, peso, origem });
     else if (peso > atual.peso) termos.set(chave, { ...atual, peso, origem });
   };
@@ -167,14 +147,12 @@ export function termosDoProjeto(p: Pick<ProjetoPerfil, "descricao" | "tags">, ca
     const nome = porChave.get(chaveSkill(skill));
     if (nome) add(nome, 0.5, "sinonimo");
   }
-  // "Power BI" na descrição não vira também "bi": termo deduzido que é só pedaço de outro sai
   const lista = [...termos.values()];
   return lista
     .filter((t) => t.origem === "tag" || !lista.some((u) => u !== t && u.chave.length > t.chave.length && u.chave.includes(t.chave)))
     .sort((a, b) => b.peso - a.peso || a.termo.localeCompare(b.termo));
 }
 
-/** Jaccard ponderado entre dois conjuntos de termos (0..1). */
 export function similaridade(a: Termo[], b: Termo[]): number {
   const pa = new Map(a.map((t) => [t.chave, t.peso]));
   const pb = new Map(b.map((t) => [t.chave, t.peso]));
@@ -187,7 +165,6 @@ export function similaridade(a: Termo[], b: Termo[]): number {
   return max > 0 ? min / max : 0;
 }
 
-/** Quanto a pessoa domina o termo: confirmada 1; sugerida 0,5–0,8 pelas evidências; função 0,5. */
 export function forca(p: Pick<PessoaPerfil, "skills" | "funcoes">, chave: string): { valor: number; tipo: "confirmada" | "sugerida" | "funcao" | null } {
   const s = p.skills.find((x) => chaveSkill(x.tag) === chave);
   if (s?.confirmada) return { valor: 1, tipo: "confirmada" };
@@ -199,7 +176,6 @@ export function forca(p: Pick<PessoaPerfil, "skills" | "funcoes">, chave: string
 const COBRE = 0.5;
 const PENALIDADE: Record<StatusCarga, number> = { ok: 1, limite: 0.85, sobrecarga: 0.4, "sem-capacidade": 0 };
 const folgaDe = (p: PessoaPerfil) => (p.capacidadeH > 0 ? Math.min(1, Math.max(0, p.livreH / p.capacidadeH)) : 0);
-/** Mínimo de horas livres no horizonte para entrar na montagem (um dia de trabalho). */
 const MIN_LIVRE_H = 8;
 const disponivel = (p: PessoaPerfil) => (p.status === "ok" || p.status === "limite") && p.livreH >= MIN_LIVRE_H;
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -209,7 +185,6 @@ export function sugerirEquipe(entrada: {
   projetos: ProjetoPerfil[];
   pessoas: PessoaPerfil[];
   squads: SquadPerfil[];
-  /** Pessoas que já estão no projeto alvo (ficam de fora). */
   jaNoProjeto?: string[];
   maxSquads?: number;
   maxPessoas?: number;
@@ -230,7 +205,6 @@ export function sugerirEquipe(entrada: {
     .filter((t) => !entrada.pessoas.some((p) => forca(p, t.chave).valor >= COBRE))
     .map((t) => t.termo);
 
-  // Squads de outros projetos
   const termosProjeto = new Map(entrada.projetos.map((p) => [p.id, termosDoProjeto(p, catalogo)]));
   const squads: SquadSugerido[] = [];
   for (const sq of entrada.squads) {
@@ -272,7 +246,6 @@ export function sugerirEquipe(entrada: {
   }
   squads.sort((a, b) => b.score - a.score || b.livreH - a.livreH);
 
-  // Pessoas avulsas
   const candidatas = entrada.pessoas.filter((p) => !fora.has(p.id));
   const avulsas: PessoaSugerida[] = [];
   for (const p of candidatas) {
@@ -298,7 +271,6 @@ export function sugerirEquipe(entrada: {
   }
   avulsas.sort((a, b) => b.score - a.score || b.livreH - a.livreH || a.pessoaId.localeCompare(b.pessoaId));
 
-  // Montagem gulosa: cada passo pega quem mais cobre o que falta, ponderado pela folga
   const escolhidos: PessoaPerfil[] = [];
   const restante = new Map(termos.map((t) => [t.chave, t]));
   while (escolhidos.length < maxMontagem && restante.size > 0) {

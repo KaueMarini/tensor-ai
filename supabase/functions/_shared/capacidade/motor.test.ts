@@ -12,14 +12,13 @@ const item = (over: Partial<ItemCarga>): ItemCarga => ({
   ...over,
 });
 
-// 2026-10-05 é segunda; 2026-10-16 é sexta → 10 dias úteis
 const sprint = { id: "s1", inicio: "2026-10-05", fim: "2026-10-16" };
 const pessoa = { id: "p1", horasDia: 8 };
 
 describe("diasUteis", () => {
   it("conta só segunda a sexta", () => {
     expect(diasUteis("2026-10-05", "2026-10-16")).toBe(10);
-    expect(diasUteis("2026-10-10", "2026-10-11")).toBe(0); // sábado e domingo
+    expect(diasUteis("2026-10-10", "2026-10-11")).toBe(0);
   });
 
   it("desconta os dias excluídos", () => {

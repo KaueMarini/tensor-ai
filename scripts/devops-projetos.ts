@@ -1,12 +1,3 @@
-// pnpm devops:projetos [--dry] [--excluir]
-// Nomes fictícios + descrição (com linha "Tags:") de cada projeto, direto no Azure DevOps.
-// A descrição e as tags são o contexto que o agente usa para avaliar encaixe de pessoas.
-// --excluir também exclui os projetos marcados em EXCLUIR (vão para a lixeira do DevOps,
-// restauráveis por 28 dias em Organization settings → Projects).
-//
-// Exige PAT com escopo "Project and Team (Read, write & manage)". Projetos são chaveados por
-// ID: rodar de novo depois de renomear não quebra (idempotente).
-
 import { createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import { AzdoHttpError } from "../supabase/functions/_shared/azdo/client.ts";
 
@@ -26,7 +17,6 @@ interface Definicao {
 }
 
 const PROJETOS: Record<string, Definicao> = {
-  // antigo IportJLKN12
   "badd3c28-2533-4e04-9239-e79fa7f520f0": {
     nome: "Atlântico Docas",
     descricao:
@@ -36,7 +26,6 @@ const PROJETOS: Record<string, Definicao> = {
       "tempo de resposta do agendamento.",
     tags: ["agendamento", "patio", "tempo-real", "integracao-fiscal", "front-end", "back-end", "dados"],
   },
-  // antigo "Eu amo a Laryssa"
   "dbb885fc-cab5-4bc8-85d8-70da870e7b74": {
     nome: "Rota Certa",
     descricao:
@@ -45,7 +34,6 @@ const PROJETOS: Record<string, Definicao> = {
       "offline e testes em dispositivos reais são críticos.",
     tags: ["mobile", "front-end", "back-end", "tempo-real", "integracao-fiscal", "ux", "testes"],
   },
-  // antigo Teste
   "a8f446dd-64fb-44a7-a32c-10fe9584e646": {
     nome: "Maré Assistente",
     descricao:
@@ -56,7 +44,6 @@ const PROJETOS: Record<string, Definicao> = {
   },
 };
 
-/** Excluídos com --excluir (antigo IportJLNK: só o Kauê no time, pedido do usuário). */
 const EXCLUIR = ["569342a3-1d76-4c48-8f9e-e8c635bb13d3"];
 
 const textoDescricao = (d: Definicao) => `${d.descricao}\n\nTags: ${d.tags.join(", ")}`;

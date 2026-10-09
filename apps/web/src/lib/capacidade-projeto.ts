@@ -1,6 +1,3 @@
-// Junta os dados de um projeto e roda o motor de capacidade (@shared/capacidade/motor).
-// Squad e Análises leem daqui, então os números são os mesmos nas duas telas.
-
 import { useMemo } from "react";
 import { calcularCapacidade, type Celula } from "@shared/capacidade/motor";
 import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "@shared/kanban";
@@ -27,7 +24,6 @@ export interface PessoaProjeto {
   skills: string[];
   skillsInfo: SkillsPessoa;
   tags: { id: number; nome: string }[];
-  /** Tem task no projeto mas não está em nenhum time dele no DevOps. */
   foraDoTime: boolean;
 }
 
@@ -76,7 +72,6 @@ export function useCapacidadeProjeto(projetoId: string) {
     const rows = (backlog.data ?? []).filter(
       (r) => r.item_id !== null && !TIPOS_FORA_DO_KANBAN.has(r.item_tipo ?? ""),
     );
-    // quem tem task no projeto também pesa, mesmo fora dos times do DevOps
     for (const r of rows) {
       if (r.responsavel_id && !pessoas.has(r.responsavel_id)) {
         pessoas.set(r.responsavel_id, {
@@ -130,7 +125,6 @@ export function useCapacidadeProjeto(projetoId: string) {
       })),
       folgas: [
         ...(folgas.data ?? []).map((f) => ({ sprintId: f.sprint_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
-        // ausência registrada na Agenda = folga pessoal em cada sprint que ela cruza
         ...(ausencias.data ?? []).flatMap((a) =>
           sprintsComData
             .filter((s) => a.inicio <= s.fim && a.fim >= s.inicio)

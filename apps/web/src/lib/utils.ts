@@ -8,7 +8,6 @@ export function cn(...inputs: ClassValue[]) {
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" });
 const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-/** Datas de sprint vêm como "YYYY-MM-DD" (sem fuso): formata em UTC para não voltar um dia. */
 export function formatData(iso: string | null | undefined): string {
   if (!iso) return "—";
   return dataCurta.format(new Date(iso)).replace(".", "");
@@ -37,14 +36,12 @@ export function tempoRelativo(iso: string | null | undefined, agora = Date.now()
 }
 
 const AVATAR_CORES = ["bg-teal-600", "bg-sky-600", "bg-violet-600", "bg-amber-600", "bg-rose-600", "bg-emerald-600"];
-/** Hash simples e determinístico, usado pra escolher cor de avatar/badge a partir de um texto. */
 export function hashTexto(texto: string): number {
   let h = 0;
   for (const c of texto) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return h;
 }
 
-/** "KAUÊ NEBOT MARINI" → "Kauê Nebot Marini" (só mexe em nomes todo em maiúsculas). */
 export { normalizarNome } from "@shared/nomes";
 
 export function iniciais(nome: string): string {

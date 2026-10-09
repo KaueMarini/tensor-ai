@@ -1,5 +1,3 @@
-// Membros: v_membros (uma linha por pessoa × time) agrupado em uma entrada por pessoa.
-
 import type { MembroRow } from "./queries";
 import { lerSkills, type SkillsPessoa } from "./skills";
 import { normalizarNome } from "./utils";
@@ -20,13 +18,11 @@ export interface Membro {
   nome: string;
   uniqueName: string | null;
   projetos: ProjetoDoMembro[];
-  /** Visíveis: confirmadas + sugeridas pela inferência das tasks. */
   skills: string[];
   skillsInfo: SkillsPessoa;
   tags: FuncaoTag[];
 }
 
-/** v_membros tem uma linha por pessoa × time; aqui vira uma entrada por pessoa. */
 export function agruparMembros(rows: MembroRow[]): Membro[] {
   const porPessoa = new Map<string, Membro>();
   for (const r of rows) {
@@ -55,4 +51,3 @@ export function agruparMembros(rows: MembroRow[]): Membro[] {
   }
   return [...porPessoa.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
-

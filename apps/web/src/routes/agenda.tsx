@@ -1,7 +1,3 @@
-// Agenda: calendário do mês com sprints (início/fim), feriados, ausências e entregas de
-// features, de todos os projetos ou de um. O gestor registra/remove ausências aqui; elas
-// entram no motor de capacidade como folga pessoal.
-
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -85,12 +81,6 @@ const primeiroNome = (nome: string) => normalizarNome(nome).split(" ")[0] ?? nom
 
 type DadosAgenda = NonNullable<ReturnType<typeof useAgenda>["data"]>;
 
-/** Linhas do banco → eventos da agenda (texto curto na pílula, completo no title). */
-/**
- * agruparSprints: no calendário, sprints de mesmo nome e datas em projetos diferentes viram
- * uma pílula só (espaço curto por dia). Na lista de próximos, cada uma aparece com o seu
- * projeto e leva até ele.
- */
 function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprints: boolean): EventoAgenda[] {
   if (!d) return [];
   const out: EventoAgenda[] = [];
@@ -113,8 +103,6 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
       tipo: "sprint",
       inicio: s.inicio,
       fim: s.fim,
-      // na lista (sem agrupar), o projeto vem em destaque e a sprint embaixo
-      // no calendário, várias sprints iguais mostram só o nome (os projetos ficam no title)
       texto: !agruparSprints && geral ? nomes[0]! : !geral || n > 1 ? s.nome : `${s.nome} · ${nomes[0]}`,
       subtexto: !agruparSprints && geral ? s.nome : undefined,
       detalhe: `${s.nome} (${rotuloData(s)}) — ${n > 1 ? `${n} projetos: ` : ""}${nomes.join(", ")}`,
@@ -155,7 +143,6 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
       ausenciaIds: a.ids,
     });
   }
-  // folgas registradas no Azure DevOps (days off do time/sprint)
   const diasDeFeriado = new Set(d.feriados.map((f) => f.data));
   for (const o of d.folgas) {
     const projeto = o.time?.projeto?.nome ?? "";
@@ -173,7 +160,6 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
         projetoId: o.time?.projeto_id,
       });
     } else {
-      // folga do time num feriado nacional é o mesmo dia de descanso: não repete
       if (o.inicio === o.fim && diasDeFeriado.has(o.inicio)) continue;
       out.push({
         id: `o-${o.id}`,
@@ -213,7 +199,6 @@ export function AgendaPage() {
   const atual = lerMes(mes) ?? { ano: Number(hoje.slice(0, 4)), mes0: Number(hoje.slice(5, 7)) - 1 };
   const celulas = useMemo(() => celulasDoMes(atual.ano, atual.mes0), [atual.ano, atual.mes0]);
 
-  // duas janelas: a grade do mês e os próximos dias (a lista lateral não depende do mês aberto)
   const grade = useAgenda(celulas[0]!.data, celulas.at(-1)!.data, projeto);
   const futuro = useAgenda(hoje, somarDias(hoje, JANELA_PROXIMOS_DIAS), projeto);
   const projetos = useProjetosLista();
@@ -350,7 +335,6 @@ function Dia({ celula, hoje, eventos }: { celula: Celula; hoje: boolean; eventos
         )}
       </div>
 
-      {/* celular: só pontos coloridos; a partir de sm, pílulas com texto */}
       <div className="flex flex-wrap justify-center gap-0.5 sm:hidden">
         {eventos.slice(0, 4).map((e) => (
           <span key={e.id} className={cn("size-1.5 rounded-full", ESTILO[e.tipo].ponto)} />
@@ -374,7 +358,6 @@ function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; car
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [pagina, setPagina] = useState(0);
 
-  // páginas de POR_PAGINA itens: o card não cresce; ao trocar o filtro a lista volta para a 1ª página
   const paginas = Math.max(1, Math.ceil(eventos.length / POR_PAGINA));
   const chaveLista = eventos.map((e) => e.id).join(",");
   useEffect(() => setPagina(0), [chaveLista]);
@@ -392,7 +375,6 @@ function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; car
           <p className="text-xs text-slate-500 dark:text-slate-400">O que vem pela frente, em ordem de data. Itens com seta abrem o projeto.</p>
         </div>
       </div>
-      {/* altura reservada para uma página cheia (9 itens): trocar de página não mexe no layout */}
       <ul className={cn("grid content-start gap-x-4 px-3 py-2 sm:grid-cols-2 lg:grid-cols-3", paginas > 1 && "min-h-[592px] sm:min-h-[336px] lg:min-h-[208px]")}>
         {carregando &&
           Array.from({ length: 4 }, (_, i) => (

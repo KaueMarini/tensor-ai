@@ -1,6 +1,3 @@
-// Campo numérico de regra do gestor. Vazio = herda (o placeholder mostra o valor herdado).
-// Salva ao sair do campo ou com Enter; Esc desfaz. Percentuais são guardados como fração.
-
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,16 +15,13 @@ export function CampoRegra({
   obrigatorio,
   className,
 }: {
-  /** Valor próprio (nulo = herdando). Percentual em fração (0.8). */
   valor: number | null;
-  /** Valor que vale quando o campo está vazio. */
   herdado?: number;
   unidade: "h" | "%";
   min: number;
   max: number;
   onSalvar: (v: number | null) => void;
   rotulo: string;
-  /** Não aceita vazio (regras gerais). */
   obrigatorio?: boolean;
   className?: string;
 }) {
@@ -35,7 +29,7 @@ export function CampoRegra({
   const exibir = (v: number | null) => (v === null ? "" : fmt(v * escala));
   const [texto, setTexto] = useState(exibir(valor));
   const [erro, setErro] = useState<string | null>(null);
-  useEffect(() => setTexto(exibir(valor)), [valor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setTexto(exibir(valor)), [valor]);
 
   function salvar() {
     const limpo = texto.trim().replace(",", ".");

@@ -1,7 +1,3 @@
-// Métricas → "Fluxo e previsibilidade": o que o gestor precisa para decidir em segundos —
-// a sprint fecha? o time está entregando? quanto tempo uma tarefa leva? tem coisa demais aberta?
-// Números do módulo puro @shared/metricas/fluxo (datas do Azure DevOps de cada item).
-
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, CalendarCheck, Gauge, Hourglass, Timer } from "lucide-react";

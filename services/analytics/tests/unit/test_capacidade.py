@@ -22,11 +22,8 @@ from radar_analytics.domain.models import (
 ANA = pessoa("ana")
 
 
-def _celula(e, semana, pid="ana"):  # type: ignore[no-untyped-def]
+def _celula(e, semana, pid="ana"):
     return next(c for c in utilizacao_semanal(e, [semana]) if c.pessoa_id == pid)
-
-
-# --------------------------------------------------------------------------- regras
 
 
 def test_horas_produtivas_cascata() -> None:
@@ -38,13 +35,10 @@ def test_horas_produtivas_cascata() -> None:
 def test_status_de_limites() -> None:
     assert status_de(0, 0, PADRAO_MERCADO) == (None, "ok")
     assert status_de(1, 0, PADRAO_MERCADO) == (None, "sem-capacidade")
-    assert status_de(24, 30, PADRAO_MERCADO)[1] == "ok"  # exatamente 80% não é "acima"
+    assert status_de(24, 30, PADRAO_MERCADO)[1] == "ok"
     assert status_de(25, 30, PADRAO_MERCADO)[1] == "limite"
     assert status_de(30, 30, PADRAO_MERCADO)[1] == "limite"
     assert status_de(31, 30, PADRAO_MERCADO)[1] == "sobrecarga"
-
-
-# --------------------------------------------------------------------------- horas da task
 
 
 def test_horas_da_task_modos() -> None:
@@ -69,11 +63,8 @@ def test_task_sem_estimativa_usa_fallback_do_sistema() -> None:
 def test_task_sem_estimativa_aparece_como_carga_do_sistema() -> None:
     e = entrada(pessoas=(ANA,), tasks=(task(1, responsavel_id="ana"),))
     c = _celula(e, SEMANA_1)
-    assert c.carga_h == 2  # 4h de fallback em 10 dias úteis, 5 na semana
+    assert c.carga_h == 2
     assert c.carga_sistema_h == 2
-
-
-# --------------------------------------------------------------------------- período e distribuição
 
 
 def test_periodo_vem_da_task_ou_da_sprint() -> None:
@@ -94,11 +85,7 @@ def test_distribuir_cai_no_calendario_quando_pessoa_ausente_o_periodo_todo() -> 
 
 def test_distribuir_periodo_so_de_fim_de_semana() -> None:
     assert distribuir(4, (d(10), d(11)), frozenset()) == {d(11): 4}
-    # período todo em feriado → dias úteis sem filtro
     assert sum(distribuir(4, (d(12), d(12)), frozenset({d(12)})).values()) == 4
-
-
-# --------------------------------------------------------------------------- casos de borda pedidos
 
 
 def test_feriado_no_meio_da_semana() -> None:
@@ -128,7 +115,6 @@ def test_ausencia_na_semana_inteira() -> None:
 
 
 def test_task_atravessando_virada_de_sprint() -> None:
-    # task com datas próprias de 12/10 (sprint 1) a 23/10 (sprint 2): 10 dias úteis, 2 semanas
     e = entrada(
         pessoas=(ANA,),
         tasks=(task(1, responsavel_id="ana", horas_restantes=20, inicio=d(12), fim=d(23)),),
@@ -146,9 +132,6 @@ def test_pessoa_sem_capacidade_cadastrada_usa_padrao() -> None:
     assert (gestor.capacidade_h, gestor.origem_capacidade) == (40, "gestor")
 
 
-# --------------------------------------------------------------------------- capacidade global
-
-
 def test_capacity_de_varios_projetos_soma_e_respeita_teto() -> None:
     e = entrada(
         pessoas=(ANA,),
@@ -156,7 +139,7 @@ def test_capacity_de_varios_projetos_soma_e_respeita_teto() -> None:
         capacidades=(cap("s1", "ana", 4), cap("p2", "ana", 4, time_id="t2")),
     )
     c = _celula(e, SEMANA_1)
-    assert c.capacidade_h == 30  # 8h/dia somadas, limitadas a 6h produtivas
+    assert c.capacidade_h == 30
     assert c.origem_capacidade == "devops"
 
 
@@ -178,7 +161,7 @@ def test_folga_do_time_tira_so_a_parcela_do_time() -> None:
         folgas=(Folga(time_id="t1", sprint_id="s1", inicio=d(5), fim=d(5)),),
     )
     c = _celula(e, SEMANA_1)
-    assert c.capacidade_h == 27  # segunda só com 3h do time 2
+    assert c.capacidade_h == 27
 
 
 def test_status_por_limites_customizados() -> None:
@@ -206,9 +189,6 @@ def test_ignora_fechadas_pais_e_sem_responsavel() -> None:
         ),
     )
     assert _celula(e, SEMANA_1).carga_h == 0
-
-
-# --------------------------------------------------------------------------- conflito com ausência
 
 
 def test_conflito_com_ausencia() -> None:

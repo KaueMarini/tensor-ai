@@ -1,7 +1,3 @@
-// Equipe do projeto: cada squad com suas pessoas, a ocupação NESTE projeto ao lado da ocupação
-// GERAL (todos os projetos) e as horas/dia que cada uma dedica aqui (sobrepõe a Capacity do
-// DevOps). Clique no nome abre a ficha (skills, carga, jornada). Limites do projeto no topo.
-
 import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -38,7 +34,6 @@ export function EquipeProjetoPage() {
 
   const global = useCargaGlobal(useMemo(() => cap.pessoas.map((p) => p.id), [cap.pessoas]));
 
-  // Capacity do DevOps na sprint (soma dos times): o que vale quando o gestor não define
   const devops = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of capacidadesDevops.data ?? []) {

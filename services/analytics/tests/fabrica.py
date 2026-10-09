@@ -1,5 +1,3 @@
-"""Construtores curtos para os testes (datas de outubro de 2026: dia 5 é segunda-feira)."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -60,7 +58,7 @@ def ferias(pessoa_id: str, inicio: date, fim: date) -> Folga:
 
 
 def trans(item: int, campo: str, de: str | None, para: str, quando: datetime, rev: int) -> Transicao:
-    return Transicao(work_item_id=item, campo=campo, de=de, para=para, changed_at=quando, changed_rev=rev)  # type: ignore[arg-type]
+    return Transicao(work_item_id=item, campo=campo, de=de, para=para, changed_at=quando, changed_rev=rev)
 
 
 def entrada(**kw: Any) -> EntradaCapacidade:

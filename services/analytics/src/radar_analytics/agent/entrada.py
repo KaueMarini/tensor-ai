@@ -1,9 +1,3 @@
-"""Monta o JSON que vai para o LLM: só números já calculados, pseudonimizado.
-
-Nunca entram nome, e-mail, ID de pessoa/sprint/projeto nem ID do DevOps. Tasks viram T1, T2...;
-pessoas, "Dev <função> <skill> #A". O `Mapa` (pseudônimo → real) fica só no backend.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -23,9 +17,9 @@ MAX_ALERTAS = 8
 
 @dataclass(frozen=True)
 class Mapa:
-    pessoas: dict[str, str]  # id real → pseudônimo
-    tasks: dict[int, str]  # devops_id → alias
-    sprints: dict[str, str]  # id → nome
+    pessoas: dict[str, str]
+    tasks: dict[int, str]
+    sprints: dict[str, str]
 
     def pessoa(self, pid: str | None) -> str | None:
         return None if pid is None else self.pessoas.get(pid, "Dev de outro time")
@@ -141,7 +135,6 @@ def montar_entrada(a: Analise, s: Snapshot, nome_projeto: str) -> tuple[dict[str
 
 
 def vazamentos(entrada: dict[str, Any], s: Snapshot, mapa: Mapa) -> list[str]:
-    """Identificadores reais que apareceriam no texto enviado ao LLM (deve ser vazio)."""
     texto = json.dumps(entrada, ensure_ascii=False)
     proibidos: Iterable[str] = [
         *mapa.pessoas,
@@ -153,7 +146,6 @@ def vazamentos(entrada: dict[str, Any], s: Snapshot, mapa: Mapa) -> list[str]:
 
 
 def hash_entrada(entrada: dict[str, Any], versao_prompt: str) -> str:
-    """Mesmo estado → mesmo hash (ignora a data de hoje, que muda sem o estado mudar)."""
     estavel = {k: v for k, v in entrada.items() if k != "hoje"}
     canonico = json.dumps({"v": versao_prompt, "e": estavel}, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(canonico.encode()).hexdigest()

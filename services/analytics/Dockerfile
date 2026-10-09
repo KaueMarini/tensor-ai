@@ -1,7 +1,3 @@
-# Serviço de análise (FastAPI). Contexto do build = RAIZ do repositório (precisa de prompts/):
-#   docker build -f services/analytics/Dockerfile -t radar-analytics .
-
-# ---- build: dependências num venv, com uv e lockfile congelado
 FROM python:3.12-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.12.24 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
@@ -9,7 +5,6 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/app/.venv
 WORKDIR /src
-# camada de dependências separada: só refaz quando o lock muda
 COPY services/analytics/pyproject.toml services/analytics/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
@@ -18,7 +13,6 @@ COPY services/analytics/README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
-# ---- runtime: só o venv + prompts, usuário sem privilégio
 FROM python:3.12-slim
 RUN useradd --create-home --uid 10001 app
 WORKDIR /app

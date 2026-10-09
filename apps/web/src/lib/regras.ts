@@ -1,7 +1,3 @@
-// Regras de capacidade do gestor (tabelas regra_capacidade*, alocacao_projeto).
-// A resolução em cascata é pura e fica em @shared/capacidade/regras — aqui só leitura,
-// gravação e um resolvedor pronto para os motores.
-
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,7 +11,6 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   if (res.error) throw new Error(res.error.message);
   return res.data as T;
 }
-
 
 export type { Regras };
 
@@ -33,7 +28,6 @@ export function useRegras() {
       return { geral: unwrap(geral), pessoas: unwrap(pessoas), projetos: unwrap(projetos), alocacoes: unwrap(alocacoes) };
     },
   });
-  // mesma montagem do agente de IA (@shared/capacidade/montagem)
   const regras = useMemo((): Regras | null => (q.data ? regrasDeLinhas(q.data) : null), [q.data]);
   return { regras, carregando: q.isLoading, erro: q.error };
 }
@@ -62,7 +56,6 @@ export function useSalvarRegrasGerais() {
   }, "Regras gerais salvas");
 }
 
-/** Ambos nulos = volta a herdar a regra geral (apaga a linha). */
 export function useSalvarRegraPessoa() {
   return useSalvar(async ({ pessoaId, jornadaDia, foco }: RegraPessoa) => {
     if (jornadaDia === null && foco === null) {
@@ -93,7 +86,6 @@ export function useSalvarRegraProjeto() {
   }, "Limites do projeto salvos");
 }
 
-/** horasDia nulo = remove a alocação (volta a valer a Capacity do DevOps). */
 export function useSalvarAlocacao() {
   return useSalvar(async ({ projetoId, pessoaId, horasDia }: { projetoId: string; pessoaId: string; horasDia: number | null }) => {
     if (horasDia === null) {

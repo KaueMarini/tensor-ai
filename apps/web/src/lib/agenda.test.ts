@@ -16,7 +16,6 @@ import {
 
 describe("calendário do mês", () => {
   it("monta 42 células começando no domingo", () => {
-    // outubro/2026: dia 1 é quinta → começa no domingo 27/09
     const c = celulasDoMes(2026, 9);
     expect(c).toHaveLength(42);
     expect(c[0]).toMatchObject({ data: "2026-09-27", dia: 27, doMes: false, diaUtil: false });
@@ -41,9 +40,8 @@ describe("calendário do mês", () => {
   it("datas sem fuso", () => {
     expect(somarDias("2026-10-31", 1)).toBe("2026-11-01");
     expect(somarDias("2026-03-01", -1)).toBe("2026-02-28");
-    expect(ehDiaUtil("2026-10-10")).toBe(false); // sábado
+    expect(ehDiaUtil("2026-10-10")).toBe(false);
     expect(ehDiaUtil("2026-10-12")).toBe(true);
-    // 23h do dia 7 no fuso local continua sendo dia 7
     expect(hojeLocal(new Date(2026, 9, 7, 23, 30))).toBe("2026-10-07");
   });
 });
@@ -84,18 +82,18 @@ describe("eventosPorDia", () => {
 
   it("ausência só em dias úteis e recortada pela grade", () => {
     const m = eventosPorDia(celulas, [ev({ tipo: "ausencia", texto: "Ana · Férias", inicio: "2026-09-20", fim: "2026-10-05" })]);
-    expect(m.get("2026-09-27")).toEqual([]); // domingo
+    expect(m.get("2026-09-27")).toEqual([]);
     expect(m.get("2026-09-28")!.length).toBe(1);
-    expect(m.get("2026-10-03")).toEqual([]); // sábado
+    expect(m.get("2026-10-03")).toEqual([]);
     expect(m.get("2026-10-05")!.length).toBe(1);
     expect(m.get("2026-10-06")).toEqual([]);
   });
 
   it("evento de vários dias que não é ausência (folga do time) ocupa os dias úteis", () => {
     const m = eventosPorDia(celulas, [ev({ tipo: "feriado", texto: "Folga do time", inicio: "2026-10-09", fim: "2026-10-12" })]);
-    expect(m.get("2026-10-09")!.length).toBe(1); // sexta
-    expect(m.get("2026-10-10")).toEqual([]); // sábado
-    expect(m.get("2026-10-12")!.length).toBe(1); // segunda
+    expect(m.get("2026-10-09")!.length).toBe(1);
+    expect(m.get("2026-10-10")).toEqual([]);
+    expect(m.get("2026-10-12")!.length).toBe(1);
   });
 
   it("ordena feriado, sprint, entrega e ausência; ignora o que está fora da grade", () => {
@@ -116,8 +114,8 @@ describe("próximos eventos", () => {
     const lista = proximosEventos(
       [
         ev({ tipo: "entrega", inicio: "2026-10-20", fim: "2026-10-20" }),
-        ev({ tipo: "sprint", inicio: "2026-10-01", fim: "2026-10-09" }), // em andamento
-        ev({ tipo: "feriado", inicio: "2026-10-02", fim: "2026-10-02" }), // já passou
+        ev({ tipo: "sprint", inicio: "2026-10-01", fim: "2026-10-09" }),
+        ev({ tipo: "feriado", inicio: "2026-10-02", fim: "2026-10-02" }),
         ev({ tipo: "ausencia", inicio: "2026-10-15", fim: "2026-10-16" }),
       ],
       "2026-10-07",

@@ -1,15 +1,3 @@
-"""API HTTP do serviço de análise.
-
-POST /analyze/event  ← trigger do Postgres (pg_net) quando um evento de work item é processado.
-                       Debounce de N s por work item: rajadas de edição viram uma análise só.
-POST /analyze/sweep  ← pg_cron (a cada 15 min): pega o que não gera evento (ex.: sprint que
-                       começa com alguém acima de 100%). Responde na hora e roda em segundo plano.
-GET  /health
-
-Autenticação: header `x-analytics-secret` comparado em tempo constante.
-Rodar: `uvicorn radar_analytics.api.main:criar_app --factory`.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +19,6 @@ class ServicoAnalise(Protocol):
 
 
 class Debouncer:
-    """Agenda uma tarefa por chave; um novo pedido para a mesma chave reinicia a espera."""
 
     def __init__(self, atraso_s: float) -> None:
         self.atraso_s = atraso_s
@@ -130,13 +117,12 @@ def criar_app(
     debounce_s: float | None = None,
     info: dict[str, Any] | None = None,
 ) -> FastAPI:
-    """Sem argumentos monta tudo a partir do ambiente; nos testes recebe dublês."""
 
     @asynccontextmanager
     async def ciclo(app: FastAPI) -> AsyncIterator[None]:
-        fechar: Callable[[], None] = lambda: None  # noqa: E731
+        fechar: Callable[[], None] = lambda: None
         if servico is None:
-            from radar_analytics.bootstrap import montar  # noqa: PLC0415 - só em produção
+            from radar_analytics.bootstrap import montar
 
             r = montar()
             app.state.servico, app.state.segredo, app.state.info = r.servico, r.segredo, r.info

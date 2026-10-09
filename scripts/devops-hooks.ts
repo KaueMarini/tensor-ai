@@ -1,7 +1,3 @@
-// pnpm devops:hooks [create|list|delete]
-// Gerencia as subscriptions de Service Hooks (Web Hooks) que apontam para a function devops-webhook.
-// Idempotente: "create" só cria o que falta. Escopo por projeto (AZDO_PROJECTS ou todos).
-
 import { createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import { WEBHOOK_EVENTS } from "../supabase/functions/_shared/mappers/webhook.ts";
 

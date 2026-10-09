@@ -1,6 +1,3 @@
-// Tipos mínimos dos payloads da REST API do Azure DevOps (api-version 7.1).
-// Só o que a sync usa; campos desconhecidos são tolerados.
-
 export interface AzdoIdentityRef {
   id: string;
   displayName?: string;
@@ -58,7 +55,7 @@ export interface AzdoCapacity {
 
 export interface AzdoCapacityResponse {
   teamMembers?: AzdoCapacity[];
-  value?: AzdoCapacity[]; // formatos antigos devolvem em "value"
+  value?: AzdoCapacity[];
   totalCapacityPerDay?: number;
   totalDaysOff?: number;
 }
@@ -86,7 +83,6 @@ export interface AzdoWiqlResult {
   asOf?: string;
 }
 
-/** Categoria fixa do processo: é o que permite tratar estados diferentes (Active, Doing...) igual. */
 export type AzdoStateCategory = "Proposed" | "InProgress" | "Resolved" | "Completed" | "Removed";
 
 export interface AzdoWorkItemState {
@@ -106,7 +102,6 @@ export interface AzdoList<T> {
   value: T[];
 }
 
-/** Payload de Service Hook (workitem.created/updated/deleted/restored). */
 export interface AzdoServiceHookPayload {
   id?: string;
   eventType?: string;

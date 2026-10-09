@@ -1,5 +1,3 @@
-"""Logs estruturados em JSON (structlog), uma linha por evento."""
-
 from __future__ import annotations
 
 import logging

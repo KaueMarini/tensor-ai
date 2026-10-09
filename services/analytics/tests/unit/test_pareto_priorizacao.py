@@ -69,7 +69,7 @@ def test_causas_de_atraso_cobre_todas_as_categorias() -> None:
     oc = causas_de_atraso(e.tasks, esperas, conflitos_ausencia(e), celulas, ConfigAnalise(), 100)
     por = {(o.causa, o.task_id) for o in oc}
     assert ("sla:Code Review", 2) in por
-    assert ("sla:Code Review", 7) not in por  # fechada não atrasa mais
+    assert ("sla:Code Review", 7) not in por
     assert ("bloqueado", 2) in por
     assert ("bloqueado", 8) not in por
     assert ("sobrecarga", 1) in por

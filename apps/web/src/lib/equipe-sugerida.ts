@@ -1,7 +1,3 @@
-// Junta os dados para sugerir equipe a um projeto (motor puro em
-// @shared/capacidade/equipe-sugerida): perfil dos projetos (descrição + tags), squads (times
-// do DevOps com membros), skills de cada pessoa e a ocupação geral nas próximas 4 semanas.
-
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type EquipeSugerida, sugerirEquipe } from "@shared/capacidade/equipe-sugerida";
@@ -12,7 +8,6 @@ import { supabase } from "./supabase";
 
 export const HORIZONTE_EQUIPE = proximasSemanas(4);
 
-/** Projeto "sem equipe": ninguém no time, ou só quem criou o projeto e nada de trabalho ainda. */
 export function precisaDeEquipe(p: { n_membros: number | null; n_itens: number | null } | null | undefined): boolean {
   if (!p) return false;
   const membros = p.n_membros ?? 0;
@@ -21,7 +16,6 @@ export function precisaDeEquipe(p: { n_membros: number | null; n_itens: number |
 
 export function usePerfisProjetos() {
   return useQuery({
-    // prefixo "projetos": o Realtime de projeto já invalida (descrição/tags mudam no DevOps)
     queryKey: ["projetos", "perfis"],
     queryFn: async () => {
       const { data, error } = await supabase.from("v_projeto_resumo").select("id, nome, descricao, tags, n_membros, n_itens");

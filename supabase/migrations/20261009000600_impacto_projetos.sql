@@ -1,10 +1,3 @@
--- Importância (impacto) dos projetos, para o agente comparar ESFORÇO × IMPACTO.
--- Escala 1 = baixo, 2 = médio, 3 = alto. Fontes, nesta ordem de precedência:
---   gestor  (projeto_avaliacao.impacto_gestor, definido no app)
---   devops  (projeto.impacto_devops, linha "Impacto: alto|médio|baixo" na descrição do projeto)
---   ia      (projeto_avaliacao.impacto_ia, estimado pelo agente a partir da descrição;
---            aparece como "sugerido pela IA" até o gestor confirmar)
-
 alter table public.projeto add column impacto_devops smallint check (impacto_devops between 1 and 3);
 
 create table public.projeto_avaliacao (

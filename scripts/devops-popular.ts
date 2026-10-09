@@ -1,16 +1,3 @@
-// pnpm devops:popular [--reset] [--projeto "Nome"]
-// Popula os projetos do Azure DevOps com sprints, requisitos (Feature; Epic no processo Basic)
-// e tasks com tags, horas, responsáveis e capacidade — para a demo ter dados em todos os projetos.
-//
-// - Sprints "Sprint 1..3" com datas (Sprint 1 = atual), associadas ao time padrão.
-// - Requisitos e tasks por tema de cada projeto (ver TEMAS). Responsável = 1ª pessoa preferida
-//   que está no time do projeto; sem ninguém, fica sem dono (vira alerta no app).
-// - Capacidade 6h/dia para todos os membros nas 3 sprints.
-// - Idempotente: procura pelo título antes de criar. Itens marcados com a tag SEED_TAG.
-// - --reset manda para a lixeira os itens SEED_TAG (sprints e capacidade ficam).
-// - O projeto de pátio (antigo IportJLKN12) fica de fora: já é populado por `pnpm devops:seed`.
-// - Temas por ID do projeto: renomear no DevOps não quebra o script.
-
 import { chunk, createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 import type { AzdoTeamMember, AzdoWorkItem } from "../supabase/functions/_shared/azdo/types.ts";
 
@@ -28,8 +15,7 @@ const SO_PROJETO = (() => {
 })();
 const SEED_TAG = "seed-popular";
 const HORAS_DIA = 6;
-// Chaves por ID do projeto (estável se ele for renomeado no DevOps)
-const ID_PATIO = "badd3c28-2533-4e04-9239-e79fa7f520f0"; // antigo IportJLKN12, populado pelo devops:seed
+const ID_PATIO = "badd3c28-2533-4e04-9239-e79fa7f520f0";
 const IGNORAR = new Set([ID_PATIO]);
 const enc = encodeURIComponent;
 
@@ -39,18 +25,14 @@ const SPRINTS = [
   { nome: "Sprint 3", inicio: "2026-11-02", fim: "2026-11-13" },
 ];
 
-// ---------------------------------------------------------------------------
-// Conteúdo
-// ---------------------------------------------------------------------------
-
 type Pessoa = "kaue" | "abner" | "sebastiao" | "aaron" | "laryssa" | "nicolas" | "julliano";
 type Estado = "andamento" | "feito";
 
 interface TaskDef {
   titulo: string;
-  horas: number | null; // null = sem estimativa
+  horas: number | null;
   tags: string[];
-  quem: Pessoa[]; // ordem de preferência
+  quem: Pessoa[];
   estado?: Estado;
 }
 
@@ -71,7 +53,6 @@ const t = (titulo: string, horas: number | null, tags: string[], quem: Pessoa[],
 });
 
 const TEMAS: Record<string, RequisitoDef[]> = {
-  // Agile — atendimento automatizado (só o Kauê no time hoje: parte das tasks fica sem dono)
   "a8f446dd-64fb-44a7-a32c-10fe9584e646": [
     {
       titulo: "Bot de atendimento a transportadoras",
@@ -137,7 +118,6 @@ const TEMAS: Record<string, RequisitoDef[]> = {
     },
   ],
 
-  // Agile — app do motorista (time com Abner, Sebastião, Kauê, Aaron; Abner sobrecarregado na Sprint 1)
   "dbb885fc-cab5-4bc8-85d8-70da870e7b74": [
     {
       titulo: "Check-in do motorista pelo app",
@@ -205,7 +185,6 @@ const TEMAS: Record<string, RequisitoDef[]> = {
     },
   ],
 
-  // Basic (Epic → Task) — integração fiscal e faturamento
   "569342a3-1d76-4c48-8f9e-e8c635bb13d3": [
     {
       titulo: "Emissão de NFS-e dos serviços portuários",
@@ -270,10 +249,6 @@ const TEMAS: Record<string, RequisitoDef[]> = {
     },
   ],
 };
-
-// ---------------------------------------------------------------------------
-// DevOps
-// ---------------------------------------------------------------------------
 
 type Op = { op: string; path: string; value?: unknown };
 const patch = (ops: Op[]) => ({ body: ops, contentType: "application/json-patch+json" });
@@ -352,7 +327,6 @@ async function popularProjeto(projeto: { id: string; name: string }, tema: Requi
   const pessoa = (p: Pessoa) => membros.find((m) => norm(m.identity.displayName ?? "").startsWith(p))?.identity;
   console.log(`  time ${time.name}: ${membros.map((m) => m.identity.displayName).join(", ")}`);
 
-  // 1. Sprints com datas, associadas ao time
   const nodes = [];
   for (const s of SPRINTS) nodes.push(await garantirSprint(projeto.id, s));
   const doTime = await azdo.listTeamIterations(projeto.id, time.id);
@@ -364,7 +338,6 @@ async function popularProjeto(projeto: { id: string; name: string }, tema: Requi
     console.log(`  + ${n.name} associada ao time`);
   }
 
-  // 2. Capacidade 6h/dia para cada membro em cada sprint
   for (const n of nodes) {
     const base = `${enc(projeto.id)}/${enc(time.id)}/_apis/work/teamsettings/iterations/${n.identifier}`;
     for (const m of membros) {
@@ -375,7 +348,6 @@ async function popularProjeto(projeto: { id: string; name: string }, tema: Requi
   }
   console.log(`  ✓ capacidade ${HORAS_DIA}h/dia × ${membros.length} membro(s) × ${nodes.length} sprints`);
 
-  // 3. Requisitos e tasks
   const tipos = await tiposDoProcesso(projeto.id);
   const tipoRequisito = tipos.has("Feature") ? "Feature" : "Epic";
   const camposTask = await camposDoTipo(projeto.id, "Task");
@@ -427,7 +399,6 @@ async function popularProjeto(projeto: { id: string; name: string }, tema: Requi
       }
       const id = await criar(projeto.id, "Task", ops);
       criados++;
-      // Estado em um segundo passo: o item nasce no estado inicial do processo
       const alvo = tk.estado ? ESTADO[tk.estado] : undefined;
       if (alvo) await azdo.updateWorkItem(id, [{ op: "add", path: "/fields/System.State", value: alvo }]);
       console.log(

@@ -1,6 +1,3 @@
-// Carga global (todos os projetos) das pessoas candidatas, para a tela Análises.
-// Busca só o necessário dessas pessoas e roda o motor puro @shared/capacidade/global.
-
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { montarCargaGlobal } from "@shared/capacidade/montagem";
@@ -17,7 +14,6 @@ export function useCargaGlobal(pessoaIds: string[]) {
   const ids = useMemo(() => [...new Set(pessoaIds)].sort(), [pessoaIds]);
 
   const q = useQuery({
-    // prefixo "backlog": o Realtime de work_item já invalida
     queryKey: ["backlog", "carga_global", ...ids],
     enabled: ids.length > 0,
     queryFn: async () => {
@@ -43,7 +39,6 @@ export function useCargaGlobal(pessoaIds: string[]) {
     },
   });
 
-  // mesma montagem do agente de IA (@shared/capacidade/montagem): números iguais na tela e na IA
   const celula = useMemo(() => (q.data && regras ? montarCargaGlobal(q.data, regras, ids) : null), [q.data, regras, ids]);
 
   return { carregando: q.isLoading || carregandoRegras, erro: q.error, celula, regras };

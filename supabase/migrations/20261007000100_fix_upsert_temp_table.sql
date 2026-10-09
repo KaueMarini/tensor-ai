@@ -1,4 +1,3 @@
--- upsert_work_items: permite várias chamadas na mesma transação (tabela temporária já existente)
 create or replace function public.upsert_work_items(p_items jsonb, p_origem text)
 returns table (devops_id integer, aplicado boolean)
 language plpgsql security definer set search_path = public as $$
@@ -61,4 +60,3 @@ begin
   return query
   select i.devops_id, i.devops_id = any(coalesce(v_aplicados, '{}')) from _wi i;
 end $$;
-

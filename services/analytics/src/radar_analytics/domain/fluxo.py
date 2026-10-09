@@ -1,14 +1,3 @@
-"""Métricas de fluxo: tempo em fila (waiting time), cycle/lead time, aging e WIP. Puro.
-
-- Coluna: usa o histórico de `System.BoardColumn` quando o item tem; senão o de `System.State`.
-- Waiting time: horas úteis (expediente, sem fim de semana/feriado) somadas em TODAS as
-  passagens pela coluna (reentrada soma), comparadas ao SLA da coluna de espera.
-- Cycle time: 1ª entrada em andamento → última entrada em concluído. Lead time: criação →
-  última entrada em concluído. Aging: 1ª entrada em andamento → agora (item ainda aberto).
-  Os três em dias corridos, comparados ao percentil de referência (p85) do projeto.
-- WIP é medida de CARGA (itens em andamento ao mesmo tempo), nunca de desempenho.
-"""
-
 from __future__ import annotations
 
 import math
@@ -30,7 +19,6 @@ from radar_analytics.domain.models import (
 )
 from radar_analytics.domain.skills import chave_skill
 
-# Mesmo mapa de `_shared/kanban.ts` (sem metadados do processo, decide pelo nome)
 _POR_NOME: dict[str, Categoria] = {
     "new": Categoria.PROPOSTO,
     "to do": Categoria.PROPOSTO,
@@ -100,7 +88,7 @@ class AgingAcima(_Base):
 
 
 class Wip(_Base):
-    chave: str  # pessoa_id ou nome da coluna
+    chave: str
     wip: int
     limite: int
     tasks: tuple[int, ...]
@@ -109,9 +97,6 @@ class Wip(_Base):
     @property
     def acima(self) -> bool:
         return self.wip > self.limite
-
-
-# --------------------------------------------------------------------------- histórico
 
 
 def por_item(transicoes: Iterable[Transicao]) -> dict[int, list[Transicao]]:
@@ -128,7 +113,6 @@ def _campo_do_item(hist: Sequence[Transicao]) -> str:
 
 
 def segmentos(hist: Sequence[Transicao]) -> list[Segmento]:
-    """Intervalos em cada coluna. Passagens antes do 1º registro do histórico são desconhecidas."""
     campo = _campo_do_item(hist)
     trans = [t for t in hist if t.campo == campo and t.para]
     out: list[Segmento] = []
@@ -141,9 +125,6 @@ def segmentos(hist: Sequence[Transicao]) -> list[Segmento]:
 def coluna_atual(hist: Sequence[Transicao], estado: str | None) -> str | None:
     segs = segmentos(hist)
     return segs[-1].coluna if segs else estado
-
-
-# --------------------------------------------------------------------------- waiting time
 
 
 def tempo_em_espera(
@@ -192,9 +173,6 @@ def tempo_em_espera(
     return out
 
 
-# --------------------------------------------------------------------------- cycle/lead/aging
-
-
 def _dias(a: datetime, b: datetime) -> float:
     return max(0.0, (b - a).total_seconds() / 86400)
 
@@ -215,7 +193,6 @@ def tempos(task: Task, hist: Sequence[Transicao], agora: datetime) -> TemposItem
 
 
 def percentil(valores: Sequence[float], p: float) -> float:
-    """Percentil com interpolação linear (método 'linear' / tipo 7). Exige ao menos 1 valor."""
     if not valores:
         raise ValueError("percentil de lista vazia")
     ordenados = sorted(valores)
@@ -270,9 +247,6 @@ def aging_acima(medidos: Sequence[TemposItem], ref: Referencia) -> list[AgingAci
             )
         )
     return out
-
-
-# --------------------------------------------------------------------------- WIP
 
 
 def wip_por_pessoa(tasks: Iterable[Task], limite: int) -> list[Wip]:

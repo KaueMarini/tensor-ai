@@ -28,7 +28,7 @@ def test_limpar_texto_tira_nomes_e_emails() -> None:
     assert "Ana" not in txt
     assert "@" not in txt
     assert "Dev Front-end react #A" in txt
-    assert "Biazinha" in txt  # nome curto (< 3 letras não; "Bia" tem 3) só como palavra inteira
+    assert "Biazinha" in txt
     assert "Dev do time #B," in txt
 
 

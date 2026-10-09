@@ -1,9 +1,6 @@
--- Teste de idempotência por rev (roda numa transação com rollback; não deixa dados).
--- pnpm db:test
 begin;
 insert into projeto(id,nome) values ('00000000-0000-0000-0000-000000000001','teste');
 insert into sprint(id,projeto_id,nome,iteration_path) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-000000000001','S1','teste-S1');
--- filho chega antes do pai (fora de ordem), via User Story intermediaria
 create temp table if not exists _r(etapa serial, r jsonb); insert into _r(r) select jsonb_agg(to_jsonb(x)) from upsert_work_items('[{"devops_id":900003,"rev":2,"projeto_id":"00000000-0000-0000-0000-000000000001","tipo":"Task","titulo":"T v2","parent_devops_id":900002,"iteration_path":"teste-S1","tags":["a","b"],"responsavel_devops_id":"00000000-0000-0000-0000-0000000000f1","responsavel_nome":"Fulano"}]','webhook') x;
 create temp table if not exists _r(etapa serial, r jsonb); insert into _r(r) select jsonb_agg(to_jsonb(x)) from upsert_work_items('[{"devops_id":900003,"rev":1,"projeto_id":"00000000-0000-0000-0000-000000000001","tipo":"Task","titulo":"T v1 VELHA"}]','webhook') x;
 create temp table if not exists _r(etapa serial, r jsonb); insert into _r(r) select jsonb_agg(to_jsonb(x)) from upsert_work_items('[{"devops_id":900003,"rev":2,"projeto_id":"00000000-0000-0000-0000-000000000001","tipo":"Task","titulo":"T v2 DUP"}]','webhook') x;

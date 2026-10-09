@@ -1,9 +1,3 @@
-// Visão "Squads" da seção Membros: um bloco por projeto e, dentro, um card por squad
-// (time do Azure DevOps) com a carga da sprint atual — números do motor de capacidade,
-// os mesmos das abas Resumo e Equipe do projeto.
-//
-// Um projeto por vez (escolhido numa lista), então só ele busca os dados de capacidade.
-
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, CalendarRange, Sparkles, UserRoundX, Users } from "lucide-react";
@@ -28,7 +22,6 @@ export function VisaoSquads({ projetos, membros, temFiltro, onAbrir }: Props) {
   const visiveis = useMemo(() => new Set(membros.map((m) => m.pessoaId)), [membros]);
   const lista = temFiltro ? projetos.filter((p) => membros.some((m) => m.projetos.some((x) => x.id === p.id))) : projetos;
   const [escolhido, setEscolhido] = useState<string | null>(null);
-  // um projeto por vez: o escolhido, ou o primeiro da lista (se o filtro tirou o escolhido)
   const projeto = lista.find((p) => p.id === escolhido) ?? lista[0];
 
   if (!projeto) {
@@ -63,10 +56,6 @@ export function VisaoSquads({ projetos, membros, temFiltro, onAbrir }: Props) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Projeto
-// ---------------------------------------------------------------------------
 
 interface Squad {
   nome: string;
@@ -189,10 +178,6 @@ function ProjetoSquads({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Card do squad
-// ---------------------------------------------------------------------------
-
 function SquadCard({
   squad,
   projetoNome,
@@ -231,7 +216,6 @@ function SquadCard({
         {r && r.pessoas > 0 && <StatusCargaTag status={r.status} className="mt-0.5 shrink-0" />}
       </div>
 
-      {/* Carga agregada na sprint */}
       <div className="px-5 pt-4">
         {r && r.pessoas > 0 ? (
           <>
@@ -267,14 +251,12 @@ function SquadCard({
         )}
       </div>
 
-      {/* Pessoas */}
       <ul className="mt-4 divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
         {squad.pessoas.map((p) => (
           <LinhaPessoa key={p.id} pessoa={p} celula={celula(p.id)} onAbrir={onAbrir} />
         ))}
       </ul>
 
-      {/* Skills */}
       <div className="mt-auto border-t border-slate-100 px-5 py-3 dark:border-slate-800">
         <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500">
           <Sparkles className="size-3" /> Skills do squad
@@ -296,7 +278,6 @@ function SquadCard({
   );
 }
 
-/** Barra empilhada: ocupado até a capacidade e, se passar, o excesso. */
 function BarraSquad({ resumo }: { resumo: ResumoSquad }) {
   const cor = STATUS_CARGA[resumo.status].cor;
   const fracao = resumo.capacidadeH > 0 ? Math.min(1, resumo.cargaH / resumo.capacidadeH) : resumo.cargaH > 0 ? 1 : 0;

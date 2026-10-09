@@ -1,5 +1,3 @@
-"""Monta as dependências reais a partir do ambiente (pool, LLM, prompt, DevOps)."""
-
 from __future__ import annotations
 
 from collections.abc import Callable

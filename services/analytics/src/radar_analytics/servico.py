@@ -1,5 +1,3 @@
-"""Orquestra uma análise: banco → domínio → agente → `sugestao` pendente. Síncrono (roda em thread)."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -86,7 +84,7 @@ class Servico:
         with self.pool.connection() as conn:
             projeto = projeto_do_item(conn, work_item_id)
             if projeto and self.devops is not None:
-                try:  # dependências não vêm na sync: relê só deste item
+                try:
                     escrita.gravar_relacoes(conn, self.devops.dependencias([work_item_id]))
                 except Exception as erro:
                     log.warning("dependencias_falharam", devops_id=work_item_id, erro=str(erro))

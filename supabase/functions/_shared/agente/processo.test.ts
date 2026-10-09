@@ -21,8 +21,8 @@ describe("gerarCandidatosProcesso", () => {
       item(1, "2026-10-28"),
       item(2, "2026-10-27"),
       item(3, "2026-10-29"),
-      item(4, "2026-10-02", { categoria: "Resolved" }), // 28 dias parada em revisão
-      item(5, "2026-10-05", { categoria: "Resolved" }), // 25 dias
+      item(4, "2026-10-02", { categoria: "Resolved" }),
+      item(5, "2026-10-05", { categoria: "Resolved" }),
     ];
     const [g] = gerarCandidatosProcesso({ hoje: HOJE, projetos: [{ id: "p", nome: "Docas" }], itens });
     expect(g!.tipo).toBe("gargalo");

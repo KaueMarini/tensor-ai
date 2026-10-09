@@ -1,10 +1,3 @@
-// IA explicável, parte determinística: para UMA sugestão, monta a visão MICRO com as
-// ferramentas de engenharia de processos que fazem sentido para o caso (só as aplicáveis):
-//   tempo   Diagnóstico de tempo + mapa de calor (lead time, tempo parado no estado atual)
-//   pareto  80/20: poucos itens concentram a maior parte da carga/atraso
-//   matriz  Esforço × Impacto: a ação é Quick win, Grande aposta, Preenchimento ou Evitar?
-// Todos os números saem daqui; o LLM só escreve a leitura de cada ferramenta (validada).
-
 export type Categoria = "Proposed" | "InProgress" | "Resolved";
 
 export interface ItemTempo {
@@ -13,7 +6,6 @@ export interface ItemTempo {
   categoria: Categoria;
   responsavelId: string | null;
   horas: number;
-  /** ISO; null = sem a data no DevOps. */
   criado: string | null;
   mudouEstado: string | null;
 }
@@ -40,7 +32,6 @@ export interface FerramentaPareto {
   titulo: string;
   unidade: "h" | "dias";
   itens: { rotulo: string; valor: number; acumuladoPct: number; destaque: boolean }[];
-  /** Quantos itens (do maior para o menor) somam 80%. */
   corte80: number;
   fatos: Record<string, string | number>;
 }
@@ -133,7 +124,6 @@ function tempo(itens: ItemTempo[], alvoId: number | null, hoje: string): Ferrame
     ? { id: a.id, titulo: a.titulo, leadDias: dias(a.criado, hoje), paradoDias: dias(a.mudouEstado ?? a.criado, hoje), estado: ESTADO[a.categoria] }
     : null;
   const estourado = !!alvo?.paradoDias && alvo.paradoDias > Math.max(7, 2 * medParado);
-  // linhas sem nenhum item somem do mapa (ex.: projeto sem "Em revisão")
   const usadas = linhas.map((l, i) => ({ l, i })).filter(({ i }) => celulas[i]!.some((n) => n > 0));
   const destaqueLinha = a ? usadas.findIndex((u) => u.l === a.categoria) : -1;
   return {
@@ -163,11 +153,8 @@ const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 export function explicar(e: {
   hoje: string;
   sugestao: SugestaoBase;
-  /** Tasks abertas (folhas) do projeto da sugestão, com datas. */
   itensProjeto: ItemTempo[];
-  /** Tasks abertas da pessoa que perde carga (rebalancear/ausência), todos os projetos. */
   itensDe?: ItemTempo[];
-  /** Portfólio: projetos com esforço (fatia) e impacto, para portfolio/similares. */
   portfolio?: { id: string; nome: string; fatia: number; horas: number; impacto: number | null }[];
 }): Ferramenta[] {
   const { sugestao: s, hoje } = e;
@@ -177,7 +164,6 @@ export function explicar(e: {
 
   if (s.tipo === "atribuir" || s.tipo === "rebalancear" || s.tipo === "ausencia") {
     const t = tempo(e.itensProjeto, alvoId, hoje);
-    // tempo só quando ajuda a explicar: task sem dono (está esperando) ou parada além do normal
     if (t && (s.tipo === "atribuir" || t.estourado)) out.push(t);
 
     if (s.tipo === "atribuir") {
@@ -198,11 +184,8 @@ export function explicar(e: {
       );
     }
 
-    // Esforço da ação = quanto da folga de quem recebe a task consome; impacto = quanto resolve.
-    // Sem estimativa de horas não há como medir esforço: a matriz não entra (enganaria).
     const horas = num(f.horas);
     if (horas > 0) {
-    // ex.: quem recebe vai de 40% para 55% → usa 15 dos 60 pontos livres = 25% da folga
     const folgaPara = Math.max(1, 100 - num(f.para_antes_pct));
     const esforco = Math.min(1, Math.max(0, (num(f.para_depois_pct) - num(f.para_antes_pct)) / folgaPara));
     const impacto =
@@ -228,8 +211,6 @@ export function explicar(e: {
   }
 
   if ((s.tipo === "portfolio" || s.tipo === "similares") && e.portfolio?.length) {
-    // escala absoluta: 30% ou mais da capacidade da equipe = esforço máximo (normalizar pelo maior
-    // projeto faria qualquer líder parecer "muito esforço", mesmo usando pouco da equipe)
     const ESFORCO_MAX = 0.3;
     const foco = s.tipo === "portfolio" ? [s.projetoId] : e.portfolio.filter((p) => p.nome === f.projeto_a || p.nome === f.projeto_b).map((p) => p.id);
     const pontos = e.portfolio
@@ -264,7 +245,6 @@ export function explicar(e: {
   }
 
   if (s.tipo === "gargalo") {
-    // onde o fluxo travou (mapa de calor do projeto) e quais tasks concentram o tempo parado
     out.push(tempo(e.itensProjeto, null, hoje));
     out.push(
       pareto(

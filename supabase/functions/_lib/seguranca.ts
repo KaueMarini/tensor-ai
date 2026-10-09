@@ -1,10 +1,3 @@
-// Middleware de segurança das Edge Functions (wrapper em volta do handler existente, sem mudar
-// o contrato das rotas):
-//   • RBAC: chamadas com JWT de usuário exigem papel gestor/admin (usuario_papel); chamadas de
-//     sistema (segredo do cron/pg_net, validado pelo próprio handler) passam direto.
-//   • Auditoria append-only: toda ação de usuário vira uma linha em `auditoria` com ator
-//     anonimizado (HMAC), IP mascarado e sem PII (registrar_auditoria no banco).
-
 import { errorMessage, log } from "../_shared/log.ts";
 import { createDb, type Db, jsonResponse } from "./context.ts";
 
@@ -18,7 +11,7 @@ export async function papelDe(db: Db, userId: string): Promise<Papel> {
 async function usuarioDoToken(db: Db, req: Request) {
   const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token || token.split(".").length !== 3) return null;
-  const { data, error } = await db.auth.getUser(token); // valida a assinatura do JWT no Auth
+  const { data, error } = await db.auth.getUser(token);
   return error ? null : data.user;
 }
 
@@ -34,23 +27,17 @@ export async function auditar(db: Db, a: { acao: string; recurso?: string | null
   if (error) log("warn", "auditoria falhou", { erro: error.message });
 }
 
-/**
- * Envolve um handler: `nome` identifica a função na auditoria; `papeis` são os aceitos quando
- * há JWT de usuário. O recurso auditado é o id técnico que vier no corpo (devops_id,
- * sugestao_id, projeto_id), nunca nomes.
- */
 export function protegido(
   nome: string,
   papeis: Papel[],
   handler: (req: Request) => Promise<Response>,
-  /** Ações só de leitura liberadas a qualquer usuário logado (ex.: estados do Kanban). */
   acoesLivres: string[] = [],
 ) {
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return handler(req);
     const db = createDb();
     const user = await usuarioDoToken(db, req);
-    if (!user) return handler(req); // sem JWT: o handler decide (segredo de sistema ou 401)
+    if (!user) return handler(req);
 
     const papel = await papelDe(db, user.id);
     const corpo = (await req.clone().json().catch(() => ({}))) as Record<string, unknown>;

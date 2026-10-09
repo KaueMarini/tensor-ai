@@ -1,11 +1,3 @@
-// pnpm devops:projeto-novo [--dry] [--excluir]
-// Cria no Azure DevOps um projeto fictício NOVO e SEM PESSOAS ("Farol Cargas"), com descrição e
-// linha "Tags:", para demonstrar a equipe sugerida (squad parecido / pessoas avulsas).
-// Quem cria o projeto entra sozinho no time padrão: o script tira essa pessoa (Graph API), para
-// o projeto ficar realmente vazio. Idempotente. --excluir manda o projeto para a lixeira.
-//
-// Exige PAT com Project and Team (Read, write & manage) e Graph (Read & manage).
-
 import { AzdoHttpError, createAzdoClient } from "../supabase/functions/_shared/azdo/client.ts";
 
 const need = (k: string) => {
@@ -26,7 +18,6 @@ const DESCRICAO =
   "de indicadores em Power BI para o comercial. Testes automatizados antes de cada entrega.\n\n" +
   "Tags: agendamento, front-end, integracao-fiscal, tempo-real, power-bi, testes";
 
-// vssps: onde ficam Graph (descritores e memberships)
 const VSSPS = ORG_URL.replace("://dev.azure.com/", "://vssps.dev.azure.com/");
 const auth = `Basic ${Buffer.from(`:${PAT}`).toString("base64")}`;
 async function graph<T>(metodo: string, caminho: string): Promise<T> {
@@ -78,7 +69,6 @@ async function main() {
     console.log(`= ${NOME} já existe (${projeto.id})`);
   }
 
-  // Esvazia os times: o criador entra sozinho no time padrão
   for (const time of await azdo.listTeams(projeto.id)) {
     const membros = await azdo.listTeamMembers(projeto.id, time.id);
     if (membros.length === 0) {

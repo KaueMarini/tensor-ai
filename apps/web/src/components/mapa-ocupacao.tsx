@@ -1,7 +1,3 @@
-// Mapa de ocupação pessoa × semana (todos os projetos somados). Lê de cima para baixo:
-// quem está pior vem primeiro. Célula = % de uso + mini barra; só células de risco ganham
-// fundo, então o olho vai direto para o problema. Status sempre com ícone/texto, nunca só cor.
-
 import type { CelulaGlobal } from "@shared/capacidade/global";
 import type { StatusCarga } from "@shared/capacidade/motor";
 import type { Periodo } from "@/lib/ocupacao";
@@ -50,7 +46,6 @@ export function MapaOcupacao({
   celula: (p: Periodo, id: string) => CelulaGlobal | undefined;
   nomeProjeto: (id: string) => string;
   onAbrir?: (id: string) => void;
-  /** Cabeçalho da 1ª coluna (ex.: "Este mês" quando as colunas são meses). */
   rotuloPrimeiro?: string;
 }) {
   return (

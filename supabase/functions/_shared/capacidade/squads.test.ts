@@ -22,7 +22,6 @@ describe("resumirSquad", () => {
     const r = resumirSquad([cel("a", 60, 70, "sobrecarga", 5), cel("b", 60, 20, "ok", 2), undefined]);
     expect(r).toMatchObject({ pessoas: 2, capacidadeH: 120, cargaH: 90, livreH: 30, status: "ok", itens: 7 });
     expect(r.utilizacao).toBeCloseTo(0.75);
-    // o agregado está ok, mas alguém está sobrecarregado
     expect(r.porStatus).toEqual({ ok: 1, limite: 0, sobrecarga: 1, "sem-capacidade": 0 });
   });
 

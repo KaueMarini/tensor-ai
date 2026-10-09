@@ -1,11 +1,3 @@
-"""Modelos do domínio (imutáveis). Sem I/O: os repositórios montam estes objetos a partir do banco.
-
-Convenções:
-- Datas de calendário são `date`; instantes são `datetime` com fuso (os repositórios convertem
-  para America/Sao_Paulo antes de chegar aqui).
-- Frações (0.8 = 80%) no domínio; percentuais só na saída, via `numeros.pct`.
-"""
-
 from __future__ import annotations
 
 from datetime import date, datetime, time
@@ -22,7 +14,6 @@ class _Base(BaseModel):
 
 
 class Evidencia(_Base):
-    """Prova de um número: como foi calculado, com o quê, e o resultado (já arredondado)."""
 
     metrica: str
     formula: str
@@ -32,7 +23,6 @@ class Evidencia(_Base):
 
 
 class Categoria(StrEnum):
-    """Categoria de estado do processo do DevOps (mesma de `_shared/kanban.ts`)."""
 
     PROPOSTO = "Proposed"
     ANDAMENTO = "InProgress"
@@ -42,7 +32,6 @@ class Categoria(StrEnum):
 
 
 class RegrasGerais(_Base):
-    """Regras do gestor (tabela `regra_capacidade`); padrão de mercado em `PADRAO_MERCADO`."""
 
     jornada_dia: float = 8.0
     foco: float = 0.75
@@ -71,7 +60,6 @@ class Sprint(_Base):
 
 
 class CapacidadeTime(_Base):
-    """Capacity do DevOps: horas/dia da pessoa num time, numa sprint."""
 
     sprint_id: str
     time_id: str
@@ -80,7 +68,6 @@ class CapacidadeTime(_Base):
 
 
 class Alocacao(_Base):
-    """Horas/dia que o gestor dedica da pessoa ao projeto (sobrepõe a Capacity)."""
 
     projeto_id: str
     pessoa_id: str
@@ -88,10 +75,6 @@ class Alocacao(_Base):
 
 
 class Folga(_Base):
-    """Ausência: pessoal (pessoa_id) ou do time inteiro (pessoa_id nulo + time_id).
-
-    Days off do DevOps têm sprint_id/time_id; a tabela `ausencia` vem só com pessoa_id.
-    """
 
     inicio: date
     fim: date
@@ -150,7 +133,6 @@ class ColunaFluxo(_Base):
 
 
 class Expediente(_Base):
-    """Janela do dia que conta como hora útil para SLA de fila (horário de Brasília)."""
 
     inicio: time = time(9, 0)
     fim: time = time(18, 0)

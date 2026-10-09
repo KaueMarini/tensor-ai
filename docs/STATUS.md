@@ -2,9 +2,9 @@
 
 > Documento vivo. **Leia antes de começar qualquer tarefa** (em qualquer máquina) e
 > **atualize ao final de cada etapa**: o que foi feito, onde parou e o que vem a seguir.
-> Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
+> Visão de produto e regras: [README.md](../README.md).
 
-**Última atualização:** 2026-10-09 (agente de IA funcionando)
+**Última atualização:** 2026-10-09 (LGPD, UX de sugestões e métricas, deploy na Vercel)
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
 (Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
 Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
@@ -14,6 +14,21 @@ Sino de notificações pronto para a IA gravar (tabela `notificacao`). Ainda for
 ---
 
 ## 1. Onde paramos
+
+Sessão de 2026-10-09 (4ª parte): **LGPD + UX + publicação**. Front publicado em
+**https://radar-capacidade.vercel.app** (`vercel.json` na raiz: build `pnpm --filter web build`, saída
+`apps/web/dist`, cabeçalhos HSTS/CSP; `.vercelignore` deixa de fora serviço Python, migrations e docs;
+variáveis `VITE_*` passadas com `--build-env`). LGPD: middleware de anonimização de PII antes do LLM
+(`_shared/privacidade.ts` + `_lib/llm.ts`), logs sanitizados, RBAC admin/gestor/membro (RLS +
+`_lib/seguranca.ts` nas funções; membro só lê estados do Kanban), auditoria append-only com hash
+encadeado, TTL diário (`expurgo_lgpd`), `esquecer_pessoa`/`esquecer_usuario`, segredos de entrada só como
+SHA-256 nas funções (texto puro só no `.env.local` local), cabeçalhos de segurança (migrations
+`20261009000700`/`0800`). UX: Sugestões em duas abas (Alocação de equipe / Melhoria de processo),
+agente detecta gargalo e WIP alto (`_shared/agente/processo.ts`), Métricas com fluxo e previsibilidade
+(`_shared/metricas/fluxo.ts`), projetos parecidos pela descrição (TF-IDF + tags) com card no Resumo. Pedido
+do usuário: **comentários removidos de todo o código** (TS/TSX/JS via parser do TypeScript, SQL, Python,
+YAML/TOML/Docker), `CLAUDE.md` removido (a visão do produto foi para o README) e commits sem trailer de
+coautoria. README reescrito com o passo a passo completo. 133 testes Vitest + 113 pytest verdes.
 
 Sessão de 2026-10-09 (3ª parte): **portfólio e IA explicável**. (1) **Esforço × impacto**: impacto do
 projeto 1–3 com precedência gestor (seletor no cabeçalho do projeto) > DevOps (linha `Impacto:` na
@@ -244,7 +259,7 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
 - **`acao`**: toda escrita que o app faz no DevOps (hoje: mover estado no Kanban) — tipo,
   devops_id, antes/depois (jsonb), status `aplicada`/`erro`, erro, usuario_id/email,
   criado_em. Só a Edge Function grava (service_role); front só lê.
-- **Skills e tags de função:** `skill_tag` (já existia, pensada pro CLAUDE.md §4) agora
+- **Skills e tags de função:** `skill_tag` (já existia, pensada pro README.md §4) agora
   também recebe escrita direto do front (`origem='gestor'`); `funcao_tag` é o catálogo
   novo de tags de papel/função (nome único, editável/renomeável — afeta todo mundo que
   usa a tag) e `pessoa_funcao_tag` é a associação N:N com pessoa. View `v_membros`
@@ -459,7 +474,7 @@ com duas visões no seletor do topo:
   `agruparMembros` junta as linhas pessoa × time em uma entrada por pessoa com a
   lista de projetos e times.
 - **Skills**: texto livre por pessoa, gravado em `skill_tag` (tabela que já existia,
-  pensada no CLAUDE.md §4 pra isso — só ganhou policy de escrita pro gestor). Adicionar
+  pensada no README.md §4 pra isso — só ganhou policy de escrita pro gestor). Adicionar
   usa `<datalist>` com as skills já cadastradas em qualquer pessoa (autocomplete sem
   travar em lista fixa). Remover é por chip (`×`).
 - **Skills automáticas (2026-10-08)** — migrations `20261008000100` e `20261008000200`:
@@ -895,7 +910,7 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
 - [ ] Validar o critério de pronto pelo app: alterar task no DevOps → aparece em < 5 s sem
       refresh; desligar subscription, alterar coisas, reconciliação corrige sozinha
 
-### Próximos (P0/P1 do CLAUDE.md)
+### Próximos (P0/P1 do README.md)
 Cadastro de feriados pela UI (a tabela `feriado` está vazia; ausências já têm UI), utilização por **semana** (hoje é por sprint), agente de IA (explicar
 e priorizar as sugestões da tela Análises, ler descritivo/Feature, sinônimos de skills),
 sugestões proativas por evento (webhook → sugestão na caixa), sugestões de **realocação**
@@ -948,11 +963,11 @@ e mover task de sprint. O executor de "atribuir" já existe (`devops-acoes`).
 - **Processo Basic** (IportJLNK): não tem Feature; o requisito é o **Epic** (Epic → Task).
   Estados da Task no Basic: To Do / Doing / Done.
 - **Kanban escreve no DevOps** por gesto explícito do gestor (decisão do usuário): vale
-  para qualquer tipo exceto Feature/Epic (regra do CLAUDE.md: Features nunca mudam).
+  para qualquer tipo exceto Feature/Epic (regra do README.md: Features nunca mudam).
   Toda tentativa fica em `acao`. Sugestões da IA continuam exigindo aprovação.
 - **Recentes** ficam no `localStorage` do navegador (conveniência por pessoa, não é dado
   do sistema).
-- **Utilização é por sprint**, não por semana ainda (o CLAUDE.md fala em semana).
+- **Utilização é por sprint**, não por semana ainda (o README.md fala em semana).
 - **Escala**: listas de projetos sempre paginadas no banco. A seção Membros ainda
   carrega todos os vínculos pessoa × time de uma vez — paginar quando crescer.
 - **Permissões (Membros/skills/tags):** o app ainda não tem um segundo papel de usuário
@@ -998,7 +1013,7 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 
 | Data | O que aconteceu |
 |---|---|
-| 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, CLAUDE.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. Repositório privado criado: github.com/KaueMarini/radar-capacidade. |
+| 2026-10-07 | Backend de sync construído, publicado e validado (full, webhook, cron, latência). Sessão interrompida após o teste de latência. Na retomada: `.gitignore` reforçado, script inexistente `devops:inspect` removido do `package.json`, README.md trazido para a raiz com a seção 8, histórico de migrations reparado, este STATUS.md criado e primeiros commits feitos. Repositório privado criado: github.com/KaueMarini/radar-capacidade. |
 | 2026-10-07 | Front inicial (branch `feat/front-backlog`): login, sidebar ao vivo, tabela Backlog Sprint → Feature → Task com Realtime (destaque + toast); `pnpm demo:user`. Validado com Chrome headless; latência medida ~9 s (8 s são do DevOps). |
 | 2026-10-07 | Branch do front consolidada na `main` (fast-forward, PR #1 marcado como merged, branch apagada). Proteções de limite: debounce de invalidação no front, capacidade só de sprints ativas no reconcile, retenção de 30 dias na tabela evento. Migration aplicada via `db push`, `devops-sync` republicada, reconcile e teste ao vivo validados. |
 | 2026-10-07 | Máquina nova (`npx supabase login` + `link` nesta sessão). Nova aba **Membros**: migration `20261007000400` (`funcao_tag`, `pessoa_funcao_tag`, view `v_membros`, policies de escrita pro gestor), hooks/mutations em `queries.ts`, UI completa em `membros.tsx` (filtros, cards, painel de skills/tags, modal "Gerenciar tags"), Realtime estendido. **Dark mode** (`lib/theme.tsx`, toggle na sidebar, pares `dark:` em todos os componentes). Paleta de marca trocada pra slate-índigo (`#4C516D`). **Login redesenhado** (card dividido + painel de marca). Validado: `pnpm typecheck`/`test`/`build` limpos, navegação headless (login → Backlog → Membros, claro e escuro), adicionar skill + criar/associar tag + reload confirmando persistência no Supabase (depois removidos, eram só do teste), sem erros de console. |
@@ -1020,3 +1035,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-09 | **Agente de IA** em Edge Function (`agente`): candidatas do motor + Claude com pseudônimos + validador anti-alucinação; disparo por evento e cron via Vault (`radar_analytics_url` → function); aprovar/ignorar no `devops-acoes`; caixa no Início/Sugestões/Resumo. Montagem de carga compartilhada front/agente. Migrations `20261009000000`–`0500` aplicadas. ESLint, code-split, CI verde, README, tela Sincronização, feriados regionais/recessos. E2E: DevOps → sugestão na tela em 12,6 s; aprovar atribuiu no DevOps. Falta a chave da Anthropic. |
 | 2026-10-09 | **Agente com Gemini**: provedor por chave (Gemini > Claude > template), retry/fallback de modelos no 503 do plano gratuito, processamento em segundo plano nas rotas do pg_net, artigo removido antes dos pseudônimos (teste), `ia`/`erro_ia` no resumo. 5 sugestões reais escritas pelo Gemini e aprovadas pelo validador. 107 testes. |
 | 2026-10-09 | **Portfólio + IA explicável**: impacto do projeto (gestor > DevOps > IA), esforço × impacto e projetos parecidos como sugestões do agente; modal "Entender análise" (tempo/mapa de calor, Pareto, matriz) com leitura do Gemini validada; `_lib/llm.ts` com reservas de modelo por cota; datas de criação/estado na sync. Testado: 4 impactos estimados pela IA, 2 sugestões de similaridade, 3 modais 100% Gemini. |
+| 2026-10-09 | LGPD (PII fora do LLM, logs, RBAC, auditoria com hash, TTL, esquecimento, segredos por hash), Sugestões em duas abas, gargalo/WIP, métricas de fluxo, semelhança por descrição, comentários removidos do código, CLAUDE.md removido, README novo, deploy em https://radar-capacidade.vercel.app. |

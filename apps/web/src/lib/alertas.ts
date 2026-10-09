@@ -1,6 +1,3 @@
-// Alertas calculados agora (mesma regra do "Prioridades" da tela Início, próximas 2 semanas),
-// para o sino. As notificações gravadas pela IA ficam na tabela `notificacao` (useNotificacoes).
-
 import { useMemo } from "react";
 import { type ItemAtencao, itensDeAtencao } from "@shared/capacidade/atencao";
 import { precisaDeEquipe } from "./equipe-sugerida";
@@ -11,7 +8,6 @@ const PERIODO = proximasSemanas(2);
 
 export interface AlertaAtual {
   item: ItemAtencao;
-  /** Rota do app para agir sobre o alerta. */
   link: string;
 }
 

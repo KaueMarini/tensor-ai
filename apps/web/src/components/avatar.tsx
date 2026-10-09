@@ -18,7 +18,6 @@ export function Avatar({ nome, tamanho = "md", className }: { nome: string; tama
   );
 }
 
-/** Quadrado com a inicial do projeto (cor estável pelo nome). */
 export function MarcaProjeto({ nome, className }: { nome: string; className?: string }) {
   return (
     <span

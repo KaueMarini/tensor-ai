@@ -1,8 +1,3 @@
--- Análises / sugestão de alocação de tasks sem responsável.
--- 1. v_backlog ganha feature_tags (contexto da Feature/Epic pai para o encaixe de skills).
--- 2. v_sem_dono_resumo: quantas tasks abertas sem dono cada projeto tem (para a tela
---    global listar só os projetos que precisam de atenção, sem carregar todos).
-
 create or replace view public.v_backlog with (security_invoker = true) as
 select t.projeto_id,
        coalesce(t.sprint_id, f.sprint_id)      as sprint_id,
@@ -40,8 +35,6 @@ select f.projeto_id, f.sprint_id, s.nome, s.inicio, s.fim,
                         where c.parent_devops_id = f.devops_id and c.deleted_at is null))
    );
 
--- Aproximação por nome de estado (só para escolher quais projetos mostrar); a tela usa
--- as categorias reais do processo de cada projeto para a lista final.
 create or replace view public.v_sem_dono_resumo with (security_invoker = true) as
 select pr.id as projeto_id,
        pr.nome as projeto_nome,
