@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Check, ExternalLink, GitCompareArrows, Loader2, OctagonAlert, RefreshCw, Scale, ScanSearch, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
+import { ArrowRight, Bot, Check, ExternalLink, GitCompareArrows, Hourglass, Layers, Loader2, OctagonAlert, RefreshCw, Scale, ScanSearch, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
 import { type SugestaoAgente, useAnalisarAgora, useDecidirSugestao, useSugestoesAgente } from "@/lib/sugestoes-agente";
 import { cn, tempoRelativo } from "@/lib/utils";
 import { STATUS_CARGA } from "@/components/carga";
@@ -20,10 +20,26 @@ const VISUAL: Record<SugestaoAgente["tipo"], { icone: typeof Bot; cor: string; a
   equipe: { icone: UserRoundPlus, cor: "var(--color-brand-600)", aprovar: "Vou montar" },
   portfolio: { icone: Scale, cor: STATUS_CARGA.limite.cor, aprovar: "Vou avaliar" },
   similares: { icone: GitCompareArrows, cor: "var(--color-brand-600)", aprovar: "Vou avaliar" },
+  gargalo: { icone: Hourglass, cor: STATUS_CARGA.sobrecarga.cor, aprovar: "Vou destravar" },
+  wip: { icone: Layers, cor: STATUS_CARGA.limite.cor, aprovar: "Vou conversar" },
 };
 const PRIORIDADE = { 1: "Hoje", 2: "Esta semana", 3: "Quando der" } as const;
 
-export function SugestoesAgente(props: { projetoId?: string; limite?: number; titulo?: string }) {
+/** Frentes da tela Sugestões. */
+export const TIPOS_ALOCACAO: SugestaoAgente["tipo"][] = ["rebalancear", "ausencia", "atribuir", "equipe"];
+export const TIPOS_PROCESSO: SugestaoAgente["tipo"][] = ["gargalo", "wip", "portfolio", "similares"];
+
+interface PropsCaixa {
+  projetoId?: string;
+  limite?: number;
+  titulo?: string;
+  /** Só estes tipos (ex.: frente de processo ou de alocação). */
+  tipos?: SugestaoAgente["tipo"][];
+  descricao?: string;
+  vazio?: string;
+}
+
+export function SugestoesAgente(props: PropsCaixa) {
   // sugestões são executivas: membro não vê a caixa (o banco também não devolve as linhas)
   return (
     <SomenteGestor oculto>
@@ -32,11 +48,11 @@ export function SugestoesAgente(props: { projetoId?: string; limite?: number; ti
   );
 }
 
-function CaixaSugestoes({ projetoId, limite, titulo = "Sugestões do agente" }: { projetoId?: string; limite?: number; titulo?: string }) {
+function CaixaSugestoes({ projetoId, limite, titulo = "Sugestões do agente", tipos, descricao, vazio }: PropsCaixa) {
   const q = useSugestoesAgente(projetoId);
   const analisar = useAnalisarAgora();
   const [todas, setTodas] = useState(false);
-  const lista = q.data ?? [];
+  const lista = (q.data ?? []).filter((s) => !tipos || tipos.includes(s.tipo));
   const visiveis = limite && !todas ? lista.slice(0, limite) : lista;
   const comIA = lista.some((s) => s.usouIA);
 
@@ -52,7 +68,7 @@ function CaixaSugestoes({ projetoId, limite, titulo = "Sugestões do agente" }: 
             {lista.length > 0 && <span className="rounded-full bg-brand-700 px-1.5 text-[11px] font-semibold text-white tabular-nums dark:bg-brand-600">{lista.length}</span>}
           </h2>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            O agente acompanha o Azure DevOps e propõe ações antes de virarem problema. Os números vêm do motor de capacidade
+            {descricao ?? "O agente acompanha o Azure DevOps e propõe ações antes de virarem problema. Os números vêm do motor de capacidade"}
             {comIA ? "; a explicação, da IA" : ""}. Nada muda sem a sua aprovação.
           </p>
         </div>
@@ -77,7 +93,7 @@ function CaixaSugestoes({ projetoId, limite, titulo = "Sugestões do agente" }: 
       ) : lista.length === 0 ? (
         <div className="flex items-center gap-3 px-5 py-6 text-sm text-slate-600 dark:text-slate-300">
           <Sparkles className="size-5 shrink-0 text-emerald-500" />
-          Nenhuma sugestão pendente. O agente reavalia a cada mudança no DevOps e a cada 15 minutos.
+          {vazio ?? "Nenhuma sugestão pendente."} O agente reavalia a cada mudança no DevOps e a cada 15 minutos.
         </div>
       ) : (
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">

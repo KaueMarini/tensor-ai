@@ -86,22 +86,83 @@ export interface ParParecido {
   a: string;
   b: string;
   similaridade: number;
+  porDescricao: number;
+  porTags: number;
   emComum: string[];
+  palavras: string[];
 }
 
-/** Pares de projetos com descrição/tags muito parecidas (possível retrabalho ou sinergia). */
-export function projetosParecidos(projetos: ProjetoPortfolio[], catalogo: string[], limiar = 0.35): ParParecido[] {
-  const termos = projetos.map((p) => ({ p, t: termosDoProjeto(p, catalogo) })).filter((x) => x.t.length >= 2);
+const STOP = new Set(
+  ("a o os as um uma uns umas de da do das dos em no na nos nas para por com sem e ou que se ao aos sua seu suas seus como mais " +
+    "entre pelo pela pelos pelas sobre via cada todo toda todos todas este esta esse essa isso antes depois quando onde ser sao " +
+    "tem ter tambem the and for with of to in on is are").split(" "),
+);
+
+export function palavrasDescricao(texto: string | null): string[] {
+  return (texto ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 && !STOP.has(w) && !/^\d+$/.test(w))
+    .map((w) => (w.length > 5 && w.endsWith("s") ? w.slice(0, -1) : w));
+}
+
+function vetores(docs: string[][]) {
+  const df = new Map<string, number>();
+  for (const d of docs) for (const w of new Set(d)) df.set(w, (df.get(w) ?? 0) + 1);
+  const n = docs.length;
+  return docs.map((d) => {
+    const tf = new Map<string, number>();
+    for (const w of d) tf.set(w, (tf.get(w) ?? 0) + 1);
+    const v = new Map<string, number>();
+    for (const [w, c] of tf) v.set(w, c * Math.log(1 + n / (df.get(w) ?? 1)));
+    return v;
+  });
+}
+
+function cosseno(a: Map<string, number>, b: Map<string, number>) {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (const [w, x] of a) {
+    na += x * x;
+    const y = b.get(w);
+    if (y) dot += x * y;
+  }
+  for (const y of b.values()) nb += y * y;
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}
+
+export function projetosParecidos(projetos: ProjetoPortfolio[], catalogo: string[], limiar = 0.3): ParParecido[] {
+  const base = projetos.map((p) => ({ p, t: termosDoProjeto(p, catalogo), w: palavrasDescricao(p.descricao) }));
+  const vs = vetores(base.map((x) => x.w));
   const out: ParParecido[] = [];
-  for (let i = 0; i < termos.length; i++)
-    for (let j = i + 1; j < termos.length; j++) {
-      const A = termos[i]!;
-      const B = termos[j]!;
-      const s = similaridade(A.t, B.t);
+  for (let i = 0; i < base.length; i++)
+    for (let j = i + 1; j < base.length; j++) {
+      const A = base[i]!;
+      const B = base[j]!;
+      if (A.w.length < 3 && A.t.length < 2) continue;
+      if (B.w.length < 3 && B.t.length < 2) continue;
+      const porDescricao = cosseno(vs[i]!, vs[j]!);
+      const porTags = similaridade(A.t, B.t);
+      const s = 0.6 * porDescricao + 0.4 * porTags;
       if (s < limiar) continue;
       const chavesB = new Set(B.t.map((x) => x.chave));
+      const palavras = [...vs[i]!.keys()]
+        .filter((w) => vs[j]!.has(w))
+        .sort((x, y) => vs[i]!.get(y)! + vs[j]!.get(y)! - (vs[i]!.get(x)! + vs[j]!.get(x)!))
+        .slice(0, 6);
       const [a, b] = [A.p.id, B.p.id].sort();
-      out.push({ a: a!, b: b!, similaridade: r3(s), emComum: A.t.filter((x) => chavesB.has(x.chave)).map((x) => x.termo) });
+      out.push({
+        a: a!,
+        b: b!,
+        similaridade: r3(s),
+        porDescricao: r3(porDescricao),
+        porTags: r3(porTags),
+        emComum: A.t.filter((x) => chavesB.has(x.chave)).map((x) => x.termo),
+        palavras,
+      });
     }
   return out.sort((x, y) => y.similaridade - x.similaridade);
 }

@@ -19,7 +19,7 @@ export interface ItemTempo {
 }
 
 export interface SugestaoBase {
-  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares";
+  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares" | "gargalo" | "wip";
   acao: { work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
   fatos: Record<string, string | number>;
   projetoId: string;
@@ -261,6 +261,30 @@ export function explicar(e: {
           e.portfolio.map((p) => ({ rotulo: p.nome, valor: p.horas, destaque: p.id === s.projetoId })),
         ),
       );
+  }
+
+  if (s.tipo === "gargalo") {
+    // onde o fluxo travou (mapa de calor do projeto) e quais tasks concentram o tempo parado
+    out.push(tempo(e.itensProjeto, null, hoje));
+    out.push(
+      pareto(
+        "Dias parados por task (tasks abertas do projeto)",
+        "dias",
+        e.itensProjeto.map((i) => ({ rotulo: `#${i.id} ${i.titulo}`, valor: dias(i.mudouEstado ?? i.criado, hoje) ?? 0, destaque: `#${i.id} ${i.titulo}` === f.task_mais_parada })),
+      ),
+    );
+  }
+
+  if (s.tipo === "wip") {
+    const andamento = (e.itensDe ?? []).filter((i) => i.categoria === "InProgress");
+    out.push(tempo(andamento, null, hoje));
+    out.push(
+      pareto(
+        "Horas das tasks em andamento da pessoa",
+        "h",
+        andamento.map((i) => ({ rotulo: `#${i.id} ${i.titulo}`, valor: i.horas, destaque: `#${i.id} ${i.titulo}` === f.mais_antiga })),
+      ),
+    );
   }
 
   return out.filter((x): x is Ferramenta => x !== null);

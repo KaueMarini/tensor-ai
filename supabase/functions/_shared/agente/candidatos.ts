@@ -49,7 +49,7 @@ export interface ProjetoAgente extends ProjetoPerfil {
   nItens: number;
 }
 
-export type TipoSugestao = "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares";
+export type TipoSugestao = "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares" | "gargalo" | "wip";
 export type Gravidade = "critico" | "atencao" | "info";
 
 export interface Uso {
@@ -329,7 +329,9 @@ export function gerarCandidatos(e: {
         projeto_a: projetos.get(par.a)?.nome ?? "",
         projeto_b: projetos.get(par.b)?.nome ?? "",
         parecido_pct: Math.round(par.similaridade * 100),
-        em_comum: par.emComum.join(", "),
+        descricao_pct: Math.round(par.porDescricao * 100),
+        em_comum: par.emComum.join(", ") || "nenhuma tag",
+        palavras_em_comum: par.palavras.join(", ") || "nenhuma",
       },
       antes: [],
       depois: [],

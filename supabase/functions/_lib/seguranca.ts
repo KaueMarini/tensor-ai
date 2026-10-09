@@ -39,7 +39,13 @@ export async function auditar(db: Db, a: { acao: string; recurso?: string | null
  * há JWT de usuário. O recurso auditado é o id técnico que vier no corpo (devops_id,
  * sugestao_id, projeto_id), nunca nomes.
  */
-export function protegido(nome: string, papeis: Papel[], handler: (req: Request) => Promise<Response>) {
+export function protegido(
+  nome: string,
+  papeis: Papel[],
+  handler: (req: Request) => Promise<Response>,
+  /** Ações só de leitura liberadas a qualquer usuário logado (ex.: estados do Kanban). */
+  acoesLivres: string[] = [],
+) {
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return handler(req);
     const db = createDb();
@@ -48,6 +54,7 @@ export function protegido(nome: string, papeis: Papel[], handler: (req: Request)
 
     const papel = await papelDe(db, user.id);
     const corpo = (await req.clone().json().catch(() => ({}))) as Record<string, unknown>;
+    if (typeof corpo.acao === "string" && acoesLivres.includes(corpo.acao)) return handler(req);
     const acao = `${nome}:${typeof corpo.acao === "string" ? corpo.acao : typeof corpo.mode === "string" ? corpo.mode : "chamada"}`;
     const recurso = [corpo.devops_id, corpo.sugestao_id, corpo.projeto_id].find((x) => x !== undefined && x !== null);
 

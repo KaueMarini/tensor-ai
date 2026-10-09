@@ -4,7 +4,7 @@
 // e a task é reatribuída no Azure DevOps (auditado em `acao`). Nada muda sem o clique.
 
 import { useMemo, useState } from "react";
-import { Link, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -20,6 +20,8 @@ import {
   Sparkles,
   UserPlus,
   UserRoundX,
+  Users,
+  Workflow,
 } from "lucide-react";
 import { horasPendentes } from "@shared/capacidade/motor";
 import type { CelulaGlobal } from "@shared/capacidade/global";
@@ -36,14 +38,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Stat } from "@/components/ui/card";
-import { SugestoesAgente } from "@/components/sugestoes-agente";
+import { SugestoesAgente, TIPOS_ALOCACAO, TIPOS_PROCESSO } from "@/components/sugestoes-agente";
+import { useSugestoesAgente } from "@/lib/sugestoes-agente";
 import { Popover } from "@/components/ui/popover";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
 export function AnalisesPage() {
   const resumo = useSemDonoResumo();
-  const { projeto: projetoInicial } = useSearch({ from: "/app/analises" });
+  const { projeto: projetoInicial, aba: abaParam } = useSearch({ from: "/app/analises" });
+  const navigate = useNavigate({ from: "/analises" });
+  const aba = abaParam ?? "alocacao";
+  const agente = useSugestoesAgente();
+  const conta = (tipos: string[]) => (agente.data ?? []).filter((s) => tipos.includes(s.tipo)).length;
   const [projeto, setProjeto] = useState(projetoInicial ?? "");
   const [busca, setBusca] = useState("");
 
@@ -54,13 +61,58 @@ export function AnalisesPage() {
   return (
     <div className="mx-auto max-w-[1300px] px-6 py-6">
       <header className="mb-6">
-        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Sugestões</div>
-        <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Sugestões de alocação</h1>
+        <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Sugestões</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          Tarefas que ainda não têm ninguém responsável e quem é a melhor pessoa para assumir cada uma — quem sabe fazer
-          aquilo e tem tempo livre. Nada muda sem o seu clique.
+          Duas frentes, uma de cada vez: <strong className="font-medium text-slate-700 dark:text-slate-200">quem deve atuar onde</strong> e{" "}
+          <strong className="font-medium text-slate-700 dark:text-slate-200">o que está travando o fluxo</strong>. Nada muda sem o seu clique.
         </p>
-        <ol className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+        <div role="tablist" aria-label="Frente das sugestões" className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/60">
+          {(
+            [
+              ["alocacao", "Alocação de equipe", Users, conta(TIPOS_ALOCACAO) + totalTasks],
+              ["processo", "Melhoria de processo", Workflow, conta(TIPOS_PROCESSO)],
+            ] as const
+          ).map(([id, rotulo, Icone, n]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={aba === id}
+              onClick={() => void navigate({ search: (s) => ({ ...s, aba: id === "alocacao" ? undefined : id }), replace: true })}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors",
+                aba === id ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+              )}
+            >
+              <Icone className="size-4" /> {rotulo}
+              {n > 0 && <span className="rounded-full bg-brand-700 px-1.5 text-[11px] font-semibold text-white tabular-nums dark:bg-brand-600">{n}</span>}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {aba === "processo" ? (
+        <div className="space-y-5">
+          <SugestoesAgente
+            tipos={TIPOS_PROCESSO}
+            titulo="Melhoria de processo"
+            descricao="Gargalos (trabalho parado além do normal), WIP alto (muita coisa aberta ao mesmo tempo), esforço desproporcional ao impacto e projetos parecidos. Clique em “Entender análise” para ver o Pareto, o mapa de calor e a matriz"
+            vazio="Nenhum gargalo, WIP alto ou desequilíbrio de portfólio no momento."
+          />
+        </div>
+      ) : (
+      <>
+      <div className="mb-6">
+        <SugestoesAgente
+          tipos={TIPOS_ALOCACAO}
+          titulo="Alocação de equipe"
+          descricao="Quem está acima da capacidade ou ausente com trabalho, quem pode assumir e a equipe de projetos novos. Os números vêm do motor de capacidade"
+          vazio="Ninguém acima da capacidade e nenhum projeto sem equipe."
+        />
+      </div>
+
+      <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">Tarefas sem responsável</h2>
+      <ol className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-300">
           {["Veja a tarefa sem responsável", "Confira a pessoa sugerida e o motivo", "Clique em “Atribuir” — o Azure DevOps é atualizado"].map(
             (passo, i) => (
               <li key={passo} className="flex items-center gap-1.5">
@@ -72,11 +124,6 @@ export function AnalisesPage() {
             ),
           )}
         </ol>
-      </header>
-
-      <div className="mb-6">
-        <SugestoesAgente />
-      </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Stat icone={UserRoundX} rotulo="Tarefas sem responsável" valor={totalTasks} alerta={totalTasks > 0} ajuda="semResponsavel" />
@@ -128,6 +175,8 @@ export function AnalisesPage() {
             </QuandoVisivel>
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );

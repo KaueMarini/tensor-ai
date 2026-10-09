@@ -9,6 +9,7 @@ import { useBacklog, useEstados, useSprints } from "@/lib/queries";
 import { sprintStatus } from "@/lib/backlog";
 import { cn, formatHoras, normalizarNome } from "@/lib/utils";
 import { Card, CardTitulo, Stat } from "@/components/ui/card";
+import { FluxoProjeto } from "@/components/fluxo-projeto";
 
 const NOME_CAT: Record<Categoria, string> = {
   Proposed: "A fazer",
@@ -99,6 +100,9 @@ export function MetricasPage() {
 
   return (
     <div className="space-y-5">
+      <FluxoProjeto projetoId={projetoId} />
+
+      <h2 className="pt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Andamento do trabalho</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icone={ListChecks} rotulo="Itens de trabalho" valor={m.total} detalhe={`${m.total - m.fechados} abertos`} />
         <Stat

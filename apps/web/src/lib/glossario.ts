@@ -50,6 +50,22 @@ export const GLOSSARIO = {
     termo: "Azure DevOps",
     texto: "A ferramenta onde os times registram projetos, sprints e tarefas. Este sistema lê os dados de lá e só altera algo quando você confirma.",
   },
+  throughput: {
+    termo: "Throughput (vazão)",
+    texto: "Quantas tarefas o time termina por semana. Estável ou subindo é bom sinal; caindo indica trabalho travando.",
+  },
+  cycleTime: {
+    termo: "Cycle time",
+    texto: "Quanto tempo uma tarefa leva desde que alguém começa a trabalhar nela até ficar pronta. P85 = 85% das tarefas ficam prontas nesse prazo ou menos.",
+  },
+  leadTime: {
+    termo: "Lead time",
+    texto: "Quanto tempo passa desde que a tarefa foi criada até ficar pronta, incluindo o tempo esperando na fila.",
+  },
+  wip: {
+    termo: "WIP (trabalho em andamento)",
+    texto: "Quantas tarefas estão em andamento agora. Muita coisa aberta ao mesmo tempo deixa tudo mais lento; o ideal é terminar antes de começar.",
+  },
 } as const;
 
 export type TermoGlossario = keyof typeof GLOSSARIO;

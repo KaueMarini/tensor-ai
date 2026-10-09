@@ -19,7 +19,8 @@ import { horasPendentes } from "../_shared/capacidade/motor.ts";
 import { montarCargaGlobal, regrasDeLinhas } from "../_shared/capacidade/montagem.ts";
 import { avaliarPortfolio, type Impacto, type OrigemImpacto, type ProjetoPortfolio, projetosParecidos } from "../_shared/capacidade/portfolio.ts";
 import { type Candidato, gerarCandidatos, type PessoaAgente, type TarefaAgente } from "../_shared/agente/candidatos.ts";
-import { explicar, type Ferramenta, type ItemTempo, type SugestaoBase } from "../_shared/agente/explicacao.ts";
+import { explicar, type Ferramenta, type SugestaoBase } from "../_shared/agente/explicacao.ts";
+import { gerarCandidatosProcesso, type ItemFluxo } from "../_shared/agente/processo.ts";
 import {
   despseudonimizar,
   explicacaoTemplate,
@@ -278,7 +279,27 @@ async function estimarImpactos(db: Db, projetos: { id: string; nome: string; des
   return n;
 }
 
-const VERSAO_EXPLICACAO = "explica.v5";
+/** Tasks abertas (folhas) com as datas do DevOps: base do diagnóstico de tempo, gargalos e WIP. */
+async function itensComDatas(db: Db, dados: Dados): Promise<ItemFluxo[]> {
+  const datas = new Map(
+    rows(await db.from("work_item").select("devops_id, fields").is("deleted_at", null), "datas").map((d) => [d.devops_id, (d.fields ?? {}) as Record<string, unknown>]),
+  );
+  return dados.tarefas.map((t) => {
+    const f = datas.get(t.id) ?? {};
+    return {
+      id: t.id,
+      titulo: t.titulo,
+      projetoId: t.projetoId,
+      categoria: t.categoria === "InProgress" || t.categoria === "Resolved" ? t.categoria : "Proposed",
+      responsavelId: t.responsavelId,
+      horas: t.horas ?? 0,
+      criado: texto(f["System.CreatedDate"]),
+      mudouEstado: texto(f["Microsoft.VSTS.Common.StateChangeDate"]),
+    };
+  });
+}
+
+const VERSAO_EXPLICACAO = "explica.v6";
 /** O LLM às vezes se repete: fica com as 2 primeiras frases (já validadas). */
 const duasFrases = (t: string) => (t.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [t]).slice(0, 2).join("").trim() || t;
 const texto = (v: unknown) => (typeof v === "string" && v ? v : null);
@@ -294,30 +315,17 @@ async function explicarSugestao(db: Db, sugestaoId: string): Promise<[unknown, n
   const { hoje, periodo4 } = horizonte();
   const brutos = await carregar(db);
   const dados = montarEntrada(brutos);
-  const datas = new Map(
-    rows(await db.from("work_item").select("devops_id, fields").is("deleted_at", null), "datas").map((d) => [d.devops_id, (d.fields ?? {}) as Record<string, unknown>]),
-  );
-  const item = (t: TarefaAgente): ItemTempo => {
-    const f = datas.get(t.id) ?? {};
-    const cat = t.categoria === "InProgress" || t.categoria === "Resolved" ? t.categoria : "Proposed";
-    return {
-      id: t.id,
-      titulo: t.titulo,
-      categoria: cat,
-      responsavelId: t.responsavelId,
-      horas: t.horas ?? 0,
-      criado: texto(f["System.CreatedDate"]),
-      mudouEstado: texto(f["Microsoft.VSTS.Common.StateChangeDate"]),
-    };
-  };
+  const todos = await itensComDatas(db, dados);
   const acao = s.acao as { work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
+  // quem perde carga (rebalancear/ausência) ou quem está com WIP alto
+  const pessoaFoco = acao?.de_pessoa_id ?? (p as { pessoas?: { de?: { id?: string } } }).pessoas?.de?.id ?? null;
   const pf = montarPortfolio(dados, brutos, periodo4);
   const nomeProj = new Map(dados.projetos.map((x) => [x.id, x.nome]));
   const ferramentas = explicar({
     hoje,
     sugestao: { tipo: s.tipo as SugestaoBase["tipo"], acao, fatos: p.fatos ?? {}, projetoId: s.projeto_id },
-    itensProjeto: dados.tarefas.filter((t) => t.projetoId === s.projeto_id).map(item),
-    itensDe: acao?.de_pessoa_id ? dados.tarefas.filter((t) => t.responsavelId === acao.de_pessoa_id).map(item) : [],
+    itensProjeto: todos.filter((t) => t.projetoId === s.projeto_id),
+    itensDe: pessoaFoco ? todos.filter((t) => t.responsavelId === pessoaFoco) : [],
     portfolio: pf.avaliacoes.map((x) => ({ id: x.projetoId, nome: nomeProj.get(x.projetoId) ?? "", fatia: x.fatia, horas: x.horasHorizonte, impacto: x.impacto })),
   });
 
@@ -380,7 +388,10 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
     if (impactosEstimados) brutos = { ...brutos, avaliacoes: rows(await db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"), "avaliações") };
   }
   const portfolio = montarPortfolio(dados, brutos, periodo4);
-  const candidatos = gerarCandidatos({ hoje, periodo, ...dados, escopo, portfolio });
+  const candidatos = [
+    ...gerarCandidatos({ hoje, periodo, ...dados, escopo, portfolio }),
+    ...gerarCandidatosProcesso({ hoje, projetos: dados.projetos, itens: await itensComDatas(db, dados), escopo }),
+  ];
   const nomePessoa = new Map(dados.pessoas.map((p) => [p.id, p.nome]));
   const nomeProjeto = new Map(dados.projetos.map((p) => [p.id, p.nome]));
 

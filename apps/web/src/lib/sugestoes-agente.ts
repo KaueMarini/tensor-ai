@@ -19,7 +19,7 @@ export interface UsoPessoa {
 
 export interface SugestaoAgente {
   id: string;
-  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares";
+  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares" | "gargalo" | "wip";
   projetoId: string | null;
   projeto: string | null;
   titulo: string;

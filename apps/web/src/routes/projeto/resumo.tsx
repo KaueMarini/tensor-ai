@@ -12,6 +12,7 @@ import { precisaDeEquipe } from "@/lib/equipe-sugerida";
 import { useProjeto } from "@/lib/queries";
 import { EquipeSugeridaPainel } from "@/components/equipe-sugerida";
 import { SugestoesAgente } from "@/components/sugestoes-agente";
+import { ProjetosParecidos } from "@/components/projetos-parecidos";
 import { cn, formatData, formatHoras } from "@/lib/utils";
 import { Avatar } from "@/components/avatar";
 import { pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
@@ -42,12 +43,14 @@ export function ResumoPage() {
         <EquipeSugeridaPainel projetoId={projetoId} projetoNome={projeto.data?.nome ?? "o projeto"} />
         <SugestoesAgente projetoId={projetoId} titulo="Sugestões do agente para este projeto" />
         <ResumoSprint projetoId={projetoId} />
+        <ProjetosParecidos projetoId={projetoId} />
       </div>
     );
   return (
     <div className="space-y-5">
       <SugestoesAgente projetoId={projetoId} limite={3} titulo="Sugestões do agente para este projeto" />
       <ResumoSprint projetoId={projetoId} />
+      <ProjetosParecidos projetoId={projetoId} />
     </div>
   );
 }

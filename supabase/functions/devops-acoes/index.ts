@@ -107,7 +107,7 @@ Deno.serve(protegido("devops-acoes", ["admin", "gestor"], async (req) => {
     log("error", "devops-acoes falhou", { acao: body.acao, erro: errorMessage(err) });
     return jsonResponse({ error: mensagemAzdo(err) }, 500);
   }
-}));
+}, ["estados"]));
 
 async function mover(
   db: Db,

@@ -119,12 +119,28 @@ export function template(c: Candidato, nome: (papel: string) => string): TextoSu
               `${f.projeto} tem impacto ${f.impacto} (${f.impacto_fonte}) e ${h(f.horas_abertas)} de trabalho aberto, mas recebe só ${f.pct_equipe}% da capacidade da equipe ` +
               `nas próximas 4 semanas (média dos projetos: ${f.media_pct}%). Vale reforçar antes que atrase.`,
           };
+    case "gargalo":
+      return {
+        prioridade: c.gravidade === "critico" ? 1 : 2,
+        titulo: `Gargalo em ${f.projeto}: ${f.parados} tasks paradas`,
+        texto:
+          `${f.parados} de ${f.abertos} tasks abertas estão paradas há mais de ${f.limite_dias} dias (a mediana do projeto é ${f.mediana_parado_dias}), ` +
+          `a maioria em "${f.estado_gargalo}". Elas somam ${f.pct_dias_parados}% de todo o tempo parado; a mais antiga é ${f.task_mais_parada} (${f.max_parado_dias} dias). Vale destravar essas antes de puxar trabalho novo.`,
+      };
+    case "wip":
+      return {
+        prioridade: 2,
+        titulo: `${nome("de")} tem ${f.em_andamento} tasks em andamento ao mesmo tempo`,
+        texto:
+          `O limite saudável é ${f.limite_wip} em andamento por pessoa; ${nome("de")} tem ${f.em_andamento} (${h(f.horas_em_andamento)}, em ${f.projetos} projetos). ` +
+          `Muita coisa aberta ao mesmo tempo atrasa todas: vale terminar ${f.mais_antiga}, parada há ${f.mais_antiga_dias} dias, antes de começar outra.`,
+      };
     case "similares":
       return {
         prioridade: 3,
         titulo: `${f.projeto_a} e ${f.projeto_b} são parecidos`,
         texto:
-          `Os dois projetos são ${f.parecido_pct}% parecidos pela descrição e pelas tags (em comum: ${f.em_comum}). ` +
+          `As descrições dos dois projetos são ${f.descricao_pct}% parecidas (falam de ${f.palavras_em_comum}) e as tags em comum são ${f.em_comum}: ${f.parecido_pct}% de semelhança no total. ` +
           `Vale checar se há trabalho duplicado, componentes que podem ser compartilhados ou um squad que possa atender os dois.`,
       };
   }
@@ -144,6 +160,7 @@ Regras obrigatórias:
 - Refira-se às pessoas SÓ pelos pseudônimos dados (ex.: "Pessoa A"). Não invente pessoas.
 - NUNCA use artigo nem contração antes do pseudônimo (o nome real pode ser de qualquer gênero): escreva "Pessoa A está", "passar para Pessoa B", "a carga de Pessoa A"; nunca "a Pessoa A", "à Pessoa B", "da Pessoa A".
 - Fale de carga, disponibilidade e encaixe de skills. NUNCA de desempenho, produtividade ou de quem "rende" mais.
+- Em gargalo e wip fale do FLUXO (trabalho parado, muita coisa aberta ao mesmo tempo), nunca de quem é lento; sugira destravar ou terminar antes de começar.
 - Nas candidatas de PROJETO (portfolio, similares) você avalia o projeto, não pessoas: aponte com clareza quando há muito esforço para pouco impacto, ou um projeto importante com pouca gente, e quando dois projetos se sobrepõem (risco de retrabalho, chance de compartilhar código ou squad). Seja direto, mas deixe claro que a decisão é do gestor.
 - Não prometa resultados nem dê ordens; é uma sugestão que o gestor aprova.
 - Sem markdown, sem emojis.`;
@@ -185,7 +202,9 @@ export function mensagemCandidatas(candidatos: Candidato[], apelidos: Map<string
     "Tipos: atribuir = task sem responsável; rebalancear = tirar uma task de quem está acima da capacidade (de) e passar para quem tem folga (para); " +
     "ausencia = quem está ausente (de) tem task no período; equipe = projeto novo sem pessoas (m1, m2... = montagem sugerida); " +
     "portfolio = esforço × impacto de um projeto (leitura esforco-alto-impacto-baixo ou impacto-alto-pouco-esforco; pct_equipe = % da capacidade da equipe nas próximas 4 semanas; impacto_fonte diz quem definiu o impacto); " +
-    "similares = dois projetos parecidos (parecido_pct e em_comum). " +
+    "similares = dois projetos parecidos pela descrição (descricao_pct, palavras_em_comum) e pelas tags (em_comum); parecido_pct é o total; " +
+    "gargalo = tasks paradas além do normal num projeto (fluxo travado; parados, mediana_parado_dias, estado_gargalo); " +
+    "wip = pessoa (de) com trabalho demais em andamento ao mesmo tempo (em_andamento acima de limite_wip). " +
     "Os percentuais _antes/_depois são de ocupação na sprint da task; de_pct_horizonte é nas próximas 2 semanas.\n\n" +
     JSON.stringify(lista)
   );
