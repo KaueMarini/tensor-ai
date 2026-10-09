@@ -15,6 +15,8 @@ Sino de notificações pronto para a IA gravar (tabela `notificacao`). Ainda for
 
 ## 1. Onde paramos
 
+Sessão de 2026-10-09 (6ª parte): **ausência vira uma sugestão só**. O agente gera um card por ausência (chave `ausencia-lote:`) com todas as tasks do período e quem assume cada uma (carga acumulada entre as tasks do mesmo lote, sem ninguém → aviso, fora do time → sem ação). Ação nova `reatribuir_lote` (migration `20261009000900` amplia o check de `sugestao.acao`); `devops-acoes` aprova o lote inteiro ou só as tasks marcadas (`itens`), conferindo se cada uma não mudou no DevOps e auditando uma a uma. Front: lista com caixas de seleção, 4 visíveis + "ver as outras", botão "Rotear tudo no DevOps (N)". Trava de acentos ampliada (periodo, próximo, área...). Aprovação do lote ainda **não testada ao vivo** no DevOps (escreveria nas tasks reais).
+
 Sessão de 2026-10-09 (5ª parte): **tasks durante férias/folga**. `_shared/capacidade/ausencias.ts`
 (`conflitosAusencia`, 4 testes) cruza ausências da Agenda + folgas pessoais do DevOps com as tasks abertas
 nas sprints das próximas 6 semanas: dias úteis fora, % da sprint restante sem a pessoa, horas em risco,
@@ -1050,3 +1052,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-09 | **Portfólio + IA explicável**: impacto do projeto (gestor > DevOps > IA), esforço × impacto e projetos parecidos como sugestões do agente; modal "Entender análise" (tempo/mapa de calor, Pareto, matriz) com leitura do Gemini validada; `_lib/llm.ts` com reservas de modelo por cota; datas de criação/estado na sync. Testado: 4 impactos estimados pela IA, 2 sugestões de similaridade, 3 modais 100% Gemini. |
 | 2026-10-09 | LGPD (PII fora do LLM, logs, RBAC, auditoria com hash, TTL, esquecimento, segredos por hash), Sugestões em duas abas, gargalo/WIP, métricas de fluxo, semelhança por descrição, comentários removidos do código, README novo, deploy em https://radar-capacidade.vercel.app. |
 | 2026-10-09 | **Tasks durante férias/folga**: `conflitosAusencia` + alerta `ausencia-com-tasks` no Início/sino + agente roteando cada task por tempo livre, skills e projeto parecido; trava de acentuação no validador do LLM. 140 testes, typecheck, lint, build e deno check limpos; headless com os 2 casos reais. |
+| 2026-10-09 | **Ausência agrupada**: um card por férias/folga com a lista de tasks e destino de cada uma, `reatribuir_lote` com seleção parcial, migration do check, functions `agente` e `devops-acoes` publicadas. 141 testes, lint, typecheck, build e deno check limpos; headless com os 2 casos reais (10 e 3 tasks). |

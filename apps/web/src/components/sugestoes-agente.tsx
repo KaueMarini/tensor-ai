@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Bot, Check, ExternalLink, GitCompareArrows, Hourglass, Layers, Loader2, OctagonAlert, RefreshCw, Scale, ScanSearch, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
-import { type SugestaoAgente, useAnalisarAgora, useDecidirSugestao, useSugestoesAgente } from "@/lib/sugestoes-agente";
-import { cn, tempoRelativo } from "@/lib/utils";
+import { type RotaTask, type SugestaoAgente, useAnalisarAgora, useDecidirSugestao, useSugestoesAgente } from "@/lib/sugestoes-agente";
+import { cn, formatHoras, tempoRelativo } from "@/lib/utils";
 import { STATUS_CARGA } from "@/components/carga";
 import { Card } from "@/components/ui/card";
 import { ModalExplicacao } from "@/components/explicacao-agente";
@@ -116,6 +116,18 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
   const [entendendo, setEntendendo] = useState(false);
   const v = VISUAL[s.tipo];
   const pendente = decidir.isPending;
+  const roteaveis = s.rotas.filter((r) => r.paraId && !r.foraDoTime).map((r) => r.taskId);
+  const [marcadas, setMarcadas] = useState(() => new Set(roteaveis));
+  const lote = s.rotas.length > 0;
+  const emLote = roteaveis.length > 0;
+  const nMarcadas = roteaveis.filter((id) => marcadas.has(id)).length;
+  const alternar = (id: number) =>
+    setMarcadas((m) => {
+      const n = new Set(m);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   return (
     <li className="flex gap-3 px-5 py-4">
       <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full" style={{ background: `color-mix(in oklab, ${v.cor} 14%, transparent)`, color: v.cor }}>
@@ -139,7 +151,9 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
         </div>
         <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{s.texto}</p>
 
-        {s.antes.some((a, i) => a.pct !== s.depois[i]?.pct) && (
+        {lote && <ListaRotas rotas={s.rotas} marcadas={marcadas} alternar={alternar} />}
+
+        {!lote && s.antes.some((a, i) => a.pct !== s.depois[i]?.pct) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {s.antes.map((a, i) => {
               const d = s.depois[i];
@@ -159,11 +173,12 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            disabled={pendente}
-            onClick={() => decidir.mutate({ id: s.id, aprovar: true, titulo: s.titulo })}
+            disabled={pendente || (emLote && nMarcadas === 0)}
+            onClick={() => decidir.mutate({ id: s.id, aprovar: true, titulo: s.titulo, ...(emLote ? { itens: roteaveis.filter((id) => marcadas.has(id)) } : {}) })}
             className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-brand-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-900 disabled:opacity-60 dark:bg-brand-600 dark:hover:bg-brand-500"
           >
-            {pendente && decidir.variables?.aprovar ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} {v.aprovar}
+            {pendente && decidir.variables?.aprovar ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}{" "}
+            {emLote ? (nMarcadas === roteaveis.length ? `Rotear tudo no DevOps (${nMarcadas})` : `Rotear ${nMarcadas} no DevOps`) : lote ? "Vou resolver" : v.aprovar}
           </button>
           <button
             type="button"
@@ -205,5 +220,85 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
       </div>
       {entendendo && <ModalExplicacao sugestao={s} onClose={() => setEntendendo(false)} />}
     </li>
+  );
+}
+
+const VISIVEIS_ROTAS = 4;
+
+function ListaRotas({ rotas, marcadas, alternar }: { rotas: RotaTask[]; marcadas: Set<number>; alternar: (id: number) => void }) {
+  const [todas, setTodas] = useState(false);
+  const mostradas = todas ? rotas : rotas.slice(0, VISIVEIS_ROTAS);
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+        {mostradas.map((r) => {
+          const roteavel = !!r.paraId && !r.foraDoTime;
+          const id = `rota-${r.taskId}`;
+          return (
+            <li key={r.taskId} className={cn("flex items-start gap-3 px-3 py-2.5", !roteavel && "bg-slate-50/70 dark:bg-slate-800/30")}>
+              <input
+                id={id}
+                type="checkbox"
+                disabled={!roteavel}
+                checked={roteavel && marcadas.has(r.taskId)}
+                onChange={() => alternar(r.taskId)}
+                className="mt-0.5 size-4 shrink-0 cursor-pointer accent-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+              />
+              <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
+                <span className="flex flex-wrap items-baseline gap-x-2 text-sm text-slate-800 dark:text-slate-100">
+                  {AZDO_ORG_URL ? (
+                    <a href={`${AZDO_ORG_URL}/_workitems/edit/${r.taskId}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300">
+                      #{r.taskId}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500">#{r.taskId}</span>
+                  )}
+                  <span className="font-medium">{r.titulo}</span>
+                  <span className="text-xs text-slate-500 tabular-nums dark:text-slate-400">
+                    {formatHoras(r.horas)} · {r.sprint}
+                  </span>
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                  {r.paraNome ? (
+                    <>
+                      <ArrowRight className="size-3 text-slate-400" />
+                      <strong className="font-semibold text-slate-900 dark:text-slate-100">{r.paraNome}</strong>
+                      {r.antesPct !== null && (
+                        <span className="tabular-nums">
+                          {r.antesPct}% → {r.depoisPct}%
+                        </span>
+                      )}
+                      {r.livreH !== null && <span className="text-slate-400 dark:text-slate-500">· {formatHoras(r.livreH)} livres</span>}
+                      {r.skills.slice(0, 3).map((t) => (
+                        <span key={t} className="rounded bg-emerald-50 px-1.5 py-px text-[11px] text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          {t}
+                        </span>
+                      ))}
+                      {r.projetoSemelhante && (
+                        <span className="rounded bg-brand-50 px-1.5 py-px text-[11px] text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
+                          atua em {r.projetoSemelhante} ({r.semelhancaPct}% parecido)
+                        </span>
+                      )}
+                      {r.foraDoTime && <span className="text-amber-700 dark:text-amber-400">· fora do time: inclua no projeto antes</span>}
+                    </>
+                  ) : (
+                    <span className="text-amber-700 dark:text-amber-400">Ninguém com folga no período</span>
+                  )}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      {rotas.length > VISIVEIS_ROTAS && (
+        <button
+          type="button"
+          onClick={() => setTodas((v) => !v)}
+          className="w-full cursor-pointer border-t border-slate-100 px-3 py-2 text-left text-xs font-medium text-brand-700 hover:bg-slate-50 dark:border-slate-800 dark:text-brand-300 dark:hover:bg-slate-800/50"
+        >
+          {todas ? "Mostrar menos" : `Ver as outras ${rotas.length - VISIVEIS_ROTAS} tasks`}
+        </button>
+      )}
+    </div>
   );
 }

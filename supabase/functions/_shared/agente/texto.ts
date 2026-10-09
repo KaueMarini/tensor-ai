@@ -1,4 +1,4 @@
-import type { Candidato } from "./candidatos.ts";
+import type { Candidato, RotaAusencia } from "./candidatos.ts";
 import type { Ferramenta } from "./explicacao.ts";
 
 export const VERSAO_PROMPT = "agente-ts.v1";
@@ -42,6 +42,7 @@ export function despseudonimizar(texto: string, apelidos: Map<string, string>, n
 }
 
 const h = (n: unknown) => `${String(n).replace(".", ",")}h`;
+const tasks = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);
 
 export function template(c: Candidato, nome: (papel: string) => string): TextoSugestao {
   const f = c.fatos;
@@ -68,21 +69,26 @@ export function template(c: Candidato, nome: (papel: string) => string): TextoSu
           `${nome("para")} vai de ${f.para_antes_pct}% para ${f.para_depois_pct}%.${skills}`,
       };
     case "ausencia": {
-      const semelhante = f.projeto_semelhante && f.projeto_semelhante !== "nenhum" ? ` e já atua em ${f.projeto_semelhante}, projeto ${f.semelhanca_pct}% parecido` : "";
-      if (f.fora_do_time === "sim")
-        return {
-          prioridade: 1,
-          titulo: `${nome("de")} estará de ${f.tipo_ausencia}: #${f.task_id} precisa de outra pessoa`,
-          texto:
-            `${nome("de")} estará de ${f.tipo_ausencia} de ${f.periodo} (${f.dias_ausente} dias úteis, ${f.pct_sprint_ausente}% do que resta da ${f.sprint}) e tem “${f.task}” (${h(f.horas)}). ` +
-            `Ninguém do time tem folga; ${nome("para")} tem ${h(f.para_livre_h)} livres${semelhante}. Para atribuir, inclua no time do projeto no DevOps.`,
-        };
+      const rotas = ((c.detalhe.rotas ?? []) as RotaAusencia[]).filter((r) => r.para_pessoa_id && !r.fora_do_time);
+      const porPessoa = new Map<string, { n: number; h: number }>();
+      for (const r of rotas) {
+        const x = porPessoa.get(r.para_pessoa_id!) ?? { n: 0, h: 0 };
+        porPessoa.set(r.para_pessoa_id!, { n: x.n + 1, h: x.h + r.horas });
+      }
+      const papelDe = new Map(Object.entries(c.papeis).map(([papel, id]) => [id, papel]));
+      const dist = [...porPessoa.entries()].map(([id, x]) => `${nome(papelDe.get(id) ?? "")} assume ${tasks(x.n)} (${h(x.h)})`).join(", ");
+      const n = Number(f.n_tasks);
+      const partes = [
+        `${nome("de")} fica ${f.dias_ausente} dias úteis fora (${f.sprints}) e tem ${tasks(n)} abertas (${h(f.horas_total)}).`,
+        dist ? `Pela folga, skills e projetos parecidos: ${dist}.` : "",
+        Number(f.n_fora_do_time) ? `${tasks(Number(f.n_fora_do_time))} só tem quem assuma fora do time (inclua a pessoa no time antes).` : "",
+        Number(f.n_sem_destino) ? `${tasks(Number(f.n_sem_destino))} sem ninguém com folga no período.` : "",
+        Number(f.n_roteaveis) ? "Aprove para rotear tudo de uma vez." : "",
+      ];
       return {
         prioridade: 1,
-        titulo: `${nome("de")} estará de ${f.tipo_ausencia}: passar #${f.task_id} para ${nome("para")}`,
-        texto:
-          `${nome("de")} estará de ${f.tipo_ausencia} de ${f.periodo} (${f.dias_ausente} dias úteis, ${f.pct_sprint_ausente}% do que resta da ${f.sprint}) e tem “${f.task}” (${h(f.horas)}). ` +
-          `${nome("para")} tem ${h(f.para_livre_h)} livres${f.skills ? `, domina ${f.skills}` : ""}${semelhante}; vai de ${f.para_antes_pct}% para ${f.para_depois_pct}%.`,
+        titulo: `${nome("de")} estará de ${f.tipo_ausencia} ${f.periodo}: ${tasks(n)} para redistribuir`,
+        texto: partes.filter(Boolean).join(" "),
       };
     }
     case "equipe": {
@@ -189,7 +195,7 @@ export function mensagemCandidatas(candidatos: Candidato[], apelidos: Map<string
   }));
   return (
     "Tipos: atribuir = task sem responsável; rebalancear = tirar uma task de quem está acima da capacidade (de) e passar para quem tem folga (para); " +
-    "ausencia = quem vai estar de férias/folga (de) tem task na sprint do período; para = quem assume (tempo livre, skills e experiência em projeto_semelhante); se fora_do_time=sim, a pessoa precisa entrar no time antes; equipe = projeto novo sem pessoas (m1, m2... = montagem sugerida); " +
+    "ausencia = quem vai estar de férias/folga (de) tem n_tasks tasks nas sprints do período; o motor já dividiu entre para1, para2... (tempo livre, skills e projetos parecidos); n_roteaveis podem ser roteadas com um clique, n_fora_do_time precisam de alguém de fora do time e n_sem_destino não têm ninguém com folga; equipe = projeto novo sem pessoas (m1, m2... = montagem sugerida); " +
     "portfolio = esforço × impacto de um projeto (leitura esforco-alto-impacto-baixo ou impacto-alto-pouco-esforco; pct_equipe = % da capacidade da equipe nas próximas 4 semanas; impacto_fonte diz quem definiu o impacto); " +
     "similares = dois projetos parecidos pela descrição (descricao_pct, palavras_em_comum) e pelas tags (em_comum); parecido_pct é o total; " +
     "gargalo = tasks paradas além do normal num projeto (fluxo travado; parados, mediana_parado_dias, estado_gargalo); " +
@@ -230,7 +236,7 @@ export const FERRAMENTA_IMPACTO = {
 } as const;
 
 const PROIBIDAS = /desempenh|produtividad|\brend[ae]\b|preguiç|lent[oa] demais|baixa performance/i;
-const SEM_ACENTO = /\b(estara|ferias|ausencia|atribuicao|alocacao|disponivel|tambem|ninguem|uteis|esforco|integracao|sera|nao|voce|apos|ate|ja)\b/i;
+const SEM_ACENTO = /\b(estara|ferias|ausencia|atribuicao|alocacao|disponivel|tambem|ninguem|uteis|esforco|integracao|sera|nao|voce|apos|ate|ja|periodo|proxim[oa]s?|unic[oa]s?|area|tera|ficara|deixara|usuario|analise|critico|responsavel)\b/i;
 export const semAcentuacao = (s: string) => SEM_ACENTO.test(s.replace(/[“"][^”"]*[”"]/g, ""));
 const numeros = (s: string) => (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((x) => String(Number(x.replace(",", "."))));
 

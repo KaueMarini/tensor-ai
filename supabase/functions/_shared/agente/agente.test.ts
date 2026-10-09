@@ -134,7 +134,7 @@ describe("texto e validador", () => {
 });
 
 describe("ausência com tasks", () => {
-  const folgada = (p: { id: string }, id: string) => (id === "bia" ? cel("bia", 60, 20) : celulas[id]);
+  const folgada = (_p: { id: string }, id: string) => (id === "bia" ? cel("bia", 60, 20) : celulas[id]);
   const conflito = (tarefas: number[]) => ({
     pessoaId: "caio",
     inicio: "2026-10-12",
@@ -142,7 +142,7 @@ describe("ausência com tasks", () => {
     tipo: "ferias",
     origem: "agenda" as const,
     diasUteis: 5,
-    horasEmRisco: 12,
+    horasEmRisco: 12 * tarefas.length,
     gravidade: "critico" as const,
     tarefas: tarefas.map((id) => ({
       id,
@@ -156,38 +156,50 @@ describe("ausência com tasks", () => {
       pctSprintAusente: 50,
     })),
   });
+  const rotasDe = (c: Candidato) => c.detalhe.rotas as { task_id: number; para_pessoa_id: string | null; projeto_semelhante?: string | null; semelhanca_pct?: number }[];
+  const ausencias = (e: Partial<Parameters<typeof gerarCandidatos>[0]>) => gerarCandidatos({ ...base, celula: folgada, ...e } as Parameters<typeof gerarCandidatos>[0]).filter((c) => c.tipo === "ausencia");
 
-  it("rota a task de quem vai estar de férias para quem tem folga e as skills", () => {
-    const [a] = gerarCandidatos({ ...base, tarefas: [task(4, "caio", 12, ["front-end"])], conflitos: [conflito([4])] }).filter((c) => c.tipo === "ausencia");
-    expect(a!.acao).toMatchObject({ work_item_id: 4, de_pessoa_id: "caio", para_pessoa_id: "ana" });
-    expect(a!.fatos).toMatchObject({ tipo_ausencia: "férias", periodo: "12/10 a 16/10", pct_sprint_ausente: 50, skills: "front-end" });
+  it("uma sugestão só por ausência, com todas as tasks e quem assume cada uma", () => {
+    const r = ausencias({ tarefas: [task(4, "caio", 12, ["front-end"]), task(5, "caio", 12, ["back-end"])], conflitos: [conflito([4, 5])] });
+    expect(r).toHaveLength(1);
+    const [a] = r;
+    expect(a!.acao).toEqual({
+      tipo: "reatribuir_lote",
+      itens: [
+        { work_item_id: 4, de_pessoa_id: "caio", para_pessoa_id: "ana" },
+        { work_item_id: 5, de_pessoa_id: "caio", para_pessoa_id: "bia" },
+      ],
+    });
+    expect(a!.fatos).toMatchObject({ tipo_ausencia: "férias", periodo: "12/10 a 16/10", n_tasks: 2, horas_total: 24, n_roteaveis: 2, n_destinos: 2 });
     expect(a!.gravidade).toBe("critico");
+    const t = template(a!, (p) => ({ de: "Caio", para1: "Ana", para2: "Bia" })[p] ?? "?");
+    expect(t.titulo).toBe("Caio estará de férias 12/10 a 16/10: 2 tasks para redistribuir");
+    expect(t.texto).toContain("Ana assume 1 task (12h), Bia assume 1 task (12h)");
+    expect(t.texto).toContain("rotear tudo de uma vez");
+  });
+
+  it("soma as horas já roteadas antes de escolher a próxima pessoa", () => {
+    const pouca = (_p: { id: string }, id: string) => (id === "ana" ? cel("ana", 40, 20) : id === "bia" ? cel("bia", 40, 20) : celulas[id]);
+    const [a] = ausencias({ celula: pouca, tarefas: [task(4, "caio", 12), task(5, "caio", 12)], conflitos: [conflito([4, 5])] });
+    const destinos = rotasDe(a!).map((r) => r.para_pessoa_id);
+    expect(new Set(destinos).size).toBe(2);
   });
 
   it("experiência em projeto parecido pesa na escolha", () => {
-    const pessoas = [
-      pessoa("caio", "Caio"),
-      pessoa("ana", "Ana"),
-      { ...pessoa("bia", "Bia"), projetos: ["p1", "p2"] },
-    ];
-    const [a] = gerarCandidatos({
-      ...base,
-      celula: folgada,
+    const pessoas = [pessoa("caio", "Caio"), pessoa("ana", "Ana"), { ...pessoa("bia", "Bia"), projetos: ["p1", "p2"] }];
+    const [a] = ausencias({
       pessoas,
       tarefas: [task(4, "caio", 12)],
       conflitos: [conflito([4])],
       portfolio: { avaliacoes: [], parecidos: [{ a: "p1", b: "p2", similaridade: 0.8, porDescricao: 0.8, porTags: 0.8, emComum: [], palavras: [] }] },
       projetos: [...base.projetos, { id: "p2", nome: "Farol", descricao: null, tags: [], nMembros: 1, nItens: 3 }],
-    }).filter((c) => c.tipo === "ausencia");
-    expect(a!.acao!.para_pessoa_id).toBe("bia");
-    expect(a!.fatos).toMatchObject({ projeto_semelhante: "Farol", semelhanca_pct: 80 });
+    });
+    expect(rotasDe(a!)[0]).toMatchObject({ para_pessoa_id: "bia", projeto_semelhante: "Farol", semelhanca_pct: 80 });
   });
 
   it("quem também está ausente no período não recebe a task", () => {
     const celulaComAna = (p: { id: string }, id: string) => (p.id.startsWith("aus-") && id === "ana" ? cel("ana", 0, 0) : folgada(p, id));
-    const [a] = gerarCandidatos({ ...base, celula: celulaComAna, tarefas: [task(4, "caio", 12, ["front-end"])], conflitos: [conflito([4])] }).filter(
-      (c) => c.tipo === "ausencia",
-    );
-    expect(a!.acao!.para_pessoa_id).toBe("bia");
+    const [a] = ausencias({ celula: celulaComAna, tarefas: [task(4, "caio", 12, ["front-end"])], conflitos: [conflito([4])] });
+    expect(rotasDe(a!)[0]!.para_pessoa_id).toBe("bia");
   });
 });

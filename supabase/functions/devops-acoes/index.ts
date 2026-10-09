@@ -86,7 +86,7 @@ Deno.serve(protegido("devops-acoes", ["admin", "gestor"], async (req) => {
 
     if (body.acao === "aprovar_sugestao" || body.acao === "ignorar_sugestao") {
       if (typeof body.sugestao_id !== "string") return jsonResponse({ error: "sugestao_id obrigatório" }, 400);
-      return jsonResponse(...(await decidirSugestao(db, azdo, body.sugestao_id, body.acao === "aprovar_sugestao", user)));
+      return jsonResponse(...(await decidirSugestao(db, azdo, body.sugestao_id, body.acao === "aprovar_sugestao", user, Array.isArray(body.itens) ? body.itens.map(Number) : null)));
     }
 
     return jsonResponse({ error: "ação desconhecida" }, 400);
@@ -216,12 +216,15 @@ async function atribuir(
   return [{ ok: true, para: pessoa.nome }, 200];
 }
 
+type Item = { work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string };
+
 async function decidirSugestao(
   db: Db,
   azdo: Azdo,
   sugestaoId: string,
   aprovar: boolean,
   user: { id: string; email?: string },
+  selecionados: number[] | null = null,
 ): Promise<[unknown, number]> {
   const { data: s, error } = await db.from("sugestao").select("id, status, tipo, acao, payload").eq("id", sugestaoId).maybeSingle();
   if (error) throw new Error(error.message);
@@ -241,10 +244,33 @@ async function decidirSugestao(
     return [{ ok: true, status: "ignorada" }, 200];
   }
 
-  const acao = s.acao as { tipo: string; work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
+  const acao = s.acao as { tipo: string; work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string; itens?: Item[] } | null;
   if (!acao) {
     await decidir("aplicada");
     return [{ ok: true, status: "aplicada" }, 200];
+  }
+  const p = (s.payload ?? {}) as { titulo?: string; fatos?: unknown };
+  const motivo = { sugestao_id: s.id, tipo: s.tipo, titulo: p.titulo ?? null, fatos: p.fatos ?? null };
+  if (acao.tipo === "reatribuir_lote") {
+    const itens = (acao.itens ?? []).filter((i) => !selecionados || selecionados.includes(i.work_item_id));
+    if (itens.length === 0) return [{ error: "nenhuma task selecionada" }, 400];
+    const { data: atuais, error: e3 } = await db.from("work_item").select("devops_id, responsavel_id, deleted_at").in("devops_id", itens.map((i) => i.work_item_id));
+    if (e3) throw new Error(e3.message);
+    const resultados: { work_item_id: number; ok: boolean; para?: unknown; erro?: string }[] = [];
+    for (const i of itens) {
+      const atual = atuais?.find((x) => x.devops_id === i.work_item_id);
+      if (!atual || atual.deleted_at || (atual.responsavel_id ?? null) !== (i.de_pessoa_id ?? null)) {
+        resultados.push({ work_item_id: i.work_item_id, ok: false, erro: "a task mudou no DevOps" });
+        continue;
+      }
+      const [res, st] = await atribuir(db, azdo, i.work_item_id, i.para_pessoa_id, motivo, user);
+      const r = res as { para?: string; error?: string };
+      resultados.push(st === 200 ? { work_item_id: i.work_item_id, ok: true, para: r.para } : { work_item_id: i.work_item_id, ok: false, erro: r.error });
+    }
+    const aplicadas = resultados.filter((r) => r.ok).length;
+    if (aplicadas === 0) return [{ error: `Nenhuma task foi roteada: ${resultados[0]?.erro ?? "erro"}`, resultados }, 409];
+    await decidir("aplicada");
+    return [{ ok: true, status: "aplicada", aplicadas, total: resultados.length, resultados }, 200];
   }
   if (acao.tipo !== "reatribuir") return [{ error: `ação ${acao.tipo} ainda não suportada` }, 422];
 
@@ -259,8 +285,7 @@ async function decidirSugestao(
     return [{ error: "A situação mudou desde a sugestão (a task foi alterada no DevOps). Ela foi retirada da caixa." }, 409];
   }
 
-  const p = (s.payload ?? {}) as { titulo?: string; fatos?: unknown };
-  const [res, status] = await atribuir(db, azdo, acao.work_item_id, acao.para_pessoa_id, { sugestao_id: s.id, tipo: s.tipo, titulo: p.titulo ?? null, fatos: p.fatos ?? null }, user);
+  const [res, status] = await atribuir(db, azdo, acao.work_item_id, acao.para_pessoa_id, motivo, user);
   if (status === 200) await decidir("aplicada");
   return [res, status];
 }

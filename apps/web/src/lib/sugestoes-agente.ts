@@ -14,6 +14,39 @@ export interface UsoPessoa {
   status: "ok" | "limite" | "sobrecarga" | "sem-capacidade";
 }
 
+export interface RotaTask {
+  taskId: number;
+  titulo: string;
+  horas: number;
+  sprint: string;
+  pctSprintAusente: number;
+  paraId: string | null;
+  paraNome: string | null;
+  foraDoTime: boolean;
+  antesPct: number | null;
+  depoisPct: number | null;
+  livreH: number | null;
+  skills: string[];
+  projetoSemelhante: string | null;
+  semelhancaPct: number;
+}
+
+interface RotaBruta {
+  task_id: number;
+  titulo: string;
+  horas: number;
+  sprint: string;
+  pct_sprint_ausente: number;
+  para_pessoa_id: string | null;
+  fora_do_time?: boolean;
+  para_antes_pct?: number;
+  para_depois_pct?: number;
+  para_livre_h?: number;
+  skills?: string[];
+  projeto_semelhante?: string | null;
+  semelhanca_pct?: number;
+}
+
 export interface SugestaoAgente {
   id: string;
   tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares" | "gargalo" | "wip";
@@ -29,6 +62,7 @@ export interface SugestaoAgente {
   workItemId: number | null;
   antes: UsoPessoa[];
   depois: UsoPessoa[];
+  rotas: RotaTask[];
 }
 
 interface Payload {
@@ -37,6 +71,8 @@ interface Payload {
   gravidade?: string;
   projeto?: string | null;
   ia?: string | null;
+  pessoas?: Record<string, { id: string; nome: string }>;
+  detalhe?: { rotas?: RotaBruta[] };
 }
 
 export function useSugestoesAgente(projetoId?: string) {
@@ -56,6 +92,7 @@ export function useSugestoesAgente(projetoId?: string) {
         .map((s) => {
           const p = (s.payload ?? {}) as Payload;
           const acao = s.acao as { work_item_id?: number } | null;
+          const nomes = new Map(Object.values(p.pessoas ?? {}).map((x) => [x.id, x.nome]));
           return {
             id: s.id,
             tipo: s.tipo as SugestaoAgente["tipo"],
@@ -71,6 +108,22 @@ export function useSugestoesAgente(projetoId?: string) {
             workItemId: acao?.work_item_id ?? null,
             antes: (s.impacto_antes as UsoPessoa[] | null) ?? [],
             depois: (s.impacto_depois as UsoPessoa[] | null) ?? [],
+            rotas: (p.detalhe?.rotas ?? []).map((r) => ({
+              taskId: r.task_id,
+              titulo: r.titulo,
+              horas: r.horas,
+              sprint: r.sprint,
+              pctSprintAusente: r.pct_sprint_ausente,
+              paraId: r.para_pessoa_id,
+              paraNome: r.para_pessoa_id ? (nomes.get(r.para_pessoa_id) ?? "Alguém") : null,
+              foraDoTime: !!r.fora_do_time,
+              antesPct: r.para_antes_pct ?? null,
+              depoisPct: r.para_depois_pct ?? null,
+              livreH: r.para_livre_h ?? null,
+              skills: r.skills ?? [],
+              projetoSemelhante: r.projeto_semelhante ?? null,
+              semelhancaPct: r.semelhanca_pct ?? 0,
+            })),
           };
         })
         .sort((a, b) => a.prioridade - b.prioridade || b.criadaEm.localeCompare(a.criadaEm));
@@ -91,9 +144,15 @@ async function invocar(nome: string, body: Record<string, unknown>) {
 export function useDecidirSugestao() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, aprovar }: { id: string; aprovar: boolean; titulo: string }) =>
-      invocar("devops-acoes", { acao: aprovar ? "aprovar_sugestao" : "ignorar_sugestao", sugestao_id: id }),
-    onSuccess: (_d, v) => toast.success(v.aprovar ? `Aplicado: ${v.titulo}` : "Sugestão ignorada"),
+    mutationFn: ({ id, aprovar, itens }: { id: string; aprovar: boolean; titulo: string; itens?: number[] }) =>
+      invocar("devops-acoes", { acao: aprovar ? "aprovar_sugestao" : "ignorar_sugestao", sugestao_id: id, ...(itens ? { itens } : {}) }),
+    onSuccess: (d, v) => {
+      if (!v.aprovar) return void toast.success("Sugestão ignorada");
+      const total = Number(d.total ?? 0);
+      const aplicadas = Number(d.aplicadas ?? 0);
+      if (total && aplicadas < total) toast.warning(`${aplicadas} de ${total} tasks roteadas; as outras mudaram no DevOps`);
+      else toast.success(total ? `${aplicadas} ${aplicadas === 1 ? "task roteada" : "tasks roteadas"} no DevOps` : `Aplicado: ${v.titulo}`);
+    },
     onError: (e) => toast.error(e.message),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: keySugestoesAgente });
