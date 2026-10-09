@@ -651,6 +651,7 @@ export type Database = {
           descricao: string | null
           descricao_extra: string | null
           id: string
+          impacto_devops: number | null
           nome: string
           processo: string | null
           tags_requeridas: string[]
@@ -661,6 +662,7 @@ export type Database = {
           descricao?: string | null
           descricao_extra?: string | null
           id: string
+          impacto_devops?: number | null
           nome: string
           processo?: string | null
           tags_requeridas?: string[]
@@ -671,11 +673,64 @@ export type Database = {
           descricao?: string | null
           descricao_extra?: string | null
           id?: string
+          impacto_devops?: number | null
           nome?: string
           processo?: string | null
           tags_requeridas?: string[]
         }
         Relationships: []
+      }
+      projeto_avaliacao: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          ia_avaliado_em: string | null
+          impacto_gestor: number | null
+          impacto_ia: number | null
+          justificativa_ia: string | null
+          projeto_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          ia_avaliado_em?: string | null
+          impacto_gestor?: number | null
+          impacto_ia?: number | null
+          justificativa_ia?: string | null
+          projeto_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          ia_avaliado_em?: string | null
+          impacto_gestor?: number | null
+          impacto_ia?: number | null
+          justificativa_ia?: string | null
+          projeto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projeto_avaliacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projeto_avaliacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projeto_avaliacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: true
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
       }
       regra_capacidade: {
         Row: {

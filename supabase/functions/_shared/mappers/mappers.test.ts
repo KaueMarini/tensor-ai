@@ -159,7 +159,14 @@ describe("lerDescricaoProjeto", () => {
     expect(r.tags).toEqual(["agendamento", "patio", "tempo-real"]);
   });
   it("sem linha de tags e sem descrição", () => {
-    expect(lerDescricaoProjeto("Só texto")).toEqual({ descricao: "Só texto", tags: [] });
-    expect(lerDescricaoProjeto(undefined)).toEqual({ descricao: null, tags: [] });
+    expect(lerDescricaoProjeto("Só texto")).toEqual({ descricao: "Só texto", tags: [], impacto: null });
+    expect(lerDescricaoProjeto(undefined)).toEqual({ descricao: null, tags: [], impacto: null });
+  });
+  it("lê a linha Impacto (e sinônimos) e tira da descrição", () => {
+    const r = lerDescricaoProjeto("Portal das transportadoras.\nImpacto: Alto\n\nTags: front-end");
+    expect(r).toEqual({ descricao: "Portal das transportadoras.", tags: ["front-end"], impacto: 3 });
+    expect(lerDescricaoProjeto("X\nRelevância: média").impacto).toBe(2);
+    expect(lerDescricaoProjeto("X\nPrioridade: baixa").impacto).toBe(1);
+    expect(lerDescricaoProjeto("X\nImpacto: talvez").impacto).toBeNull();
   });
 });

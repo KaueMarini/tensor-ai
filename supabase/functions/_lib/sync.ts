@@ -124,7 +124,7 @@ export async function syncProjetos(ctx: SyncCtx): Promise<AzdoProject[]> {
   );
   const detalhados = await Promise.all(alvo.map((p) => ctx.azdo.getProject(p.id)));
   const existentes = rows(
-    await ctx.db.from("projeto").select("id, nome, descricao, tags_requeridas, processo, deleted_at"),
+    await ctx.db.from("projeto").select("id, nome, descricao, tags_requeridas, impacto_devops, processo, deleted_at"),
     "ler projetos",
   );
 
