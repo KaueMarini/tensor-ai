@@ -114,6 +114,14 @@ describe("texto e validador", () => {
     expect(despseudonimizar("Pessoa A passa para Pessoa B", apelidos, (id) => nomes[id]!)).toBe("Kauê passa para Ana");
   });
 
+  it("tira artigo feminino antes do pseudônimo (o nome real pode ser masculino)", () => {
+    const n = (id: string) => nomes[id]!;
+    expect(despseudonimizar("A Pessoa A está a 190%. Passar à Pessoa B reduz a carga da Pessoa A.", apelidos, n)).toBe(
+      "Kauê está a 190%. Passar para Ana reduz a carga de Kauê.",
+    );
+    expect(despseudonimizar("Rebalancear para a Pessoa B, pela Pessoa A.", apelidos, n)).toBe("Rebalancear para Ana, por Kauê.");
+  });
+
   it("template usa só os fatos", () => {
     const t = template(cand!, (papel) => nomes[cand!.papeis[papel]!]!);
     expect(t.titulo).toBe("Passar #3 de Kauê para Ana");

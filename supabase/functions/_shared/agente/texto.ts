@@ -28,10 +28,27 @@ export function pseudonimos(candidatos: Candidato[]): Map<string, string> {
   return m;
 }
 
+/**
+ * Tira artigo/contração antes do pseudônimo ("à Pessoa B" → "para Pessoa B", "da Pessoa A" →
+ * "de Pessoa A"): "Pessoa" é feminino, o nome real pode não ser. Rode ANTES de despseudonimizar.
+ */
+export function semArtigo(texto: string): string {
+  return texto
+    .replace(/(^|[\s(])para a (Pessoa [A-Z]\d*)/g, "$1para $2")
+    .replace(/(^|[\s(])à (Pessoa [A-Z]\d*)/g, "$1para $2")
+    .replace(/(^|[\s(])À (Pessoa [A-Z]\d*)/g, "$1Para $2")
+    .replace(/(^|[\s(])da (Pessoa [A-Z]\d*)/g, "$1de $2")
+    .replace(/(^|[\s(])Da (Pessoa [A-Z]\d*)/g, "$1De $2")
+    .replace(/(^|[\s(])na (Pessoa [A-Z]\d*)/g, "$1em $2")
+    .replace(/(^|[\s(])pela (Pessoa [A-Z]\d*)/g, "$1por $2")
+    .replace(/(^|[.!?]\s+)A (Pessoa [A-Z]\d*)/g, "$1$2")
+    .replace(/(^|\s)a (Pessoa [A-Z]\d*)/g, "$1$2");
+}
+
 /** Troca "Pessoa A" pelo nome real (do maior para o menor, para "Pessoa A1" não virar "Pessoa A"+"1"). */
 export function despseudonimizar(texto: string, apelidos: Map<string, string>, nomeDe: (id: string) => string): string {
   const pares = [...apelidos].sort((a, b) => b[1].length - a[1].length);
-  let out = texto;
+  let out = semArtigo(texto);
   for (const [id, apelido] of pares) out = out.split(apelido).join(nomeDe(id));
   return out;
 }
@@ -100,6 +117,7 @@ Você recebe AÇÕES CANDIDATAS já calculadas por um motor determinístico, com
 Regras obrigatórias:
 - Use SÓ números que aparecem nos fatos da candidata, exatamente como estão (pode acrescentar % ou h). Nunca calcule, arredonde ou invente números.
 - Refira-se às pessoas SÓ pelos pseudônimos dados (ex.: "Pessoa A"). Não invente pessoas.
+- NUNCA use artigo nem contração antes do pseudônimo (o nome real pode ser de qualquer gênero): escreva "Pessoa A está", "passar para Pessoa B", "a carga de Pessoa A"; nunca "a Pessoa A", "à Pessoa B", "da Pessoa A".
 - Fale de carga, disponibilidade e encaixe de skills. NUNCA de desempenho, produtividade ou de quem "rende" mais.
 - Não prometa resultados nem dê ordens; é uma sugestão que o gestor aprova.
 - Sem markdown, sem emojis.`;

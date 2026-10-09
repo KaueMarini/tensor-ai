@@ -1,5 +1,5 @@
 // agente: o agente de IA do Radar. Calcula as ações candidatas com o motor determinístico
-// (_shared/agente/candidatos.ts), pede ao Claude só a prioridade e a explicação (com
+// (_shared/agente/candidatos.ts), pede ao LLM (Gemini ou Claude) só a prioridade e a explicação (com
 // pseudônimos), valida o texto contra os fatos e grava `sugestao` PENDENTE + notificação no
 // sino. Nunca escreve no DevOps: quem aplica é o gestor, pelo devops-acoes (aprovar_sugestao).
 //
@@ -158,32 +158,105 @@ function montarEntrada(d: Awaited<ReturnType<typeof carregar>>) {
   };
 }
 
-/** Pede ao Claude prioridade + texto; devolve por índice da candidata (null = usar template). */
+type RespostaLLM = { id: number; prioridade: number; titulo: string; texto: string }[];
+
+/** Último problema com o LLM nesta execução (vai no resumo da análise, para diagnóstico). */
+let erroLLM: string | null = null;
+
+/** Qual LLM usar: Gemini se houver GEMINI_API_KEY, senão Claude; sem chave, só template. */
+export function provedorLLM(): "gemini" | "claude" | null {
+  if (env("GEMINI_API_KEY", false)) return "gemini";
+  if (env("ANTHROPIC_API_KEY", false)) return "claude";
+  return null;
+}
+
+async function chamarClaude(msg: string, signal: AbortSignal): Promise<RespostaLLM | null> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    signal,
+    headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: env("LLM_MODEL", false) || "claude-sonnet-5-5",
+      max_tokens: 3000,
+      system: SISTEMA,
+      tools: [FERRAMENTA],
+      tool_choice: { type: "tool", name: FERRAMENTA.name },
+      messages: [{ role: "user", content: msg }],
+    }),
+  });
+  if (!res.ok) {
+    erroLLM = `Claude ${res.status}: ${(await res.text()).slice(0, 300)}`;
+    log("warn", "agente: LLM recusou", { erro: erroLLM });
+    return null;
+  }
+  const json = (await res.json()) as { content?: { type: string; input?: { sugestoes?: RespostaLLM } }[] };
+  return json.content?.find((c) => c.type === "tool_use")?.input?.sugestoes ?? [];
+}
+
+/** Plano gratuito do Gemini às vezes responde 503/429 (demanda alta): tenta de novo e cai para modelos irmãos. */
+async function chamarGemini(msg: string, signal: AbortSignal): Promise<RespostaLLM | null> {
+  const preferido = env("LLM_MODEL", false).startsWith("gemini") ? env("LLM_MODEL") : "gemini-flash-latest";
+  const modelos = [...new Set([preferido, preferido, "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
+  const tentativas = [preferido, ...modelos];
+  for (const [i, modelo] of tentativas.entries()) {
+    const r = await chamarGeminiModelo(modelo, msg, signal);
+    if (r !== "ocupado") return r;
+    if (i < tentativas.length - 1) await new Promise((ok) => setTimeout(ok, 1500));
+  }
+  return null;
+}
+
+async function chamarGeminiModelo(modelo: string, msg: string, signal: AbortSignal): Promise<RespostaLLM | null | "ocupado"> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
+    method: "POST",
+    signal,
+    headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SISTEMA }] },
+      contents: [{ role: "user", parts: [{ text: msg }] }],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+        // mesmo formato da ferramenta do Claude (Gemini não aceita enum de inteiros: validado depois)
+        responseSchema: {
+          type: "object",
+          properties: {
+            sugestoes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { id: { type: "integer" }, prioridade: { type: "integer" }, titulo: { type: "string" }, texto: { type: "string" } },
+                required: ["id", "prioridade", "titulo", "texto"],
+              },
+            },
+          },
+          required: ["sugestoes"],
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    erroLLM = `Gemini ${modelo} ${res.status}: ${(await res.text()).slice(0, 200)}`;
+    log("warn", "agente: LLM recusou", { erro: erroLLM });
+    return res.status === 503 || res.status === 429 || res.status >= 500 ? "ocupado" : null;
+  }
+  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const texto = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  return (JSON.parse(texto) as { sugestoes?: RespostaLLM }).sugestoes ?? [];
+}
+
+/** Pede ao LLM prioridade + texto; devolve por índice da candidata (null = usar template). */
 async function redigirComLLM(cands: Candidato[], apelidos: Map<string, string>): Promise<Map<number, TextoSugestao> | null> {
-  const chave = env("ANTHROPIC_API_KEY", false);
-  if (!chave || cands.length === 0) return null;
+  const provedor = provedorLLM();
+  erroLLM = null;
+  if (!provedor || cands.length === 0) return null;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45_000);
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: env("LLM_MODEL", false) || "claude-sonnet-5-5",
-        max_tokens: 3000,
-        system: SISTEMA,
-        tools: [FERRAMENTA],
-        tool_choice: { type: "tool", name: FERRAMENTA.name },
-        messages: [{ role: "user", content: mensagemCandidatas(cands, apelidos) }],
-      }),
-    });
-    if (!res.ok) {
-      log("warn", "agente: LLM recusou", { status: res.status, corpo: (await res.text()).slice(0, 300) });
-      return null;
-    }
-    const json = (await res.json()) as { content?: { type: string; input?: { sugestoes?: { id: number; prioridade: number; titulo: string; texto: string }[] } }[] };
-    const uso = json.content?.find((c) => c.type === "tool_use")?.input?.sugestoes ?? [];
+    const msg = mensagemCandidatas(cands, apelidos);
+    const uso = (provedor === "gemini" ? await chamarGemini(msg, ctrl.signal) : await chamarClaude(msg, ctrl.signal)) ?? [];
+    if (uso.length === 0) return null;
+    erroLLM = null; // uma tentativa seguinte deu certo
     const out = new Map<number, TextoSugestao>();
     for (const s of uso) {
       if (!Number.isInteger(s.id) || !cands[s.id]) continue;
@@ -191,7 +264,8 @@ async function redigirComLLM(cands: Candidato[], apelidos: Map<string, string>):
     }
     return out;
   } catch (err) {
-    log("warn", "agente: LLM falhou", { erro: errorMessage(err) });
+    erroLLM = errorMessage(err);
+    log("warn", "agente: LLM falhou", { erro: erroLLM });
     return null;
   } finally {
     clearTimeout(timer);
@@ -268,6 +342,7 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
         pessoas: Object.fromEntries(Object.entries(c.papeis).map(([papel, id]) => [papel, { id, nome: nomeDe(id) }])),
         detalhe: c.detalhe,
         validacao: motivo,
+        ia: usouLLM ? provedorLLM() : null,
       }),
       versao_prompt: VERSAO_PROMPT,
       hash_payload: c.chave,
@@ -292,10 +367,14 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
     if (error) log("warn", "agente: notificação falhou", { erro: error.message });
   }
 
-  const resumo = { origem, escopo, candidatos: candidatos.length, novas: gravadas, via_llm: viaLLM, expiradas: expirar.length, ms: Date.now() - inicio };
+  const resumo = { origem, escopo, candidatos: candidatos.length, novas: gravadas, via_llm: viaLLM, expiradas: expirar.length, ia: provedorLLM(), erro_ia: erroLLM, ms: Date.now() - inicio };
   log("info", "agente: análise concluída", resumo);
   return resumo;
 }
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
+
+const emSegundoPlano = (p: Promise<unknown>) => p.catch((err) => log("error", "agente falhou (segundo plano)", { erro: errorMessage(err) }));
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -309,9 +388,15 @@ Deno.serve(async (req) => {
     if (caminho.endsWith("/analyze/event")) {
       const { data } = await db.from("work_item").select("projeto_id").eq("devops_id", Number(body.work_item_id)).maybeSingle();
       if (!data) return jsonResponse({ ok: true, ignorado: "item não encontrado" });
-      return jsonResponse(await analisar(db, "evento", [data.projeto_id]));
+      // pg_net espera só 10 s: responde já e analisa em segundo plano (o LLM pode levar mais)
+      EdgeRuntime.waitUntil(emSegundoPlano(analisar(db, "evento", [data.projeto_id])));
+      return jsonResponse({ ok: true, aceito: true }, 202);
     }
-    if (caminho.endsWith("/analyze/sweep")) return jsonResponse(await analisar(db, "sweep", []));
+    if (caminho.endsWith("/analyze/sweep")) {
+      if (new URL(req.url).searchParams.get("esperar") === "1") return jsonResponse(await analisar(db, "sweep", []));
+      EdgeRuntime.waitUntil(emSegundoPlano(analisar(db, "sweep", [])));
+      return jsonResponse({ ok: true, aceito: true }, 202);
+    }
     return jsonResponse(await analisar(db, "manual", typeof body.projeto_id === "string" ? [body.projeto_id] : []));
   } catch (err) {
     log("error", "agente falhou", { erro: errorMessage(err) });
