@@ -1,4 +1,6 @@
-# Tensor AI
+# Tensor AI - Hackaton Iport 
+
+# Equipe: JLNK
 
 ### O assistente de IA que acompanha o seu Azure DevOps 24 horas por dia e diz o que fazer antes do problema acontecer.
 
