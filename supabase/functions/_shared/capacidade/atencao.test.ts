@@ -79,3 +79,31 @@ describe("itensDeAtencao", () => {
     expect(rodar([]).some((i) => i.tipo === "sem-dono")).toBe(false);
   });
 });
+
+describe("férias com tasks", () => {
+  it("aponta quem estará ausente com tasks e não repete o alerta de sem capacidade", () => {
+    const itens = itensDeAtencao({
+      pessoas,
+      celula: (id) => celulas[id],
+      nomeProjeto: (id) => nomes[id]!,
+      semDono: [],
+      periodo: "nas próximas 2 semanas",
+      conflitos: [
+        {
+          pessoaId: "c",
+          inicio: "2026-10-19",
+          fim: "2026-10-23",
+          tipo: "ferias",
+          origem: "agenda",
+          diasUteis: 5,
+          horasEmRisco: 12,
+          gravidade: "critico",
+          tarefas: [{ id: 7, titulo: "Task 7", projetoId: "p1", horas: 12, sprintId: "s2", sprintNome: "Sprint 2", diasAusente: 5, diasUteisSprint: 10, pctSprintAusente: 50 }],
+        },
+      ],
+    });
+    expect(itens[0]).toMatchObject({ tipo: "ausencia-com-tasks", pessoaId: "c", projetoId: "p1", titulo: "Caio estará de férias 19/10–23/10 com 1 task (12h)" });
+    expect(itens[0]!.detalhe).toContain("Sprint 2 (50% fora)");
+    expect(itens.some((i) => i.tipo === "sem-capacidade")).toBe(false);
+  });
+});

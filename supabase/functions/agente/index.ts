@@ -7,6 +7,7 @@ import { avaliarPortfolio, type Impacto, type OrigemImpacto, type ProjetoPortfol
 import { type Candidato, gerarCandidatos, type PessoaAgente, type TarefaAgente } from "../_shared/agente/candidatos.ts";
 import { explicar, type Ferramenta, type SugestaoBase } from "../_shared/agente/explicacao.ts";
 import { gerarCandidatosProcesso, type ItemFluxo } from "../_shared/agente/processo.ts";
+import { ausenciasDeLinhas, conflitosAusencia } from "../_shared/capacidade/ausencias.ts";
 import {
   despseudonimizar,
   explicacaoTemplate,
@@ -84,7 +85,7 @@ async function carregar(db: Db) {
       .select(
         "projeto_id, sprint_id, sprint_nome, sprint_inicio, sprint_fim, item_id, item_parent_id, item_tipo, item_estado, item_titulo, responsavel_id, horas_restantes, horas_estimadas, horas_concluidas, tags, feature_tags",
       ),
-    db.from("ausencia").select("pessoa_id, inicio, fim"),
+    db.from("ausencia").select("pessoa_id, inicio, fim, tipo"),
   ]);
   const [impDevops, avaliacoes] = await Promise.all([
     db.from("projeto").select("id, impacto_devops").is("deleted_at", null),
@@ -358,8 +359,14 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
     if (impactosEstimados) brutos = { ...brutos, avaliacoes: rows(await db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"), "avaliações") };
   }
   const portfolio = montarPortfolio(dados, brutos, periodo4);
+  const conflitos = conflitosAusencia({
+    hoje,
+    ausencias: ausenciasDeLinhas(brutos.carga.ausencias, brutos.carga.folgas),
+    tarefas: dados.tarefas,
+    feriados: brutos.carga.feriados.map((x) => x.data),
+  });
   const candidatos = [
-    ...gerarCandidatos({ hoje, periodo, ...dados, escopo, portfolio }),
+    ...gerarCandidatos({ hoje, periodo, ...dados, escopo, portfolio, conflitos }),
     ...gerarCandidatosProcesso({ hoje, projetos: dados.projetos, itens: await itensComDatas(db, dados), escopo }),
   ];
   const nomePessoa = new Map(dados.pessoas.map((p) => [p.id, p.nome]));

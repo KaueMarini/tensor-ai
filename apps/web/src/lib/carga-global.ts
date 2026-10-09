@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { montarCargaGlobal } from "@shared/capacidade/montagem";
+import { ausenciasDeLinhas, conflitosAusencia, type TarefaAgendada } from "@shared/capacidade/ausencias";
+import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "@shared/kanban";
+import { horasPendentes } from "@shared/capacidade/motor";
 import { supabase } from "./supabase";
 import { useRegras } from "./regras";
 
@@ -24,9 +27,9 @@ export function useCargaGlobal(pessoaIds: string[]) {
         supabase.from("feriado").select("data"),
         supabase
           .from("v_backlog")
-          .select("projeto_id, sprint_id, item_id, item_parent_id, item_tipo, item_estado, responsavel_id, horas_restantes, horas_estimadas, horas_concluidas")
+          .select("projeto_id, sprint_id, sprint_nome, sprint_inicio, sprint_fim, item_id, item_parent_id, item_tipo, item_estado, item_titulo, responsavel_id, horas_restantes, horas_estimadas, horas_concluidas")
           .in("responsavel_id", ids),
-        supabase.from("ausencia").select("pessoa_id, inicio, fim").in("pessoa_id", ids),
+        supabase.from("ausencia").select("pessoa_id, inicio, fim, tipo").in("pessoa_id", ids),
       ]);
       return {
         sprints: unwrap(sprints),
@@ -41,5 +44,31 @@ export function useCargaGlobal(pessoaIds: string[]) {
 
   const celula = useMemo(() => (q.data && regras ? montarCargaGlobal(q.data, regras, ids) : null), [q.data, regras, ids]);
 
-  return { carregando: q.isLoading || carregandoRegras, erro: q.error, celula, regras };
+  const conflitos = useMemo(() => {
+    if (!q.data) return [];
+    const { itens, ausencias, folgas, feriados } = q.data;
+    const pais = new Set(itens.map((r) => r.item_parent_id).filter((x): x is number => x !== null));
+    const tarefas: TarefaAgendada[] = [];
+    for (const r of itens) {
+      if (r.item_id === null || !r.projeto_id || TIPOS_FORA_DO_KANBAN.has(r.item_tipo ?? "") || pais.has(r.item_id)) continue;
+      const cat = categoriaDe(r.item_tipo, r.item_estado);
+      if (cat === "Completed" || cat === "Removed") continue;
+      tarefas.push({
+        id: r.item_id,
+        titulo: r.item_titulo ?? `#${r.item_id}`,
+        projetoId: r.projeto_id,
+        responsavelId: r.responsavel_id,
+        horas: horasPendentes({ horasRestantes: r.horas_restantes, horasEstimadas: r.horas_estimadas, horasConcluidas: r.horas_concluidas }),
+        sprint: r.sprint_id && r.sprint_inicio && r.sprint_fim ? { id: r.sprint_id, nome: r.sprint_nome ?? "Sprint", inicio: r.sprint_inicio, fim: r.sprint_fim } : null,
+      });
+    }
+    return conflitosAusencia({
+      hoje: new Date().toISOString().slice(0, 10),
+      ausencias: ausenciasDeLinhas(ausencias, folgas),
+      tarefas,
+      feriados: feriados.map((f) => f.data),
+    });
+  }, [q.data]);
+
+  return { carregando: q.isLoading || carregandoRegras, erro: q.error, celula, regras, conflitos };
 }

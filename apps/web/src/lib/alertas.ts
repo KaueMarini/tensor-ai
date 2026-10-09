@@ -13,6 +13,7 @@ export interface AlertaAtual {
 
 function linkDe(item: ItemAtencao): string {
   if (item.tipo === "sem-equipe") return `/projetos/${item.projetoId}/resumo`;
+  if (item.tipo === "ausencia-com-tasks") return item.projetoId ? `/analises?projeto=${item.projetoId}` : "/analises";
   if (item.tipo === "sem-dono") return item.projetoId ? `/analises?projeto=${item.projetoId}` : "/analises";
   return item.projetoId ? `/projetos/${item.projetoId}/kanban?resp=${item.pessoaId}` : "/membros";
 }
@@ -36,6 +37,7 @@ export function useAlertasAtuais() {
         horas: Number(s.horas ?? 0),
       })),
       semEquipe: (projetosQ.data?.projetos ?? []).filter(precisaDeEquipe).map((p) => ({ projetoId: p.id!, nome: p.nome ?? "Projeto" })),
+      conflitos: eq.conflitos,
       periodo: PERIODO.rotulo,
     });
     return itens.map((item) => ({ item, link: linkDe(item) }));

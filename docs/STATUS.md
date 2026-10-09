@@ -15,6 +15,19 @@ Sino de notificações pronto para a IA gravar (tabela `notificacao`). Ainda for
 
 ## 1. Onde paramos
 
+Sessão de 2026-10-09 (5ª parte): **tasks durante férias/folga**. `_shared/capacidade/ausencias.ts`
+(`conflitosAusencia`, 4 testes) cruza ausências da Agenda + folgas pessoais do DevOps com as tasks abertas
+nas sprints das próximas 6 semanas: dias úteis fora, % da sprint restante sem a pessoa, horas em risco,
+gravidade (crítico ≥ 50% da sprint). **O sistema aponta sozinho**: novo item `ausencia-com-tasks` em
+`atencao.ts` (Prioridades do Início e sino, calculado no front por `lib/carga-global.ts`; substitui o
+"sem capacidade" da mesma pessoa). **O agente roteia**: `candidatos.ts` gera uma sugestão por task (até 3 por
+pessoa) para quem do time tem tempo livre na sprint e não está ausente na janela, ordenado por encaixe de
+skills + folga (`recomendarAlocacao`) + bônus por atuar em projeto parecido pela descrição; sem ninguém no
+time, aponta alguém de projeto semelhante (sem ação, pede inclusão no time). Validador do LLM recusa texto
+sem acentuação (cai no template). Real: Julliano (folga 19–23/10, 3 tasks) → Kauê; Kauê (férias 15–18/10)
+→ Nicolas. **Pendente**: as 3 sugestões de ausência geradas antes da trava de acentos continuam
+pendentes com texto sem acento; remover e rodar "Analisar agora" (cota do Gemini zerou até ~21h de 09/10).
+
 Sessão de 2026-10-09 (4ª parte): **LGPD + UX + publicação**. Front publicado em
 **https://radar-capacidade.vercel.app** (`vercel.json` na raiz: build `pnpm --filter web build`, saída
 `apps/web/dist`, cabeçalhos HSTS/CSP; `.vercelignore` deixa de fora serviço Python, migrations e docs;
@@ -27,7 +40,7 @@ SHA-256 nas funções (texto puro só no `.env.local` local), cabeçalhos de seg
 agente detecta gargalo e WIP alto (`_shared/agente/processo.ts`), Métricas com fluxo e previsibilidade
 (`_shared/metricas/fluxo.ts`), projetos parecidos pela descrição (TF-IDF + tags) com card no Resumo. Pedido
 do usuário: **comentários removidos de todo o código** (TS/TSX/JS via parser do TypeScript, SQL, Python,
-YAML/TOML/Docker), `CLAUDE.md` removido (a visão do produto foi para o README) e commits sem trailer de
+YAML/TOML/Docker), arquivo de contexto antigo removido (a visão do produto foi para o README) e commits sem trailer de
 coautoria. README reescrito com o passo a passo completo. 133 testes Vitest + 113 pytest verdes.
 
 Sessão de 2026-10-09 (3ª parte): **portfólio e IA explicável**. (1) **Esforço × impacto**: impacto do
@@ -1035,4 +1048,5 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-09 | **Agente de IA** em Edge Function (`agente`): candidatas do motor + Claude com pseudônimos + validador anti-alucinação; disparo por evento e cron via Vault (`radar_analytics_url` → function); aprovar/ignorar no `devops-acoes`; caixa no Início/Sugestões/Resumo. Montagem de carga compartilhada front/agente. Migrations `20261009000000`–`0500` aplicadas. ESLint, code-split, CI verde, README, tela Sincronização, feriados regionais/recessos. E2E: DevOps → sugestão na tela em 12,6 s; aprovar atribuiu no DevOps. Falta a chave da Anthropic. |
 | 2026-10-09 | **Agente com Gemini**: provedor por chave (Gemini > Claude > template), retry/fallback de modelos no 503 do plano gratuito, processamento em segundo plano nas rotas do pg_net, artigo removido antes dos pseudônimos (teste), `ia`/`erro_ia` no resumo. 5 sugestões reais escritas pelo Gemini e aprovadas pelo validador. 107 testes. |
 | 2026-10-09 | **Portfólio + IA explicável**: impacto do projeto (gestor > DevOps > IA), esforço × impacto e projetos parecidos como sugestões do agente; modal "Entender análise" (tempo/mapa de calor, Pareto, matriz) com leitura do Gemini validada; `_lib/llm.ts` com reservas de modelo por cota; datas de criação/estado na sync. Testado: 4 impactos estimados pela IA, 2 sugestões de similaridade, 3 modais 100% Gemini. |
-| 2026-10-09 | LGPD (PII fora do LLM, logs, RBAC, auditoria com hash, TTL, esquecimento, segredos por hash), Sugestões em duas abas, gargalo/WIP, métricas de fluxo, semelhança por descrição, comentários removidos do código, CLAUDE.md removido, README novo, deploy em https://radar-capacidade.vercel.app. |
+| 2026-10-09 | LGPD (PII fora do LLM, logs, RBAC, auditoria com hash, TTL, esquecimento, segredos por hash), Sugestões em duas abas, gargalo/WIP, métricas de fluxo, semelhança por descrição, comentários removidos do código, README novo, deploy em https://radar-capacidade.vercel.app. |
+| 2026-10-09 | **Tasks durante férias/folga**: `conflitosAusencia` + alerta `ausencia-com-tasks` no Início/sino + agente roteando cada task por tempo livre, skills e projeto parecido; trava de acentuação no validador do LLM. 140 testes, typecheck, lint, build e deno check limpos; headless com os 2 casos reais. |

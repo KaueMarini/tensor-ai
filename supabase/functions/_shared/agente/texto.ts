@@ -67,14 +67,24 @@ export function template(c: Candidato, nome: (papel: string) => string): TextoSu
           `Passar “${f.task}” (${h(f.horas)}) leva ${nome("de")} de ${f.de_antes_pct}% para ${f.de_depois_pct}% na ${f.sprint}; ` +
           `${nome("para")} vai de ${f.para_antes_pct}% para ${f.para_depois_pct}%.${skills}`,
       };
-    case "ausencia":
+    case "ausencia": {
+      const semelhante = f.projeto_semelhante && f.projeto_semelhante !== "nenhum" ? ` e já atua em ${f.projeto_semelhante}, projeto ${f.semelhanca_pct}% parecido` : "";
+      if (f.fora_do_time === "sim")
+        return {
+          prioridade: 1,
+          titulo: `${nome("de")} estará de ${f.tipo_ausencia}: #${f.task_id} precisa de outra pessoa`,
+          texto:
+            `${nome("de")} estará de ${f.tipo_ausencia} de ${f.periodo} (${f.dias_ausente} dias úteis, ${f.pct_sprint_ausente}% do que resta da ${f.sprint}) e tem “${f.task}” (${h(f.horas)}). ` +
+            `Ninguém do time tem folga; ${nome("para")} tem ${h(f.para_livre_h)} livres${semelhante}. Para atribuir, inclua no time do projeto no DevOps.`,
+        };
       return {
         prioridade: 1,
-        titulo: `${nome("de")} está ausente: passar #${f.task_id} para ${nome("para")}`,
+        titulo: `${nome("de")} estará de ${f.tipo_ausencia}: passar #${f.task_id} para ${nome("para")}`,
         texto:
-          `${nome("de")} não tem horas disponíveis nas próximas 2 semanas, mas tem “${f.task}” (${h(f.horas)}) na ${f.sprint}. ` +
-          `${nome("para")} pode assumir e vai de ${f.para_antes_pct}% para ${f.para_depois_pct}%.${skills}`,
+          `${nome("de")} estará de ${f.tipo_ausencia} de ${f.periodo} (${f.dias_ausente} dias úteis, ${f.pct_sprint_ausente}% do que resta da ${f.sprint}) e tem “${f.task}” (${h(f.horas)}). ` +
+          `${nome("para")} tem ${h(f.para_livre_h)} livres${f.skills ? `, domina ${f.skills}` : ""}${semelhante}; vai de ${f.para_antes_pct}% para ${f.para_depois_pct}%.`,
       };
+    }
     case "equipe": {
       const pessoas = Object.keys(c.papeis).map(nome).join(", ");
       return {
@@ -142,6 +152,7 @@ Regras obrigatórias:
 - Em gargalo e wip fale do FLUXO (trabalho parado, muita coisa aberta ao mesmo tempo), nunca de quem é lento; sugira destravar ou terminar antes de começar.
 - Nas candidatas de PROJETO (portfolio, similares) você avalia o projeto, não pessoas: aponte com clareza quando há muito esforço para pouco impacto, ou um projeto importante com pouca gente, e quando dois projetos se sobrepõem (risco de retrabalho, chance de compartilhar código ou squad). Seja direto, mas deixe claro que a decisão é do gestor.
 - Não prometa resultados nem dê ordens; é uma sugestão que o gestor aprova.
+- Escreva em português do Brasil com acentuação e cedilha corretas (estará, férias, ausência, atribuição).
 - Sem markdown, sem emojis.`;
 
 export const FERRAMENTA = {
@@ -178,7 +189,7 @@ export function mensagemCandidatas(candidatos: Candidato[], apelidos: Map<string
   }));
   return (
     "Tipos: atribuir = task sem responsável; rebalancear = tirar uma task de quem está acima da capacidade (de) e passar para quem tem folga (para); " +
-    "ausencia = quem está ausente (de) tem task no período; equipe = projeto novo sem pessoas (m1, m2... = montagem sugerida); " +
+    "ausencia = quem vai estar de férias/folga (de) tem task na sprint do período; para = quem assume (tempo livre, skills e experiência em projeto_semelhante); se fora_do_time=sim, a pessoa precisa entrar no time antes; equipe = projeto novo sem pessoas (m1, m2... = montagem sugerida); " +
     "portfolio = esforço × impacto de um projeto (leitura esforco-alto-impacto-baixo ou impacto-alto-pouco-esforco; pct_equipe = % da capacidade da equipe nas próximas 4 semanas; impacto_fonte diz quem definiu o impacto); " +
     "similares = dois projetos parecidos pela descrição (descricao_pct, palavras_em_comum) e pelas tags (em_comum); parecido_pct é o total; " +
     "gargalo = tasks paradas além do normal num projeto (fluxo travado; parados, mediana_parado_dias, estado_gargalo); " +
@@ -219,6 +230,8 @@ export const FERRAMENTA_IMPACTO = {
 } as const;
 
 const PROIBIDAS = /desempenh|produtividad|\brend[ae]\b|preguiç|lent[oa] demais|baixa performance/i;
+const SEM_ACENTO = /\b(estara|ferias|ausencia|atribuicao|alocacao|disponivel|tambem|ninguem|uteis|esforco|integracao|sera|nao|voce|apos|ate|ja)\b/i;
+export const semAcentuacao = (s: string) => SEM_ACENTO.test(s.replace(/[“"][^”"]*[”"]/g, ""));
 const numeros = (s: string) => (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((x) => String(Number(x.replace(",", "."))));
 
 export function validar(t: { titulo: string; texto: string }, c: Candidato, apelidos: Map<string, string>): string | null {
@@ -226,6 +239,7 @@ export function validar(t: { titulo: string; texto: string }, c: Candidato, apel
   if (!t.titulo.trim() || !t.texto.trim()) return "vazio";
   if (t.titulo.length > 90 || t.texto.length > 420) return "longo demais";
   if (PROIBIDAS.test(tudo)) return "fala de desempenho";
+  if (semAcentuacao(tudo)) return "sem acentuação";
   if (/[*#`_]{2,}|^\s*[-*] /m.test(tudo)) return "markdown";
 
   const permitidos = new Set<string>(["2"]);
@@ -275,7 +289,7 @@ Você recebe a sugestão e, já calculadas por um motor determinístico, as ferr
 - matriz: esforço × impacto (Quick win = pouco esforço e muito impacto; Grande aposta; Preenchimento; Evitar).
 Escreva para CADA ferramenta recebida uma leitura de NO MÁXIMO 2 frases curtas que prove com os dados por que a recomendação faz sentido (ou aponte a ressalva, se os dados mostrarem), sem repetir a mesma ideia, e um resumo de 1 frase.
 Chaves terminadas em _pct são porcentagens (escreva com %), _h são horas, _dias são dias.
-Regras: use SÓ números presentes nos fatos, exatamente como estão (pode acrescentar %, h ou dias); não invente dados; fale de fluxo, carga e encaixe, nunca de desempenho de pessoas; português do Brasil; sem markdown.`;
+Regras: use SÓ números presentes nos fatos, exatamente como estão (pode acrescentar %, h ou dias); não invente dados; fale de fluxo, carga e encaixe, nunca de desempenho de pessoas; português do Brasil com acentuação correta; sem markdown.`;
 
 export const FERRAMENTA_EXPLICACAO = {
   name: "registrar_explicacao",
@@ -308,6 +322,7 @@ export function validarExplicacao(texto: string, fs: Ferramenta[], extras: Recor
   if (!texto.trim()) return "vazio";
   if (texto.length > 600) return "longo demais";
   if (PROIBIDAS.test(texto)) return "fala de desempenho";
+  if (semAcentuacao(texto)) return "sem acentuação";
   const permitidos = new Set<string>(["80", "20", "2"]);
   const fontes: unknown[] = [...Object.values(extras), ...fs.flatMap((f) => Object.values(f.fatos))];
   for (const f of fs) if (f.tipo === "pareto") for (const i of f.itens) fontes.push(i.valor, i.acumuladoPct);

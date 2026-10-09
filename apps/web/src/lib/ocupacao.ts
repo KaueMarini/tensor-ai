@@ -68,6 +68,7 @@ export function useOcupacaoEquipe() {
     carregando: membrosQ.isLoading || (ids.length > 0 && global.carregando),
     erro: membrosQ.error ?? global.erro,
     regras: global.regras,
+    conflitos: global.conflitos,
     celula: global.celula as ((p: Periodo, pessoaId: string) => CelulaGlobal | undefined) | null,
     nomeProjeto: (id: string) => nomesProjeto.get(id) ?? "Outro projeto",
   };

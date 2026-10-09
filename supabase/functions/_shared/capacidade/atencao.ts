@@ -1,10 +1,20 @@
 import type { CelulaGlobal } from "./global.ts";
+import { type ConflitoAusencia, ROTULO_AUSENCIA } from "./ausencias.ts";
 
 export type Gravidade = "critico" | "atencao";
 
 export type ItemAtencao =
   | {
       tipo: "sobrecarga" | "sem-capacidade" | "limite";
+      gravidade: Gravidade;
+      pessoaId: string;
+      titulo: string;
+      detalhe: string;
+      projetoId: string | null;
+      peso: number;
+    }
+  | {
+      tipo: "ausencia-com-tasks";
       gravidade: Gravidade;
       pessoaId: string;
       titulo: string;
@@ -45,14 +55,34 @@ export function itensDeAtencao(entrada: {
   nomeProjeto: (projetoId: string) => string;
   semDono: SemDonoProjeto[];
   semEquipe?: { projetoId: string; nome: string }[];
+  conflitos?: ConflitoAusencia[];
   periodo: string;
 }): ItemAtencao[] {
-  const { pessoas, celula, nomeProjeto, semDono, periodo, semEquipe = [] } = entrada;
+  const { pessoas, celula, nomeProjeto, semDono, periodo, semEquipe = [], conflitos = [] } = entrada;
   const out: ItemAtencao[] = [];
+  const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+  for (const c of conflitos) {
+    const p = pessoas.find((x) => x.id === c.pessoaId);
+    if (!p) continue;
+    const n = c.tarefas.length;
+    const projetosIds = [...new Set(c.tarefas.map((t) => t.projetoId))];
+    const sprints = [...new Set(c.tarefas.map((t) => `${t.sprintNome} (${t.pctSprintAusente}% fora)`))];
+    out.push({
+      tipo: "ausencia-com-tasks",
+      gravidade: c.gravidade,
+      pessoaId: c.pessoaId,
+      projetoId: projetosIds.length === 1 ? projetosIds[0]! : null,
+      titulo: `${p.nome} estará de ${ROTULO_AUSENCIA[c.tipo] ?? "ausência"} ${dm(c.inicio)}–${dm(c.fim)} com ${n} ${n === 1 ? "task" : "tasks"} (${h(c.horasEmRisco)})`,
+      detalhe: `${sprints.join(" · ")} · ${projetosIds.map(nomeProjeto).join(", ")} · o agente sugere quem assume`,
+      peso: c.horasEmRisco + (c.gravidade === "critico" ? 1000 : 0),
+    });
+  }
 
   for (const p of pessoas) {
     const c = celula(p.id);
     if (!c || c.status === "ok") continue;
+    if (c.status === "sem-capacidade" && conflitos.some((x) => x.pessoaId === p.id)) continue;
     const principal = c.porProjeto[0];
     const onde = principal
       ? c.porProjeto.length > 1
@@ -118,6 +148,6 @@ export function itensDeAtencao(entrada: {
     });
   }
 
-  const ordem = { "sem-capacidade": 0, sobrecarga: 1, "sem-equipe": 2, "sem-dono": 3, limite: 4 } as const;
+  const ordem = { "ausencia-com-tasks": 0, "sem-capacidade": 0, sobrecarga: 1, "sem-equipe": 2, "sem-dono": 3, limite: 4 } as const;
   return out.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || b.peso - a.peso);
 }

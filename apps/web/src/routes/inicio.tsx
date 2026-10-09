@@ -13,6 +13,7 @@ import {
   ListChecks,
   OctagonAlert,
   PartyPopper,
+  Plane,
   UserRoundPlus,
   UserRoundSearch,
   UserRoundX,
@@ -68,6 +69,7 @@ export function InicioPage() {
       nomeProjeto: eq.nomeProjeto,
       semDono,
       semEquipe: (projetosQ.data?.projetos ?? []).filter(precisaDeEquipe).map((p) => ({ projetoId: p.id!, nome: p.nome ?? "Projeto" })),
+      conflitos: eq.conflitos,
       periodo: periodo.rotulo,
     });
     let acima = 0;
@@ -379,6 +381,7 @@ function Indicador({
 }
 
 const TIPO_ITEM = {
+  "ausencia-com-tasks": { icone: Plane, cor: STATUS_CARGA["sem-capacidade"].cor, selo: "Ausência" },
   "sem-capacidade": { icone: CalendarOff, cor: STATUS_CARGA["sem-capacidade"].cor, selo: "Crítico" },
   sobrecarga: { icone: OctagonAlert, cor: STATUS_CARGA.sobrecarga.cor, selo: "Crítico" },
   limite: { icone: AlertTriangle, cor: STATUS_CARGA.limite.cor, selo: "Atenção" },
@@ -410,6 +413,19 @@ function ItemPrioridade({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: 
                 <UserRoundPlus className="size-3.5" /> Ver equipe sugerida
               </Link>
             </AcaoLink>
+          ) : item.tipo === "ausencia-com-tasks" ? (
+            <>
+              <AcaoLink>
+                <Link to="/analises" search={item.projetoId ? { projeto: item.projetoId } : {}}>
+                  <Lightbulb className="size-3.5" /> Ver quem pode assumir
+                </Link>
+              </AcaoLink>
+              <AcaoLink secundaria>
+                <button type="button" onClick={() => onPessoa(item.pessoaId)}>
+                  <UserRoundSearch className="size-3.5" /> Ver ocupação
+                </button>
+              </AcaoLink>
+            </>
           ) : item.tipo === "sem-dono" ? (
             <AcaoLink>
               <Link to="/analises" search={item.projetoId ? { projeto: item.projetoId } : {}}>

@@ -3,6 +3,7 @@ import type { StatusCarga } from "../capacidade/motor.ts";
 import { type CandidatoAlocacao, recomendarAlocacao } from "../capacidade/recomendacao.ts";
 import { type PessoaPerfil, type ProjetoPerfil, type SquadPerfil, sugerirEquipe } from "../capacidade/equipe-sugerida.ts";
 import { type AvaliacaoProjeto, type ParParecido, ROTULO_IMPACTO } from "../capacidade/portfolio.ts";
+import { type ConflitoAusencia, ROTULO_AUSENCIA } from "../capacidade/ausencias.ts";
 
 const FONTE_IMPACTO = { gestor: "definido pelo gestor", devops: "da descrição no DevOps", ia: "estimado pela IA" } as const;
 
@@ -89,6 +90,7 @@ export function gerarCandidatos(e: {
   escopo?: string[];
   maxPorTipo?: number;
   portfolio?: { avaliacoes: AvaliacaoProjeto[]; parecidos: ParParecido[] };
+  conflitos?: ConflitoAusencia[];
 }): Candidato[] {
   const { periodo, celula, maxPorTipo = 5 } = e;
   const noEscopo = (projetoId: string) => !e.escopo?.length || e.escopo.includes(projetoId);
@@ -155,24 +157,21 @@ export function gerarCandidatos(e: {
 
   const pessoasRisco = e.pessoas
     .map((p) => ({ p, c: celula(periodo, p.id) }))
-    .filter((x): x is { p: PessoaAgente; c: CelulaGlobal } => !!x.c && (x.c.status === "sobrecarga" || x.c.status === "sem-capacidade"))
+    .filter((x): x is { p: PessoaAgente; c: CelulaGlobal } => !!x.c && x.c.status === "sobrecarga")
     .sort((a, b) => b.c.cargaH - b.c.capacidadeH - (a.c.cargaH - a.c.capacidadeH));
-  const contagem = { rebalancear: 0, ausencia: 0 };
+  const contagem = { rebalancear: 0 };
   for (const { p, c } of pessoasRisco) {
-    const tipo = c.status === "sem-capacidade" ? "ausencia" : "rebalancear";
+    const tipo = "rebalancear" as const;
     if (contagem[tipo] >= maxPorTipo) continue;
     const minhas = e.tarefas.filter(
       (t) => t.responsavelId === p.id && (t.horas ?? 0) > 0 && noEscopo(t.projetoId) && (!t.sprint || sobrepoe(t.sprint, periodo)) && vigente(t),
     );
     if (minhas.length === 0) continue;
     const excesso = c.cargaH - c.capacidadeH * c.limites.sobrecarga;
-    const ordenadas =
-      tipo === "ausencia"
-        ? [...minhas].sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0))
-        : [
-            ...minhas.filter((t) => (t.horas ?? 0) >= excesso).sort((a, b) => (a.horas ?? 0) - (b.horas ?? 0)),
-            ...minhas.filter((t) => (t.horas ?? 0) < excesso).sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0)),
-          ];
+    const ordenadas = [
+      ...minhas.filter((t) => (t.horas ?? 0) >= excesso).sort((a, b) => (a.horas ?? 0) - (b.horas ?? 0)),
+      ...minhas.filter((t) => (t.horas ?? 0) < excesso).sort((a, b) => (b.horas ?? 0) - (a.horas ?? 0)),
+    ];
     for (const t of ordenadas) {
       const d = destino(t, p.id);
       if (!d) continue;
@@ -210,6 +209,129 @@ export function gerarCandidatos(e: {
       });
       contagem[tipo]++;
       break;
+    }
+  }
+
+  const parecidosDe = new Map<string, { outro: string; s: number }[]>();
+  for (const par of e.portfolio?.parecidos ?? []) {
+    parecidosDe.set(par.a, [...(parecidosDe.get(par.a) ?? []), { outro: par.b, s: par.similaridade }]);
+    parecidosDe.set(par.b, [...(parecidosDe.get(par.b) ?? []), { outro: par.a, s: par.similaridade }]);
+  }
+  const experienciaParecida = (pessoa: PessoaAgente, projetoId: string) => {
+    let melhor: { projetoId: string; s: number } | null = null;
+    for (const x of parecidosDe.get(projetoId) ?? [])
+      if (pessoa.projetos.includes(x.outro) && (!melhor || x.s > melhor.s)) melhor = { projetoId: x.outro, s: x.s };
+    return melhor;
+  };
+  const fmt = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+  const porTask = new Set<number>();
+  let nAus = 0;
+  for (const conf of e.conflitos ?? []) {
+    const de = pessoas.get(conf.pessoaId);
+    if (!de) continue;
+    let porPessoa = 0;
+    for (const tr of conf.tarefas) {
+      if (nAus >= maxPorTipo * 3 || porPessoa >= 3) break;
+      if (porTask.has(tr.id) || !noEscopo(tr.projetoId)) continue;
+      const t = e.tarefas.find((x) => x.id === tr.id);
+      if (!t || !t.sprint) continue;
+      const per: Periodo = { id: t.sprint.id, inicio: t.sprint.inicio, fim: t.sprint.fim };
+      const janela: Periodo = {
+        id: `aus-${conf.inicio}-${t.sprint.id}`,
+        inicio: conf.inicio > t.sprint.inicio ? conf.inicio : t.sprint.inicio,
+        fim: conf.fim < t.sprint.fim ? conf.fim : t.sprint.fim,
+      };
+      const candidatos = doProjeto(t.projetoId, de.id).filter((p) => (celula(janela, p.id)?.capacidadeH ?? 0) > 0);
+      const comBonus = (lista: PessoaAgente[]) => {
+        if (lista.length === 0) return [];
+        const [rec] = recomendarAlocacao({
+          tasks: [{ id: t.id, sprintId: per.id, tags: t.tags, featureTags: t.featureTags, horas: t.horas }],
+          candidatos: lista,
+          celula: (_s, pid) => celula(per, pid),
+          sprintPadrao: per.id,
+          maxOpcoes: lista.length,
+        });
+        return (rec?.opcoes ?? [])
+          .filter((op) => ACEITAVEL.has(op.statusDepois))
+          .map((op) => {
+            const exp = experienciaParecida(pessoas.get(op.pessoaId)!, t.projetoId);
+            return { op, exp, nota: op.score + (exp ? 0.25 * exp.s : 0) };
+          })
+          .sort((a, b) => b.nota - a.nota);
+      };
+      const [melhor] = comBonus(candidatos);
+      const h = tr.horas;
+      const base = {
+        task_id: t.id,
+        task: t.titulo,
+        horas: h,
+        sprint: t.sprint.nome,
+        projeto: projetos.get(t.projetoId)?.nome ?? "",
+        tipo_ausencia: ROTULO_AUSENCIA[conf.tipo] ?? "ausência",
+        periodo: `${fmt(conf.inicio)} a ${fmt(conf.fim)}`,
+        dias_ausente: tr.diasAusente,
+        pct_sprint_ausente: tr.pctSprintAusente,
+      };
+      if (melhor) {
+        const para = pessoas.get(melhor.op.pessoaId)!;
+        const cDe = celula(per, de.id)!;
+        const cPara = celula(per, para.id)!;
+        out.push({
+          chave: `ausencia:${t.id}:${de.id}:${para.id}`,
+          tipo: "ausencia",
+          gravidade: tr.pctSprintAusente >= 50 ? "critico" : "atencao",
+          projetoId: t.projetoId,
+          acao: { tipo: "reatribuir", work_item_id: t.id, de_pessoa_id: de.id, para_pessoa_id: para.id },
+          papeis: { de: de.id, para: para.id },
+          fatos: {
+            ...base,
+            para_antes_pct: pctDe(cPara.cargaH, cPara.capacidadeH) ?? 0,
+            para_depois_pct: pctDe(cPara.cargaH + h, cPara.capacidadeH) ?? 0,
+            para_livre_h: r1(Math.max(0, cPara.livreH)),
+            encaixe_pct: melhor.op.encaixe === null ? -1 : Math.round(melhor.op.encaixe * 100),
+            skills: melhor.op.matches.map((m) => m.tag).join(", "),
+            projeto_semelhante: melhor.exp ? (projetos.get(melhor.exp.projetoId)?.nome ?? "") : "nenhum",
+            semelhanca_pct: melhor.exp ? Math.round(melhor.exp.s * 100) : 0,
+          },
+          antes: [uso(de.id, cDe), uso(para.id, cPara)],
+          depois: [uso(de.id, cDe, -h), uso(para.id, cPara, h)],
+          detalhe: { matches: melhor.op.matches, sprintId: t.sprint.id, ausencia: { inicio: conf.inicio, fim: conf.fim, origem: conf.origem } },
+        });
+      } else {
+        const deFora = e.pessoas.filter(
+          (p) => p.id !== de.id && !p.projetos.includes(t.projetoId) && experienciaParecida(p, t.projetoId) && (celula(janela, p.id)?.capacidadeH ?? 0) > 0,
+        );
+        const [alt] = comBonus(deFora);
+        if (!alt?.exp) continue;
+        const para = pessoas.get(alt.op.pessoaId)!;
+        const cPara = celula(per, para.id)!;
+        out.push({
+          chave: `ausencia-fora:${t.id}:${de.id}:${para.id}`,
+          tipo: "ausencia",
+          gravidade: tr.pctSprintAusente >= 50 ? "critico" : "atencao",
+          projetoId: t.projetoId,
+          acao: null,
+          papeis: { de: de.id, para: para.id },
+          fatos: {
+            ...base,
+            para_antes_pct: pctDe(cPara.cargaH, cPara.capacidadeH) ?? 0,
+            para_depois_pct: pctDe(cPara.cargaH + h, cPara.capacidadeH) ?? 0,
+            para_livre_h: r1(Math.max(0, cPara.livreH)),
+            encaixe_pct: alt.op.encaixe === null ? -1 : Math.round(alt.op.encaixe * 100),
+            skills: alt.op.matches.map((m) => m.tag).join(", "),
+            projeto_semelhante: projetos.get(alt.exp.projetoId)?.nome ?? "",
+            semelhanca_pct: Math.round(alt.exp.s * 100),
+            fora_do_time: "sim",
+          },
+          antes: [uso(para.id, cPara)],
+          depois: [uso(para.id, cPara, h)],
+          detalhe: { matches: alt.op.matches, sprintId: t.sprint.id },
+        });
+      }
+      porTask.add(tr.id);
+      porPessoa++;
+      nAus++;
     }
   }
 
