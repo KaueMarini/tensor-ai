@@ -3,8 +3,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type CelulaGlobal, cargaGlobal, type ItemGlobal } from "@shared/capacidade/global";
-import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "@shared/kanban";
+import { montarCargaGlobal } from "@shared/capacidade/montagem";
 import { supabase } from "./supabase";
 import { useRegras } from "./regras";
 
@@ -44,58 +43,8 @@ export function useCargaGlobal(pessoaIds: string[]) {
     },
   });
 
-  const celula = useMemo(() => {
-    const d = q.data;
-    if (!d || !regras) return null;
-    const pais = new Set(d.itens.map((r) => r.item_parent_id).filter((x): x is number => x !== null));
-    const itens: ItemGlobal[] = d.itens
-      .filter((r) => r.item_id !== null && !TIPOS_FORA_DO_KANBAN.has(r.item_tipo ?? ""))
-      .map((r) => {
-        const cat = categoriaDe(r.item_tipo, r.item_estado);
-        return {
-          projetoId: r.projeto_id!,
-          sprintId: r.sprint_id,
-          responsavelId: r.responsavel_id,
-          horasRestantes: r.horas_restantes,
-          horasEstimadas: r.horas_estimadas,
-          horasConcluidas: r.horas_concluidas,
-          fechado: cat === "Completed" || cat === "Removed",
-          temFilhos: pais.has(r.item_id!),
-        };
-      });
-    const entradaBase = {
-      pessoas: ids.map((id) => {
-        const h = regras.horas(id);
-        return { id, horasDia: h.horasDia, origemHoras: h.origem };
-      }),
-      sprints: d.sprints.map((s) => ({ id: s.id, projetoId: s.projeto_id, inicio: s.inicio, fim: s.fim })),
-      alocacoes: regras.alocacoes,
-      limites: regras.limites(),
-      capacidades: d.capacidades.map((c) => ({
-        sprintId: c.sprint_id,
-        pessoaId: c.pessoa_id,
-        timeId: c.time_id,
-        capacidadeDia: Number(c.capacidade_dia),
-      })),
-      folgas: [
-        ...d.folgas.map((f) => ({ sprintId: f.sprint_id, timeId: f.time_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
-        // ausência registrada na Agenda: folga pessoal (o motor global filtra só por pessoa e data)
-        ...d.ausencias.map((a) => ({ sprintId: "", timeId: "", pessoaId: a.pessoa_id, inicio: a.inicio, fim: a.fim })),
-      ],
-      feriados: d.feriados.map((f) => f.data),
-      itens,
-    };
-    const cache = new Map<string, Map<string, CelulaGlobal>>();
-    /** Célula global da pessoa no período (ex.: as datas da sprint da task). */
-    return (periodo: { id: string; inicio: string; fim: string }, pessoaId: string): CelulaGlobal | undefined => {
-      let porPessoa = cache.get(periodo.id);
-      if (!porPessoa) {
-        porPessoa = new Map(cargaGlobal({ periodo, ...entradaBase }).map((c) => [c.pessoaId, c]));
-        cache.set(periodo.id, porPessoa);
-      }
-      return porPessoa.get(pessoaId);
-    };
-  }, [q.data, regras, ids]);
+  // mesma montagem do agente de IA (@shared/capacidade/montagem): números iguais na tela e na IA
+  const celula = useMemo(() => (q.data && regras ? montarCargaGlobal(q.data, regras, ids) : null), [q.data, regras, ids]);
 
   return { carregando: q.isLoading || carregandoRegras, erro: q.error, celula, regras };
 }

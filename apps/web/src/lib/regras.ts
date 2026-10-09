@@ -5,17 +5,8 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  type AlocacaoProjeto,
-  horasDaPessoa,
-  type HorasPessoa,
-  type Limites,
-  limitesDe,
-  PADRAO_MERCADO,
-  type RegraPessoa,
-  type RegraProjeto,
-  type RegrasGerais,
-} from "@shared/capacidade/regras";
+import { type RegraPessoa, type RegraProjeto, type RegrasGerais } from "@shared/capacidade/regras";
+import { type Regras, regrasDeLinhas } from "@shared/capacidade/montagem";
 import { supabase } from "./supabase";
 
 export const keyRegras = ["regras"] as const;
@@ -25,18 +16,8 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
-const num = (v: number | string | null | undefined) => (v === null || v === undefined ? null : Number(v));
 
-export interface Regras {
-  geral: RegrasGerais;
-  pessoas: Map<string, RegraPessoa>;
-  projetos: Map<string, RegraProjeto>;
-  alocacoes: AlocacaoProjeto[];
-  /** Horas produtivas resolvidas da pessoa (pessoa → geral → mercado). */
-  horas: (pessoaId: string) => HorasPessoa;
-  /** Limites gerais, ou os do projeto quando informado. */
-  limites: (projetoId?: string) => Limites;
-}
+export type { Regras };
 
 export function useRegras() {
   const q = useQuery({
@@ -52,37 +33,8 @@ export function useRegras() {
       return { geral: unwrap(geral), pessoas: unwrap(pessoas), projetos: unwrap(projetos), alocacoes: unwrap(alocacoes) };
     },
   });
-
-  const regras = useMemo((): Regras | null => {
-    const d = q.data;
-    if (!d) return null;
-    const geral: RegrasGerais = d.geral
-      ? {
-          jornadaDia: Number(d.geral.jornada_dia),
-          foco: Number(d.geral.foco),
-          atencao: Number(d.geral.limite_atencao),
-          sobrecarga: Number(d.geral.limite_sobrecarga),
-        }
-      : PADRAO_MERCADO;
-    const pessoas = new Map(
-      d.pessoas.map((p) => [p.pessoa_id, { pessoaId: p.pessoa_id, jornadaDia: num(p.jornada_dia), foco: num(p.foco) }]),
-    );
-    const projetos = new Map(
-      d.projetos.map((p) => [
-        p.projeto_id,
-        { projetoId: p.projeto_id, atencao: num(p.limite_atencao), sobrecarga: num(p.limite_sobrecarga) },
-      ]),
-    );
-    return {
-      geral,
-      pessoas,
-      projetos,
-      alocacoes: d.alocacoes.map((a) => ({ projetoId: a.projeto_id, pessoaId: a.pessoa_id, horasDia: Number(a.horas_dia) })),
-      horas: (pessoaId) => horasDaPessoa(geral, pessoas.get(pessoaId)),
-      limites: (projetoId) => limitesDe(geral, projetoId ? projetos.get(projetoId) : null),
-    };
-  }, [q.data]);
-
+  // mesma montagem do agente de IA (@shared/capacidade/montagem)
+  const regras = useMemo((): Regras | null => (q.data ? regrasDeLinhas(q.data) : null), [q.data]);
   return { regras, carregando: q.isLoading, erro: q.error };
 }
 
