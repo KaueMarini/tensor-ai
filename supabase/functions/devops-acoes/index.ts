@@ -5,6 +5,9 @@
 // POST { acao: "mover", devops_id, categoria }    -> { ok, de, para }
 // POST { acao: "atribuir", devops_id, pessoa_id, motivo? } -> { ok, para }
 //      (sugestão de alocação aprovada pelo gestor; motivo = encaixe/impacto, vai para a auditoria)
+// POST { acao: "aprovar_sugestao", sugestao_id }  -> aplica a ação da sugestão do agente
+//      (revalida antes: a task segue aberta e com o mesmo responsável) e marca aplicada
+// POST { acao: "ignorar_sugestao", sugestao_id }  -> marca ignorada (não volta por 7 dias)
 //
 // Toda tentativa fica registrada em `acao` (quem, quando, antes/depois, erro).
 
@@ -91,6 +94,11 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "devops_id e pessoa_id são obrigatórios" }, 400);
       }
       return jsonResponse(...(await atribuir(db, azdo, devopsId, body.pessoa_id, body.motivo ?? null, user)));
+    }
+
+    if (body.acao === "aprovar_sugestao" || body.acao === "ignorar_sugestao") {
+      if (typeof body.sugestao_id !== "string") return jsonResponse({ error: "sugestao_id obrigatório" }, 400);
+      return jsonResponse(...(await decidirSugestao(db, azdo, body.sugestao_id, body.acao === "aprovar_sugestao", user)));
     }
 
     return jsonResponse({ error: "ação desconhecida" }, 400);
@@ -221,4 +229,55 @@ async function atribuir(
   const ctx = { db, azdo, filtro: [], deadline: Date.now() + 20_000 };
   await upsertWorkItems(ctx, await azdo.getWorkItemsBatch([devopsId]), item.projeto_id, "app");
   return [{ ok: true, para: pessoa.nome }, 200];
+}
+
+async function decidirSugestao(
+  db: Db,
+  azdo: Azdo,
+  sugestaoId: string,
+  aprovar: boolean,
+  user: { id: string; email?: string },
+): Promise<[unknown, number]> {
+  const { data: s, error } = await db.from("sugestao").select("id, status, tipo, acao, payload").eq("id", sugestaoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!s) return [{ error: "sugestão não encontrada" }, 404];
+  if (s.status !== "pendente") return [{ error: `sugestão já está ${s.status}` }, 409];
+  const decidir = async (status: "aplicada" | "ignorada" | "expirada") => {
+    const { error: e } = await db
+      .from("sugestao")
+      .update({ status, decidida_por: user.id, decidida_em: new Date().toISOString() })
+      .eq("id", sugestaoId)
+      .eq("status", "pendente");
+    if (e) throw new Error(e.message);
+  };
+
+  if (!aprovar) {
+    await decidir("ignorada");
+    return [{ ok: true, status: "ignorada" }, 200];
+  }
+
+  const acao = s.acao as { tipo: string; work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
+  // Sem ação no DevOps (ex.: equipe sugerida): aprovar = "vou fazer", só registra a decisão
+  if (!acao) {
+    await decidir("aplicada");
+    return [{ ok: true, status: "aplicada" }, 200];
+  }
+  if (acao.tipo !== "reatribuir") return [{ error: `ação ${acao.tipo} ainda não suportada` }, 422];
+
+  // A situação ainda é a mesma? (alguém pode ter mexido no DevOps depois da sugestão)
+  const { data: item, error: e2 } = await db
+    .from("work_item")
+    .select("responsavel_id, deleted_at")
+    .eq("devops_id", acao.work_item_id)
+    .maybeSingle();
+  if (e2) throw new Error(e2.message);
+  if (!item || item.deleted_at || (item.responsavel_id ?? null) !== (acao.de_pessoa_id ?? null)) {
+    await decidir("expirada");
+    return [{ error: "A situação mudou desde a sugestão (a task foi alterada no DevOps). Ela foi retirada da caixa." }, 409];
+  }
+
+  const p = (s.payload ?? {}) as { titulo?: string; fatos?: unknown };
+  const [res, status] = await atribuir(db, azdo, acao.work_item_id, acao.para_pessoa_id, { sugestao_id: s.id, tipo: s.tipo, titulo: p.titulo ?? null, fatos: p.fatos ?? null }, user);
+  if (status === 200) await decidir("aplicada");
+  return [res, status];
 }
