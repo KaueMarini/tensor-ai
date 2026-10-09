@@ -26,6 +26,8 @@ export interface SugestaoAgente {
   prioridade: 1 | 2 | 3;
   gravidade: "critico" | "atencao" | "info";
   usouIA: boolean;
+  /** "gemini" | "claude" quando o texto veio de um LLM. */
+  ia: string | null;
   criadaEm: string;
   workItemId: number | null;
   antes: UsoPessoa[];
@@ -37,6 +39,7 @@ interface Payload {
   prioridade?: number;
   gravidade?: string;
   projeto?: string | null;
+  ia?: string | null;
 }
 
 export function useSugestoesAgente(projetoId?: string) {
@@ -66,6 +69,7 @@ export function useSugestoesAgente(projetoId?: string) {
             prioridade: (p.prioridade === 1 || p.prioridade === 3 ? p.prioridade : 2) as 1 | 2 | 3,
             gravidade: (p.gravidade ?? "atencao") as SugestaoAgente["gravidade"],
             usouIA: !s.usou_fallback,
+            ia: p.ia ?? null,
             criadaEm: s.criada_em,
             workItemId: acao?.work_item_id ?? null,
             antes: (s.impacto_antes as UsoPessoa[] | null) ?? [],

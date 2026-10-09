@@ -40,7 +40,7 @@ export function SugestoesAgente({ projetoId, limite, titulo = "Sugestões do age
           </h2>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             O agente acompanha o Azure DevOps e propõe ações antes de virarem problema. Os números vêm do motor de capacidade
-            {comIA ? "; a explicação, do Claude" : ""}. Nada muda sem a sua aprovação.
+            {comIA ? "; a explicação, da IA" : ""}. Nada muda sem a sua aprovação.
           </p>
         </div>
         <button
@@ -168,7 +168,7 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
           )}
           <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500">
             {mostrarProjeto && s.projeto ? `${s.projeto} · ` : ""}
-            {s.usouIA ? "explicado pelo Claude" : "texto automático"} · {tempoRelativo(s.criadaEm)}
+            {s.usouIA ? `explicado pelo ${s.ia === "gemini" ? "Gemini" : "Claude"}` : "texto automático"} · {tempoRelativo(s.criadaEm)}
           </span>
         </div>
       </div>
