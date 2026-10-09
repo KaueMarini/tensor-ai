@@ -85,7 +85,6 @@ function Sidebar({ aberto }: { aberto: boolean }) {
         <Logo />
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-tight dark:text-slate-100"><Marca /></div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">Assistente de IA</div>
         </div>
       </div>
 
