@@ -7,11 +7,16 @@
 //   rebalancear pessoa acima da capacidade  → passar UMA task dela para quem tem folga
 //   ausencia    pessoa ausente com tasks    → passar a maior task para quem está disponível
 //   equipe      projeto novo sem pessoas    → squad parecido / montagem (equipe-sugerida)
+//   portfolio   esforço desproporcional ao impacto do projeto (portfolio.ts)
+//   similares   dois projetos muito parecidos (retrabalho / sinergia)
 
 import type { CelulaGlobal } from "../capacidade/global.ts";
 import type { StatusCarga } from "../capacidade/motor.ts";
 import { type CandidatoAlocacao, recomendarAlocacao } from "../capacidade/recomendacao.ts";
 import { type PessoaPerfil, type ProjetoPerfil, type SquadPerfil, sugerirEquipe } from "../capacidade/equipe-sugerida.ts";
+import { type AvaliacaoProjeto, type ParParecido, ROTULO_IMPACTO } from "../capacidade/portfolio.ts";
+
+const FONTE_IMPACTO = { gestor: "definido pelo gestor", devops: "da descrição no DevOps", ia: "estimado pela IA" } as const;
 
 export interface Periodo {
   id: string;
@@ -35,6 +40,8 @@ export interface TarefaAgente {
   horas: number | null;
   tags: string[];
   featureTags: string[];
+  /** Categoria do estado (Proposed, InProgress, Resolved): usada na IA explicável. */
+  categoria?: string;
 }
 
 export interface ProjetoAgente extends ProjetoPerfil {
@@ -42,7 +49,7 @@ export interface ProjetoAgente extends ProjetoPerfil {
   nItens: number;
 }
 
-export type TipoSugestao = "atribuir" | "rebalancear" | "ausencia" | "equipe";
+export type TipoSugestao = "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares";
 export type Gravidade = "critico" | "atencao" | "info";
 
 export interface Uso {
@@ -102,6 +109,8 @@ export function gerarCandidatos(e: {
   /** Projetos analisados (evento de um item = só o projeto dele). Vazio = todos. */
   escopo?: string[];
   maxPorTipo?: number;
+  /** Esforço × impacto e projetos parecidos (horizonte de 4 semanas). */
+  portfolio?: { avaliacoes: AvaliacaoProjeto[]; parecidos: ParParecido[] };
 }): Candidato[] {
   const { periodo, celula, maxPorTipo = 5 } = e;
   const noEscopo = (projetoId: string) => !e.escopo?.length || e.escopo.includes(projetoId);
@@ -274,6 +283,57 @@ export function gerarCandidatos(e: {
       antes: [],
       depois: [],
       detalhe: { montagem: r.montagem, squad: squad ?? null, termos: r.termos.map((t) => t.termo) },
+    });
+  }
+
+  // 5. Esforço × impacto
+  for (const a of e.portfolio?.avaliacoes ?? []) {
+    if (!noEscopo(a.projetoId) || a.impacto === null) continue;
+    if (a.leitura !== "esforco-alto-impacto-baixo" && a.leitura !== "impacto-alto-pouco-esforco") continue;
+    out.push({
+      chave: `portfolio:${a.projetoId}:${a.leitura}:${a.impacto}`,
+      tipo: "portfolio",
+      gravidade: "atencao",
+      projetoId: a.projetoId,
+      acao: null,
+      papeis: {},
+      fatos: {
+        projeto: projetos.get(a.projetoId)?.nome ?? "",
+        leitura: a.leitura,
+        impacto: ROTULO_IMPACTO[a.impacto],
+        impacto_fonte: a.impactoOrigem ? FONTE_IMPACTO[a.impactoOrigem] : "",
+        pct_equipe: Math.round(a.fatia * 100),
+        media_pct: Math.round(a.fatiaMedia * 100),
+        horas_4sem: Math.round(a.horasHorizonte),
+        horas_abertas: Math.round(a.horasAbertas),
+        pessoas: a.pessoas,
+        rank_esforco: a.rankEsforco,
+      },
+      antes: [],
+      depois: [],
+      detalhe: { avaliacao: a },
+    });
+  }
+
+  // 6. Projetos parecidos
+  for (const par of (e.portfolio?.parecidos ?? []).slice(0, maxPorTipo)) {
+    if (!noEscopo(par.a) && !noEscopo(par.b)) continue;
+    out.push({
+      chave: `similares:${par.a}:${par.b}`,
+      tipo: "similares",
+      gravidade: "info",
+      projetoId: par.a,
+      acao: null,
+      papeis: {},
+      fatos: {
+        projeto_a: projetos.get(par.a)?.nome ?? "",
+        projeto_b: projetos.get(par.b)?.nome ?? "",
+        parecido_pct: Math.round(par.similaridade * 100),
+        em_comum: par.emComum.join(", "),
+      },
+      antes: [],
+      depois: [],
+      detalhe: { par },
     });
   }
 

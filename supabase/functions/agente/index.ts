@@ -17,19 +17,29 @@ import { normalizarNome } from "../_shared/nomes.ts";
 import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "../_shared/kanban.ts";
 import { horasPendentes } from "../_shared/capacidade/motor.ts";
 import { montarCargaGlobal, regrasDeLinhas } from "../_shared/capacidade/montagem.ts";
+import { avaliarPortfolio, type Impacto, type OrigemImpacto, type ProjetoPortfolio, projetosParecidos } from "../_shared/capacidade/portfolio.ts";
 import { type Candidato, gerarCandidatos, type PessoaAgente, type TarefaAgente } from "../_shared/agente/candidatos.ts";
+import { explicar, type Ferramenta, type ItemTempo, type SugestaoBase } from "../_shared/agente/explicacao.ts";
 import {
   despseudonimizar,
+  explicacaoTemplate,
   FERRAMENTA,
+  FERRAMENTA_EXPLICACAO,
+  FERRAMENTA_IMPACTO,
+  mensagemExplicacao,
   mensagemCandidatas,
   pseudonimos,
   SISTEMA,
+  SISTEMA_EXPLICACAO,
+  SISTEMA_IMPACTO,
   template,
   type TextoSugestao,
   validar,
+  validarExplicacao,
   VERSAO_PROMPT,
 } from "../_shared/agente/texto.ts";
 import { asJson, corsHeaders, createDb, type Db, env, jsonResponse, safeEqual } from "../_lib/context.ts";
+import { pedirJSON, provedorLLM, ultimoErroLLM } from "../_lib/llm.ts";
 
 const MAX_LLM = 12;
 const DIA = 86_400_000;
@@ -58,7 +68,13 @@ function horizonte() {
   const seg = new Date(d.getTime() - ((d.getUTCDay() || 7) - 1) * DIA);
   const sexta = new Date(seg.getTime() + 11 * DIA);
   const iso = (x: Date) => x.toISOString().slice(0, 10);
-  return { hoje, periodo: { id: `prox-${iso(seg)}-2`, inicio: iso(seg), fim: iso(sexta) } };
+  const sexta4 = new Date(seg.getTime() + 25 * DIA);
+  return {
+    hoje,
+    periodo: { id: `prox-${iso(seg)}-2`, inicio: iso(seg), fim: iso(sexta) },
+    // portfólio olha um pouco mais longe: próximas 4 semanas
+    periodo4: { id: `prox-${iso(seg)}-4`, inicio: iso(seg), fim: iso(sexta4) },
+  };
 }
 
 interface SkillJson {
@@ -87,6 +103,10 @@ async function carregar(db: Db) {
       ),
     db.from("ausencia").select("pessoa_id, inicio, fim"),
   ]);
+  const [impDevops, avaliacoes] = await Promise.all([
+    db.from("projeto").select("id, impacto_devops").is("deleted_at", null),
+    db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"),
+  ]);
   if (regraG.error) throw new Error(regraG.error.message);
   return {
     projetos: rows(projetos, "projetos"),
@@ -100,6 +120,50 @@ async function carregar(db: Db) {
       itens: rows(backlog, "backlog"),
       ausencias: rows(ausencias, "ausências"),
     },
+    impactoDevops: new Map(rows(impDevops, "impacto").map((p) => [p.id, p.impacto_devops])),
+    avaliacoes: rows(avaliacoes, "avaliações"),
+  };
+}
+
+type Dados = ReturnType<typeof montarEntrada>;
+
+/** Impacto do projeto: gestor > DevOps ("Impacto:" na descrição) > estimado pela IA. */
+function impactoDe(id: string, brutos: Awaited<ReturnType<typeof carregar>>): { impacto: Impacto | null; origem: OrigemImpacto | null } {
+  const a = brutos.avaliacoes.find((x) => x.projeto_id === id);
+  if (a?.impacto_gestor) return { impacto: a.impacto_gestor as Impacto, origem: "gestor" };
+  const d = brutos.impactoDevops.get(id);
+  if (d) return { impacto: d as Impacto, origem: "devops" };
+  if (a?.impacto_ia) return { impacto: a.impacto_ia as Impacto, origem: "ia" };
+  return { impacto: null, origem: null };
+}
+
+function montarPortfolio(dados: Dados, brutos: Awaited<ReturnType<typeof carregar>>, periodo4: { id: string; inicio: string; fim: string }) {
+  const projetos: ProjetoPortfolio[] = dados.projetos.map((p) => {
+    const { impacto, origem } = impactoDe(p.id, brutos);
+    return { id: p.id, nome: p.nome, descricao: p.descricao, tags: p.tags, impacto, impactoOrigem: origem };
+  });
+  let capacidadeTotal = 0;
+  const horas = new Map<string, number>();
+  const pessoas = new Map<string, number>();
+  for (const pe of dados.pessoas) {
+    const c = dados.celula(periodo4, pe.id);
+    if (!c) continue;
+    capacidadeTotal += c.capacidadeH;
+    for (const x of c.porProjeto) {
+      horas.set(x.projetoId, (horas.get(x.projetoId) ?? 0) + x.cargaH);
+      if (x.cargaH > 0) pessoas.set(x.projetoId, (pessoas.get(x.projetoId) ?? 0) + 1);
+    }
+  }
+  const abertas = new Map<string, number>();
+  for (const t of dados.tarefas) abertas.set(t.projetoId, (abertas.get(t.projetoId) ?? 0) + (t.horas ?? 0));
+  const catalogo = [...new Set([...dados.pessoas.flatMap((p) => [...p.skills.map((s) => s.tag), ...p.funcoes]), ...dados.projetos.flatMap((p) => p.tags)])];
+  return {
+    avaliacoes: avaliarPortfolio({
+      projetos,
+      esforco: (id) => ({ horasHorizonte: horas.get(id) ?? 0, pessoas: pessoas.get(id) ?? 0, horasAbertas: abertas.get(id) ?? 0 }),
+      capacidadeTotalH: capacidadeTotal,
+    }),
+    parecidos: projetosParecidos(projetos, catalogo),
   };
 }
 
@@ -145,6 +209,7 @@ function montarEntrada(d: Awaited<ReturnType<typeof carregar>>) {
         : horasPendentes({ horasRestantes: r.horas_restantes, horasEstimadas: r.horas_estimadas, horasConcluidas: r.horas_concluidas }),
       tags: r.tags ?? [],
       featureTags: r.feature_tags ?? [],
+      categoria: cat,
     });
   }
 
@@ -160,123 +225,158 @@ function montarEntrada(d: Awaited<ReturnType<typeof carregar>>) {
 
 type RespostaLLM = { id: number; prioridade: number; titulo: string; texto: string }[];
 
-/** Último problema com o LLM nesta execução (vai no resumo da análise, para diagnóstico). */
-let erroLLM: string | null = null;
-
-/** Qual LLM usar: Gemini se houver GEMINI_API_KEY, senão Claude; sem chave, só template. */
-export function provedorLLM(): "gemini" | "claude" | null {
-  if (env("GEMINI_API_KEY", false)) return "gemini";
-  if (env("ANTHROPIC_API_KEY", false)) return "claude";
-  return null;
-}
-
-async function chamarClaude(msg: string, signal: AbortSignal): Promise<RespostaLLM | null> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    signal,
-    headers: { "x-api-key": env("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: env("LLM_MODEL", false) || "claude-sonnet-5-5",
-      max_tokens: 3000,
-      system: SISTEMA,
-      tools: [FERRAMENTA],
-      tool_choice: { type: "tool", name: FERRAMENTA.name },
-      messages: [{ role: "user", content: msg }],
-    }),
-  });
-  if (!res.ok) {
-    erroLLM = `Claude ${res.status}: ${(await res.text()).slice(0, 300)}`;
-    log("warn", "agente: LLM recusou", { erro: erroLLM });
-    return null;
-  }
-  const json = (await res.json()) as { content?: { type: string; input?: { sugestoes?: RespostaLLM } }[] };
-  return json.content?.find((c) => c.type === "tool_use")?.input?.sugestoes ?? [];
-}
-
-/** Plano gratuito do Gemini às vezes responde 503/429 (demanda alta): tenta de novo e cai para modelos irmãos. */
-async function chamarGemini(msg: string, signal: AbortSignal): Promise<RespostaLLM | null> {
-  const preferido = env("LLM_MODEL", false).startsWith("gemini") ? env("LLM_MODEL") : "gemini-flash-latest";
-  const modelos = [...new Set([preferido, preferido, "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
-  const tentativas = [preferido, ...modelos];
-  for (const [i, modelo] of tentativas.entries()) {
-    const r = await chamarGeminiModelo(modelo, msg, signal);
-    if (r !== "ocupado") return r;
-    if (i < tentativas.length - 1) await new Promise((ok) => setTimeout(ok, 1500));
-  }
-  return null;
-}
-
-async function chamarGeminiModelo(modelo: string, msg: string, signal: AbortSignal): Promise<RespostaLLM | null | "ocupado"> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
-    method: "POST",
-    signal,
-    headers: { "x-goog-api-key": env("GEMINI_API_KEY"), "content-type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SISTEMA }] },
-      contents: [{ role: "user", parts: [{ text: msg }] }],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-        // mesmo formato da ferramenta do Claude (Gemini não aceita enum de inteiros: validado depois)
-        responseSchema: {
-          type: "object",
-          properties: {
-            sugestoes: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: { id: { type: "integer" }, prioridade: { type: "integer" }, titulo: { type: "string" }, texto: { type: "string" } },
-                required: ["id", "prioridade", "titulo", "texto"],
-              },
-            },
-          },
-          required: ["sugestoes"],
-        },
-      },
-    }),
-  });
-  if (!res.ok) {
-    erroLLM = `Gemini ${modelo} ${res.status}: ${(await res.text()).slice(0, 200)}`;
-    log("warn", "agente: LLM recusou", { erro: erroLLM });
-    return res.status === 503 || res.status === 429 || res.status >= 500 ? "ocupado" : null;
-  }
-  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const texto = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  return (JSON.parse(texto) as { sugestoes?: RespostaLLM }).sugestoes ?? [];
-}
-
 /** Pede ao LLM prioridade + texto; devolve por índice da candidata (null = usar template). */
 async function redigirComLLM(cands: Candidato[], apelidos: Map<string, string>): Promise<Map<number, TextoSugestao> | null> {
-  const provedor = provedorLLM();
-  erroLLM = null;
-  if (!provedor || cands.length === 0) return null;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 45_000);
-  try {
-    const msg = mensagemCandidatas(cands, apelidos);
-    const uso = (provedor === "gemini" ? await chamarGemini(msg, ctrl.signal) : await chamarClaude(msg, ctrl.signal)) ?? [];
-    if (uso.length === 0) return null;
-    erroLLM = null; // uma tentativa seguinte deu certo
-    const out = new Map<number, TextoSugestao>();
-    for (const s of uso) {
-      if (!Number.isInteger(s.id) || !cands[s.id]) continue;
-      out.set(s.id, { prioridade: ([1, 2, 3].includes(s.prioridade) ? s.prioridade : 2) as 1 | 2 | 3, titulo: String(s.titulo ?? ""), texto: String(s.texto ?? "") });
-    }
-    return out;
-  } catch (err) {
-    erroLLM = errorMessage(err);
-    log("warn", "agente: LLM falhou", { erro: erroLLM });
-    return null;
-  } finally {
-    clearTimeout(timer);
+  if (cands.length === 0) return null;
+  const r = await pedirJSON<{ sugestoes?: RespostaLLM }>({
+    sistema: SISTEMA,
+    mensagem: mensagemCandidatas(cands, apelidos),
+    ferramenta: { nome: FERRAMENTA.name, descricao: FERRAMENTA.description },
+    esquema: FERRAMENTA.input_schema as unknown as Record<string, unknown>,
+  });
+  const uso = r?.sugestoes ?? [];
+  if (uso.length === 0) return null;
+  const out = new Map<number, TextoSugestao>();
+  for (const x of uso) {
+    if (!Number.isInteger(x.id) || !cands[x.id]) continue;
+    out.set(x.id, { prioridade: ([1, 2, 3].includes(x.prioridade) ? x.prioridade : 2) as 1 | 2 | 3, titulo: String(x.titulo ?? ""), texto: String(x.texto ?? "") });
   }
+  return out;
+}
+
+/**
+ * Importância dos projetos que ninguém classificou (nem o gestor nem a linha "Impacto:" do
+ * DevOps): a IA estima pela descrição e grava como SUGERIDA (projeto_avaliacao.impacto_ia),
+ * uma vez por projeto. O gestor confirma ou troca na tela.
+ */
+async function estimarImpactos(db: Db, projetos: { id: string; nome: string; descricao: string | null; tags: string[] }[]) {
+  const alvo = projetos.filter((p) => p.descricao || p.tags.length).slice(0, 15);
+  if (alvo.length === 0) return 0;
+  const r = await pedirJSON<{ projetos?: { id: number; impacto: number; justificativa: string }[] }>({
+    sistema: SISTEMA_IMPACTO,
+    mensagem: JSON.stringify(alvo.map((p, id) => ({ id, projeto: p.nome, descricao: p.descricao, tags: p.tags }))),
+    ferramenta: { nome: FERRAMENTA_IMPACTO.name, descricao: FERRAMENTA_IMPACTO.description },
+    esquema: FERRAMENTA_IMPACTO.input_schema as unknown as Record<string, unknown>,
+  });
+  let n = 0;
+  for (const x of r?.projetos ?? []) {
+    const p = alvo[x.id];
+    if (!p || ![1, 2, 3].includes(x.impacto)) continue;
+    const { error } = await db.from("projeto_avaliacao").upsert({
+      projeto_id: p.id,
+      impacto_ia: x.impacto,
+      justificativa_ia: String(x.justificativa ?? "").slice(0, 300),
+      ia_avaliado_em: new Date().toISOString(),
+    });
+    if (error) log("warn", "agente: gravar impacto falhou", { erro: error.message });
+    else n++;
+  }
+  return n;
+}
+
+const VERSAO_EXPLICACAO = "explica.v5";
+/** O LLM às vezes se repete: fica com as 2 primeiras frases (já validadas). */
+const duasFrases = (t: string) => (t.match(/[^.!?]+[.!?]+(\s|$)/g) ?? [t]).slice(0, 2).join("").trim() || t;
+const texto = (v: unknown) => (typeof v === "string" && v ? v : null);
+
+/** "Entender análise": visão micro da sugestão (ferramentas do motor + leitura da IA, validada). */
+async function explicarSugestao(db: Db, sugestaoId: string): Promise<[unknown, number]> {
+  const { data: s, error } = await db.from("sugestao").select("id, tipo, projeto_id, acao, payload, markdown").eq("id", sugestaoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!s || !s.projeto_id) return [{ error: "sugestão não encontrada" }, 404];
+  const p = (s.payload ?? {}) as { titulo?: string; fatos?: Record<string, string | number>; explicacao?: { versao?: string } };
+  if (p.explicacao?.versao === VERSAO_EXPLICACAO) return [p.explicacao, 200];
+
+  const { hoje, periodo4 } = horizonte();
+  const brutos = await carregar(db);
+  const dados = montarEntrada(brutos);
+  const datas = new Map(
+    rows(await db.from("work_item").select("devops_id, fields").is("deleted_at", null), "datas").map((d) => [d.devops_id, (d.fields ?? {}) as Record<string, unknown>]),
+  );
+  const item = (t: TarefaAgente): ItemTempo => {
+    const f = datas.get(t.id) ?? {};
+    const cat = t.categoria === "InProgress" || t.categoria === "Resolved" ? t.categoria : "Proposed";
+    return {
+      id: t.id,
+      titulo: t.titulo,
+      categoria: cat,
+      responsavelId: t.responsavelId,
+      horas: t.horas ?? 0,
+      criado: texto(f["System.CreatedDate"]),
+      mudouEstado: texto(f["Microsoft.VSTS.Common.StateChangeDate"]),
+    };
+  };
+  const acao = s.acao as { work_item_id: number; de_pessoa_id: string | null; para_pessoa_id: string } | null;
+  const pf = montarPortfolio(dados, brutos, periodo4);
+  const nomeProj = new Map(dados.projetos.map((x) => [x.id, x.nome]));
+  const ferramentas = explicar({
+    hoje,
+    sugestao: { tipo: s.tipo as SugestaoBase["tipo"], acao, fatos: p.fatos ?? {}, projetoId: s.projeto_id },
+    itensProjeto: dados.tarefas.filter((t) => t.projetoId === s.projeto_id).map(item),
+    itensDe: acao?.de_pessoa_id ? dados.tarefas.filter((t) => t.responsavelId === acao.de_pessoa_id).map(item) : [],
+    portfolio: pf.avaliacoes.map((x) => ({ id: x.projetoId, nome: nomeProj.get(x.projetoId) ?? "", fatia: x.fatia, horas: x.horasHorizonte, impacto: x.impacto })),
+  });
+
+  const base = explicacaoTemplate(ferramentas);
+  const origem: Record<string, "ia" | "template"> = { resumo: "template" };
+  for (const f of ferramentas) origem[f.tipo] = "template";
+  let resumo = base.resumo;
+  const leituras = { ...base.leituras };
+  if (ferramentas.length) {
+    const r = await pedirJSON<{ resumo?: string; leituras?: { ferramenta: string; texto: string }[] }>({
+      sistema: SISTEMA_EXPLICACAO,
+      mensagem: mensagemExplicacao({ tipo: s.tipo, fatos: p.fatos ?? {} }, ferramentas),
+      ferramenta: { nome: FERRAMENTA_EXPLICACAO.name, descricao: FERRAMENTA_EXPLICACAO.description },
+      esquema: FERRAMENTA_EXPLICACAO.input_schema as unknown as Record<string, unknown>,
+    });
+    const extras = p.fatos ?? {};
+    if (r?.resumo && validarExplicacao(r.resumo, ferramentas, extras) === null) {
+      resumo = duasFrases(r.resumo);
+      origem.resumo = "ia";
+    }
+    for (const l of r?.leituras ?? []) {
+      const tipo = l.ferramenta as Ferramenta["tipo"];
+      if (!ferramentas.some((f) => f.tipo === tipo)) continue;
+      const motivo = validarExplicacao(String(l.texto ?? ""), ferramentas, extras);
+      if (motivo === null) {
+        leituras[tipo] = duasFrases(l.texto);
+        origem[tipo] = "ia";
+      } else log("info", "explicação: leitura reprovada", { tipo, motivo });
+    }
+  }
+  const resultado = {
+    versao: VERSAO_EXPLICACAO,
+    ferramentas,
+    resumo,
+    leituras,
+    origem,
+    ia: Object.values(origem).includes("ia") ? provedorLLM() : null,
+    erro_ia: ultimoErroLLM(),
+    gerado_em: new Date().toISOString(),
+  };
+  // guarda para não chamar a IA de novo; se a IA estava fora do ar, a próxima abertura tenta outra vez
+  if (resultado.ia || !provedorLLM()) {
+    const { error: e2 } = await db.from("sugestao").update({ payload: asJson({ ...p, explicacao: resultado }) }).eq("id", s.id);
+    if (e2) log("warn", "explicação: não guardou no cache", { erro: e2.message });
+  }
+  return [resultado, 200];
 }
 
 async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: string[]) {
   const inicio = Date.now();
-  const { hoje, periodo } = horizonte();
-  const dados = montarEntrada(await carregar(db));
-  const candidatos = gerarCandidatos({ hoje, periodo, ...dados, escopo });
+  const { hoje, periodo, periodo4 } = horizonte();
+  let brutos = await carregar(db);
+  const dados = montarEntrada(brutos);
+
+  // Projeto sem importância definida (nem gestor nem DevOps) e ainda não estimado: a IA estima
+  let impactosEstimados = 0;
+  const semImpacto = dados.projetos.filter((p) => impactoDe(p.id, brutos).impacto === null);
+  if (semImpacto.length && provedorLLM()) {
+    impactosEstimados = await estimarImpactos(db, semImpacto);
+    if (impactosEstimados) brutos = { ...brutos, avaliacoes: rows(await db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"), "avaliações") };
+  }
+  const portfolio = montarPortfolio(dados, brutos, periodo4);
+  const candidatos = gerarCandidatos({ hoje, periodo, ...dados, escopo, portfolio });
   const nomePessoa = new Map(dados.pessoas.map((p) => [p.id, p.nome]));
   const nomeProjeto = new Map(dados.projetos.map((p) => [p.id, p.nome]));
 
@@ -367,7 +467,7 @@ async function analisar(db: Db, origem: "evento" | "sweep" | "manual", escopo: s
     if (error) log("warn", "agente: notificação falhou", { erro: error.message });
   }
 
-  const resumo = { origem, escopo, candidatos: candidatos.length, novas: gravadas, via_llm: viaLLM, expiradas: expirar.length, ia: provedorLLM(), erro_ia: erroLLM, ms: Date.now() - inicio };
+  const resumo = { origem, escopo, candidatos: candidatos.length, novas: gravadas, via_llm: viaLLM, expiradas: expirar.length, ia: provedorLLM(), erro_ia: ultimoErroLLM(), impactos_estimados: impactosEstimados, ms: Date.now() - inicio };
   log("info", "agente: análise concluída", resumo);
   return resumo;
 }
@@ -383,8 +483,12 @@ Deno.serve(async (req) => {
   if (!(await autorizado(req, db))) return jsonResponse({ error: "não autorizado" }, 401);
 
   const caminho = new URL(req.url).pathname;
-  const body = (await req.json().catch(() => ({}))) as { work_item_id?: number; projeto_id?: string };
+  const body = (await req.json().catch(() => ({}))) as { work_item_id?: number; projeto_id?: string; acao?: string; sugestao_id?: string };
   try {
+    if (body.acao === "explicar") {
+      if (typeof body.sugestao_id !== "string") return jsonResponse({ error: "sugestao_id obrigatório" }, 400);
+      return jsonResponse(...(await explicarSugestao(db, body.sugestao_id)));
+    }
     if (caminho.endsWith("/analyze/event")) {
       const { data } = await db.from("work_item").select("projeto_id").eq("devops_id", Number(body.work_item_id)).maybeSingle();
       if (!data) return jsonResponse({ ok: true, ignorado: "item não encontrado" });
