@@ -13,7 +13,7 @@
     "db:types": "supabase gen types typescript --project-id wswcksxvsqhmxxawgwmq --schema public > supabase/functions/_shared/db.types.ts",
     "db:apply": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f",
     "db:test": "supabase db query --linked --project-ref wswcksxvsqhmxxawgwmq -f supabase/tests/idempotencia_rev.sql",
-    "functions:deploy": "supabase functions deploy devops-sync --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-webhook --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-acoes --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq",
+    "functions:deploy": "supabase functions deploy devops-sync --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-webhook --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy devops-acoes --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq && supabase functions deploy agente --no-verify-jwt --project-ref wswcksxvsqhmxxawgwmq",
     "devops:popular": "tsx --env-file=.env.local scripts/devops-popular.ts",
     "devops:organizar": "tsx --env-file=.env.local scripts/devops-organizar.ts",
     "devops:projetos": "tsx --env-file=.env.local scripts/devops-projetos.ts",
