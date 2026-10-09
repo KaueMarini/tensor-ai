@@ -14,6 +14,8 @@ export interface EventoAgenda {
   detalhe?: string;
   /** Ausências podem ser removidas pela Agenda. */
   ausenciaIds?: number[];
+  /** Feriado regional/recesso cadastrado pelo gestor (removível; nacional não). */
+  feriadoId?: number;
   /** Sprint/entrega de um projeto só: o item leva para a página do projeto. */
   projetoId?: string;
   /** Segunda linha na lista de próximos (padrão: o tipo do evento). */

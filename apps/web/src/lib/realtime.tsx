@@ -118,6 +118,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "regra_capacidade_pessoa" }, () => invalidar("regras"))
       .on("postgres_changes", { event: "*", schema: "public", table: "regra_capacidade_projeto" }, () => invalidar("regras"))
       .on("postgres_changes", { event: "*", schema: "public", table: "alocacao_projeto" }, () => invalidar("regras"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "feriado" }, () => {
+        invalidar("agenda", "feriados", "backlog");
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "ausencia" }, () => {
         invalidar("agenda", "ausencias", "backlog");
       })

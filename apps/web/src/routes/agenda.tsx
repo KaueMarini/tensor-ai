@@ -5,7 +5,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { CalendarClock, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, CalendarOff, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import {
   agruparAusencias,
   type Celula,
@@ -30,7 +30,9 @@ import {
   useMembros,
   useProjetosLista,
   useRegistrarAusencia,
+  useCadastrarFeriado,
   useRemoverAusencia,
+  useRemoverFeriado,
 } from "@/lib/queries";
 import { cn, normalizarNome } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -120,7 +122,16 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
     });
   }
   for (const f of d.feriados) {
-    out.push({ id: `f-${f.id}`, tipo: "feriado", inicio: f.data, fim: f.data, texto: f.nome, detalhe: `Feriado: ${f.nome}` });
+    const regional = f.abrangencia !== "nacional";
+    out.push({
+      id: `f-${f.id}`,
+      tipo: "feriado",
+      inicio: f.data,
+      fim: f.data,
+      texto: f.nome,
+      detalhe: `${f.abrangencia === "recesso" ? "Recesso" : regional ? "Feriado regional" : "Feriado"}: ${f.nome}`,
+      feriadoId: regional ? f.id : undefined,
+    });
   }
   const ausencias = agruparAusencias(
     d.ausencias.map((a) => ({
@@ -196,6 +207,7 @@ export function AgendaPage() {
   const { mes, projeto = "" } = useSearch({ from: "/app/agenda" });
   const navigate = useNavigate({ from: "/agenda" });
   const [registrando, setRegistrando] = useState(false);
+  const [cadastrandoFeriado, setCadastrandoFeriado] = useState(false);
 
   const hoje = hojeLocal();
   const atual = lerMes(mes) ?? { ano: Number(hoje.slice(0, 4)), mes0: Number(hoje.slice(5, 7)) - 1 };
@@ -242,6 +254,9 @@ export function AgendaPage() {
               </option>
             ))}
           </Select>
+          <Button variant="outline" onClick={() => setCadastrandoFeriado(true)} className="w-full sm:w-auto">
+            <CalendarOff className="size-4" /> Feriado ou recesso
+          </Button>
           <Button onClick={() => setRegistrando(true)} className="w-full sm:w-auto">
             <Plus className="size-4" /> Registrar ausência
           </Button>
@@ -305,6 +320,7 @@ export function AgendaPage() {
       </div>
 
       {registrando && <RegistrarAusencia projetoId={projeto} hoje={hoje} onClose={() => setRegistrando(false)} />}
+      {cadastrandoFeriado && <CadastrarFeriado hoje={hoje} onClose={() => setCadastrandoFeriado(false)} />}
     </div>
   );
 }
@@ -354,6 +370,7 @@ function Dia({ celula, hoje, eventos }: { celula: Celula; hoje: boolean; eventos
 
 function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; carregando: boolean }) {
   const remover = useRemoverAusencia();
+  const removerFeriado = useRemoverFeriado();
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [pagina, setPagina] = useState(0);
 
@@ -403,6 +420,31 @@ function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; car
                 <ConteudoEvento e={e} />
               </div>
             )}
+            {e.feriadoId &&
+              (confirmando === e.id ? (
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500"
+                  disabled={removerFeriado.isPending}
+                  onClick={() =>
+                    removerFeriado.mutate(e.feriadoId!, {
+                      onSuccess: () => toast.success("Feriado removido"),
+                      onError: (err) => toast.error(err.message),
+                      onSettled: () => setConfirmando(null),
+                    })
+                  }
+                >
+                  Remover
+                </Button>
+              ) : (
+                <button
+                  onClick={() => setConfirmando(e.id)}
+                  aria-label={`Remover feriado: ${e.detalhe ?? e.texto}`}
+                  className="cursor-pointer rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              ))}
             {e.ausenciaIds &&
               (confirmando === e.id ? (
                 <Button
@@ -564,6 +606,78 @@ function RegistrarAusencia({ projetoId, hoje, onClose }: { projetoId: string; ho
           <Button type="submit" disabled={!podeSalvar}>
             {registrar.isPending && <Loader2 className="size-4 animate-spin" />}
             Registrar
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function CadastrarFeriado({ hoje, onClose }: { hoje: string; onClose: () => void }) {
+  const cadastrar = useCadastrarFeriado();
+  const [nome, setNome] = useState("");
+  const [abrangencia, setAbrangencia] = useState<"regional" | "recesso">("regional");
+  const [inicio, setInicio] = useState(hoje);
+  const [fim, setFim] = useState(hoje);
+  const datasInvalidas = !!inicio && !!fim && fim < inicio;
+  const podeSalvar = !!nome.trim() && !!inicio && !!fim && !datasInvalidas && !cadastrar.isPending;
+
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    if (!podeSalvar) return;
+    try {
+      await cadastrar.mutateAsync({ nome, abrangencia, inicio, fim });
+      toast.success(`${abrangencia === "recesso" ? "Recesso" : "Feriado"} cadastrado (${rotuloData({ inicio, fim })})`);
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return (
+    <Dialog titulo="Feriado ou recesso" descricao="O dia deixa de contar na capacidade de todo mundo. Os feriados nacionais já estão cadastrados." onClose={onClose}>
+      <form onSubmit={salvar} className="space-y-4 px-5 py-5">
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Nome</span>
+          <Input required value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Aniversário de Santos, recesso de fim de ano" />
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo</span>
+          <Select value={abrangencia} onChange={(e) => setAbrangencia(e.target.value as "regional" | "recesso")}>
+            <option value="regional">Feriado regional (estado ou cidade)</option>
+            <option value="recesso">Recesso da empresa</option>
+          </Select>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Início</span>
+            <Input type="date" required value={inicio} onChange={(e) => setInicio(e.target.value)} className="dark:[color-scheme:dark]" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fim</span>
+            <Input
+              type="date"
+              required
+              min={inicio || undefined}
+              value={fim}
+              onChange={(e) => setFim(e.target.value)}
+              aria-invalid={datasInvalidas}
+              className={cn("dark:[color-scheme:dark]", datasInvalidas && "border-red-400 focus:border-red-500 focus:ring-red-500/15")}
+            />
+          </label>
+        </div>
+        {datasInvalidas && (
+          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-400">
+            A data de fim não pode ser antes do início.
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={!podeSalvar}>
+            {cadastrar.isPending && <Loader2 className="size-4 animate-spin" />}
+            Cadastrar
           </Button>
         </div>
       </form>

@@ -289,7 +289,7 @@ export function useAgenda(inicio: string, fim: string, projetoId: string) {
 
       const [s, f, a, e, o] = await Promise.all([
         sprints,
-        supabase.from("feriado").select("id, data, nome").gte("data", inicio).lte("data", fim),
+        supabase.from("feriado").select("id, data, nome, abrangencia").gte("data", inicio).lte("data", fim),
         ausencias,
         entregas,
         folgas,
@@ -320,6 +320,45 @@ export function useRegistrarAusencia() {
       if (error) throw new Error(error.message);
     },
     onSuccess: invalidar,
+  });
+}
+
+/** Feriado regional ou recesso: uma linha por dia do período (fim de semana o motor já ignora). */
+export function useCadastrarFeriado() {
+  const invalidar = useInvalidarAgenda();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { nome: string; abrangencia: "regional" | "recesso"; inicio: string; fim: string }) => {
+      if (v.fim < v.inicio) throw new Error("A data de fim não pode ser antes do início.");
+      const dias: string[] = [];
+      for (let t = Date.parse(`${v.inicio}T00:00:00Z`); t <= Date.parse(`${v.fim}T00:00:00Z`); t += 86_400_000) {
+        dias.push(new Date(t).toISOString().slice(0, 10));
+      }
+      if (dias.length > 62) throw new Error("Período longo demais: cadastre no máximo 2 meses por vez.");
+      const { error } = await supabase
+        .from("feriado")
+        .upsert(dias.map((data) => ({ data, nome: v.nome.trim(), abrangencia: v.abrangencia })), { onConflict: "data,abrangencia", ignoreDuplicates: true });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      invalidar();
+      void qc.invalidateQueries({ queryKey: keys.feriados });
+    },
+  });
+}
+
+export function useRemoverFeriado() {
+  const invalidar = useInvalidarAgenda();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from("feriado").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      invalidar();
+      void qc.invalidateQueries({ queryKey: keys.feriados });
+    },
   });
 }
 
