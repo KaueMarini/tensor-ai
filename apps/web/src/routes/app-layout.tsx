@@ -8,7 +8,7 @@ import { RealtimeProvider, useRealtime } from "@/lib/realtime";
 import { useRecentes } from "@/lib/recentes";
 import { useTheme } from "@/lib/theme";
 import { cn, formatHora, tempoRelativo } from "@/lib/utils";
-import { Logo } from "@/components/logo";
+import { Logo, Marca } from "@/components/logo";
 import { SomenteGestor } from "@/lib/papel";
 import { MarcaProjeto } from "@/components/avatar";
 import { SinoNotificacoes } from "@/components/notificacoes";
@@ -45,7 +45,7 @@ export function AppLayout() {
             </button>
             <span className="flex items-center gap-2.5 lg:hidden">
               <Logo />
-              <span className="text-sm font-semibold tracking-tight dark:text-slate-100">Tensor AI</span>
+              <span className="text-sm font-semibold tracking-tight dark:text-slate-100"><Marca /></span>
             </span>
             <div className="ml-auto flex items-center gap-1">
               <Glossario />
@@ -84,7 +84,7 @@ function Sidebar({ aberto }: { aberto: boolean }) {
       <div className="flex h-14 items-center gap-2.5 border-b border-slate-100 px-4 dark:border-slate-800">
         <Logo />
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight dark:text-slate-100">Tensor AI</div>
+          <div className="text-sm font-semibold tracking-tight dark:text-slate-100"><Marca /></div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">Assistente de IA</div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { KeyRound, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Logo } from "@/components/logo";
+import { Logo, Marca } from "@/components/logo";
 
 const DEMO = { email: "demo@radar-capacidade.dev", senha: "RadarDemo2026!" };
 
@@ -36,7 +36,7 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center text-center lg:hidden">
             <Logo className="size-11" />
-            <h1 className="mt-4 text-xl font-semibold tracking-tight dark:text-slate-100">Tensor AI</h1>
+            <h1 className="mt-4 text-xl font-semibold tracking-tight dark:text-slate-100"><Marca /></h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Seu assistente de IA que monitora o Azure DevOps 24 horas.
             </p>
@@ -114,7 +114,7 @@ function PainelMarca() {
       />
       <div className="relative flex items-center gap-2.5">
         <Logo className="size-8" />
-        <span className="text-sm font-semibold tracking-tight">Tensor AI</span>
+        <span className="text-sm font-semibold tracking-tight"><Marca /></span>
       </div>
 
       <div className="relative max-w-sm">
