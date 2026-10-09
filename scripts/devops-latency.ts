@@ -49,5 +49,13 @@ for (let i = 0; i < 3; i++) {
   tempos.push(await alterarEMedir((original ?? 1) + 1 + i));
   await new Promise((r) => setTimeout(r, 3000));
 }
-await alterarEMedir(original ?? 0);
+if (original === undefined) {
+  // campo estava vazio: remove em vez de gravar 0 (0h mudaria a carga da task)
+  await azdo.request("PATCH", `_apis/wit/workitems/${id}`, {
+    body: [{ op: "remove", path: `/fields/${FIELD}` }],
+    contentType: "application/json-patch+json",
+  });
+} else {
+  await alterarEMedir(original);
+}
 console.log(`média ${(tempos.reduce((a, b) => a + b, 0) / tempos.length).toFixed(2)}s (valor original restaurado)`);
