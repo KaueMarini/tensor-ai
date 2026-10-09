@@ -4,6 +4,7 @@
 // para modelos irmãos. Nunca lança: erro vira null + ultimoErroLLM() para diagnóstico.
 
 import { errorMessage, log } from "../_shared/log.ts";
+import { mapearStrings, mascararPII, type PessoaPII, restaurarPII } from "../_shared/privacidade.ts";
 import { env } from "./context.ts";
 
 export interface PedidoLLM {
@@ -18,6 +19,14 @@ export interface PedidoLLM {
 
 let erro: string | null = null;
 export const ultimoErroLLM = () => erro;
+
+// LGPD — middleware de anonimização: nada que identifique uma pessoa chega ao LLM. Quem usa
+// o LLM registra as pessoas conhecidas; o texto sai com [USER_nn]/[EMAIL_HIDDEN] e a resposta
+// tem os tokens restaurados aqui dentro.
+let pessoasPII: PessoaPII[] = [];
+export function definirPessoasPII(pessoas: PessoaPII[]) {
+  pessoasPII = pessoas;
+}
 
 export function provedorLLM(): "gemini" | "claude" | null {
   if (env("GEMINI_API_KEY", false)) return "gemini";
@@ -93,8 +102,17 @@ async function gemini<T>(p: PedidoLLM, signal: AbortSignal): Promise<T | null> {
   return null;
 }
 
-/** Resposta JSON do LLM configurado, ou null (sem chave, erro ou indisponível). */
+/** Resposta JSON do LLM configurado, ou null. Envolve a chamada com a anonimização de PII. */
 export async function pedirJSON<T>(p: PedidoLLM): Promise<T | null> {
+  const sistema = mascararPII(p.sistema, pessoasPII);
+  const mensagem = mascararPII(p.mensagem, pessoasPII);
+  const tokens = new Map([...sistema.tokens, ...mensagem.tokens]);
+  if (tokens.size) log("info", "LGPD: PII mascarada antes do LLM", { tokens: tokens.size });
+  const r = await pedirJSONBruto<T>({ ...p, sistema: sistema.texto, mensagem: mensagem.texto });
+  return r === null ? null : mapearStrings(r, (s) => restaurarPII(s, tokens));
+}
+
+async function pedirJSONBruto<T>(p: PedidoLLM): Promise<T | null> {
   const provedor = provedorLLM();
   if (!provedor) return null;
   erro = null;
