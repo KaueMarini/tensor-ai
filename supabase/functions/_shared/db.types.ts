@@ -174,6 +174,45 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria: {
+        Row: {
+          acao: string
+          ator: string
+          detalhe: Json | null
+          hash: string
+          hash_anterior: string | null
+          id: number
+          ip_mascarado: string | null
+          ocorrido_em: string
+          papel: string | null
+          recurso: string | null
+        }
+        Insert: {
+          acao: string
+          ator: string
+          detalhe?: Json | null
+          hash: string
+          hash_anterior?: string | null
+          id?: never
+          ip_mascarado?: string | null
+          ocorrido_em?: string
+          papel?: string | null
+          recurso?: string | null
+        }
+        Update: {
+          acao?: string
+          ator?: string
+          detalhe?: Json | null
+          hash?: string
+          hash_anterior?: string | null
+          id?: never
+          ip_mascarado?: string | null
+          ocorrido_em?: string
+          papel?: string | null
+          recurso?: string | null
+        }
+        Relationships: []
+      }
       ausencia: {
         Row: {
           fim: string
@@ -578,6 +617,7 @@ export type Database = {
         Row: {
           atualizado_em: string
           devops_user_id: string | null
+          esquecida_em: string | null
           horas_semana_base: number
           id: string
           nome: string
@@ -587,6 +627,7 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           devops_user_id?: string | null
+          esquecida_em?: string | null
           horas_semana_base?: number
           id?: string
           nome: string
@@ -596,6 +637,7 @@ export type Database = {
         Update: {
           atualizado_em?: string
           devops_user_id?: string | null
+          esquecida_em?: string | null
           horas_semana_base?: number
           id?: string
           nome?: string
@@ -1204,6 +1246,24 @@ export type Database = {
           },
         ]
       }
+      usuario_papel: {
+        Row: {
+          atualizado_em: string
+          papel: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          papel?: string
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          papel?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       work_item: {
         Row: {
           area_path: string | null
@@ -1556,13 +1616,34 @@ export type Database = {
         Returns: boolean
       }
       arquivar_projeto: { Args: { p_projeto_id: string }; Returns: undefined }
+      ator_anonimo: { Args: { p_uid: string }; Returns: string }
       chamar_analytics: {
         Args: { caminho: string; corpo: Json }
         Returns: number
       }
+      eh_admin: { Args: never; Returns: boolean }
+      eh_gestor: { Args: never; Returns: boolean }
+      esquecer_pessoa: { Args: { p_pessoa_id: string }; Returns: Json }
+      esquecer_usuario: { Args: { p_user_id: string }; Returns: Json }
+      expurgo_lgpd: { Args: never; Returns: Json }
       feature_ancestral: { Args: { p_devops_id: number }; Returns: number }
+      ip_da_requisicao: { Args: never; Returns: string }
+      mascarar_email: { Args: { p_email: string }; Returns: string }
+      mascarar_ip: { Args: { p_ip: string }; Returns: string }
+      papel_atual: { Args: never; Returns: string }
       recalcular_skills: { Args: { p_pessoas: string[] }; Returns: number }
       recompute_hierarquia: { Args: { p_ids: number[] }; Returns: number }
+      registrar_auditoria: {
+        Args: {
+          p_acao: string
+          p_ator?: string
+          p_detalhe?: Json
+          p_ip?: string
+          p_papel?: string
+          p_recurso?: string
+        }
+        Returns: undefined
+      }
       release_sync_lease: { Args: { p_projeto_id: string }; Returns: undefined }
       renomear_paths_projeto: {
         Args: { p_antigo: string; p_novo: string; p_projeto_id: string }
@@ -1597,6 +1678,14 @@ export type Database = {
         Returns: {
           aplicado: boolean
           devops_id: number
+        }[]
+      }
+      verificar_auditoria: {
+        Args: never
+        Returns: {
+          ok: boolean
+          primeiro_invalido: number
+          registros: number
         }[]
       }
     }
