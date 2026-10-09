@@ -12,6 +12,7 @@ const MembrosPage = lazyRouteComponent(() => import("@/routes/membros"), "Membro
 const AgendaPage = lazyRouteComponent(() => import("@/routes/agenda"), "AgendaPage");
 const SugestoesAlocacaoPage = lazyRouteComponent(() => import("@/routes/analises"), "AnalisesPage");
 const RegrasPage = lazyRouteComponent(() => import("@/routes/capacidade"), "CapacidadePage");
+const SincronizacaoPage = lazyRouteComponent(() => import("@/routes/sincronizacao"), "SincronizacaoPage");
 const ResumoPage = lazyRouteComponent(() => import("@/routes/projeto/resumo"), "ResumoPage");
 const CronogramaPage = lazyRouteComponent(() => import("@/routes/projeto/cronograma"), "CronogramaPage");
 const EquipeProjetoPage = lazyRouteComponent(() => import("@/routes/projeto/equipe"), "EquipeProjetoPage");
@@ -99,6 +100,7 @@ const agendaRoute = createRoute({
 });
 
 const regrasRoute = createRoute({ getParentRoute: () => appRoute, path: "/capacidade", component: RegrasPage });
+const sincronizacaoRoute = createRoute({ getParentRoute: () => appRoute, path: "/sincronizacao", component: SincronizacaoPage });
 
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -142,6 +144,7 @@ const routeTree = rootRoute.addChildren([
     agendaRoute,
     sugestoesRoute,
     regrasRoute,
+    sincronizacaoRoute,
     projetoRoute.addChildren([
       projetoIndexRoute,
       resumoRoute,

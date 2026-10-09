@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, FolderKanban, House, Lightbulb, LogOut, Menu, Moon, SlidersHorizontal, Sun, Users } from "lucide-react";
+import { CalendarDays, FolderKanban, House, Lightbulb, LogOut, Menu, Moon, RefreshCw, SlidersHorizontal, Sun, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useProjetosPorIds, useSemDonoResumo, useSyncState } from "@/lib/queries";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
@@ -141,6 +141,9 @@ function Sidebar({ aberto }: { aberto: boolean }) {
           <div className={GRUPO}>Ajustes</div>
           <Link to="/capacidade" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <SlidersHorizontal className="size-4 shrink-0 opacity-70" /> Regras de capacidade
+          </Link>
+          <Link to="/sincronizacao" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <RefreshCw className="size-4 shrink-0 opacity-70" /> Sincronização
           </Link>
         </div>
       </nav>
