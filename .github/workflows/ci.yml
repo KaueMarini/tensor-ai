@@ -1,0 +1,57 @@
+name: ci
+
+# Front (apps/web), código compartilhado (_shared) e Edge Functions. O serviço Python tem o
+# próprio workflow (analytics.yml).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualidade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck (raiz + front)
+        run: pnpm typecheck
+      - name: Lint (front)
+        run: pnpm lint
+      - name: Testes (Vitest — motores, agente, mappers, front)
+        run: pnpm test
+      - name: Build do front
+        run: pnpm build
+
+  edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: deno check (agente, devops-acoes, devops-sync, devops-webhook)
+        working-directory: supabase/functions
+        run: deno check agente/index.ts devops-acoes/index.ts devops-sync/index.ts devops-webhook/index.ts
+
+  segredos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (nenhum PAT, chave ou senha no histórico)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -19,7 +19,9 @@
     "devops:projetos": "tsx --env-file=.env.local scripts/devops-projetos.ts",
     "demo:user": "tsx --env-file=.env.local scripts/demo-user.ts",
     "devops:latency": "tsx --env-file=.env.local --env-file=supabase/.env.functions scripts/devops-latency.ts",
-    "devops:projeto-novo": "tsx --env-file=.env.local scripts/devops-projeto-novo.ts"
+    "devops:projeto-novo": "tsx --env-file=.env.local scripts/devops-projeto-novo.ts",
+    "lint": "pnpm --filter web lint",
+    "functions:check": "cd supabase/functions && deno check agente/index.ts devops-acoes/index.ts devops-sync/index.ts devops-webhook/index.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
