@@ -88,6 +88,11 @@ export const WORK_ITEM_FIELDS = [
   "Microsoft.VSTS.Scheduling.TargetDate",
   "Microsoft.VSTS.Common.Activity",
   "Microsoft.VSTS.Common.Priority",
+  // datas para o diagnóstico de tempo (lead time e tempo parado no estado atual)
+  "System.CreatedDate",
+  "Microsoft.VSTS.Common.StateChangeDate",
+  "Microsoft.VSTS.Common.ActivatedDate",
+  "Microsoft.VSTS.Common.ClosedDate",
 ];
 
 export function createAzdoClient(config: AzdoClientConfig) {
