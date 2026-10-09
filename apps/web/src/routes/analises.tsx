@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Stat } from "@/components/ui/card";
+import { Popover } from "@/components/ui/popover";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
@@ -48,7 +49,6 @@ export function AnalisesPage() {
   const projetos = resumo.data ?? [];
   const visiveis = projeto ? projetos.filter((p) => p.projeto_id === projeto) : projetos;
   const totalTasks = projetos.reduce((n, p) => n + (p.tasks ?? 0), 0);
-  const totalHoras = projetos.reduce((n, p) => n + Number(p.horas), 0);
 
   return (
     <div className="mx-auto max-w-[1300px] px-6 py-6">
@@ -56,15 +56,26 @@ export function AnalisesPage() {
         <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Sugestões</div>
         <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Sugestões de alocação</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          Tasks abertas sem responsável e quem melhor pode assumir cada uma, pelo encaixe de skills e tags e pelo tempo
-          livre na sprint. Você aprova; a mudança vai direto para o Azure DevOps.
+          Tarefas que ainda não têm ninguém responsável e quem é a melhor pessoa para assumir cada uma — quem sabe fazer
+          aquilo e tem tempo livre. Nada muda sem o seu clique.
         </p>
+        <ol className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+          {["Veja a tarefa sem responsável", "Confira a pessoa sugerida e o motivo", "Clique em “Atribuir” — o Azure DevOps é atualizado"].map(
+            (passo, i) => (
+              <li key={passo} className="flex items-center gap-1.5">
+                <span className="grid size-5 place-items-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                  {i + 1}
+                </span>
+                {passo}
+              </li>
+            ),
+          )}
+        </ol>
       </header>
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat icone={UserRoundX} rotulo="Tasks sem responsável" valor={totalTasks} alerta={totalTasks > 0} />
-        <Stat icone={Clock} rotulo="Horas sem dono" valor={formatHoras(totalHoras)} />
-        <Stat icone={Lightbulb} rotulo="Projetos com pendências" valor={projetos.length} />
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Stat icone={UserRoundX} rotulo="Tarefas sem responsável" valor={totalTasks} alerta={totalTasks > 0} ajuda="semResponsavel" />
+        <Stat icone={Lightbulb} rotulo="Projetos com tarefas sem responsável" valor={projetos.length} />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -500,11 +511,22 @@ function IdLink({ id }: { id: number }) {
 
 function ComoFunciona() {
   return (
-    <details className="group relative ml-auto">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-        <Info className="size-3.5" /> Como a sugestão é calculada
-      </summary>
-      <div className="absolute right-0 z-20 mt-1 w-[22rem] rounded-xl border border-slate-200 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+    <Popover
+      className="ml-auto"
+      rotulo="Como a sugestão é calculada"
+      painelClassName="w-[min(22rem,calc(100vw-2rem))]"
+      gatilho={(aberto) => (
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+            aberto && "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+          )}
+        >
+          <Info className="size-3.5" /> Como a sugestão é calculada
+        </span>
+      )}
+    >
+      <div className="p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         <p>
           <strong className="text-slate-800 dark:text-slate-100">Encaixe (65%)</strong>: tags da task e da Feature × skills da
           pessoa. Skill confirmada conta inteira; sugerida pelas tasks conta 50–80% (conforme a evidência); tag de
@@ -525,6 +547,6 @@ function ComoFunciona() {
           desempenho.
         </p>
       </div>
-    </details>
+    </Popover>
   );
 }

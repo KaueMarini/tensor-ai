@@ -38,6 +38,21 @@ export function semana(offset: number): Periodo {
 
 export const semanas = (n: number) => Array.from({ length: n }, (_, i) => semana(i));
 
+/**
+ * n meses a partir do atual. O mês atual começa na segunda desta semana (dias que já
+ * passaram não contam); os seguintes vão do dia 1 ao último dia.
+ */
+export function meses(n: number): Periodo[] {
+  const seg = segundaDestaSemana();
+  return Array.from({ length: n }, (_, i) => {
+    const primeiro = new Date(Date.UTC(seg.getUTCFullYear(), seg.getUTCMonth() + i, 1));
+    const ultimo = new Date(Date.UTC(primeiro.getUTCFullYear(), primeiro.getUTCMonth() + 1, 0));
+    const inicio = i === 0 ? seg : primeiro;
+    const ano = String(primeiro.getUTCFullYear()).slice(2);
+    return { id: `mes-${iso(primeiro)}`, inicio: iso(inicio), fim: iso(ultimo), rotulo: `${MESES[primeiro.getUTCMonth()]}/${ano}` };
+  });
+}
+
 /** Desta segunda até a sexta de daqui a n−1 semanas. */
 export function proximasSemanas(n: number): Periodo {
   const a = semana(0);

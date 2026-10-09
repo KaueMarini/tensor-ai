@@ -10,6 +10,8 @@ import { useTheme } from "@/lib/theme";
 import { cn, formatHora, tempoRelativo } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { MarcaProjeto } from "@/components/avatar";
+import { SinoNotificacoes } from "@/components/notificacoes";
+import { Glossario } from "@/components/ajuda";
 
 export function AppLayout() {
   const [menuAberto, setMenuAberto] = useState(false);
@@ -32,17 +34,24 @@ export function AppLayout() {
           <div className="anim-fade fixed inset-0 z-40 bg-slate-950/40 lg:hidden" onClick={() => setMenuAberto(false)} aria-hidden />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white px-4 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+          {/* barra superior em todas as telas: menu (celular) à esquerda, notificações à direita */}
+          <header className="flex h-14 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <button
               onClick={() => setMenuAberto(true)}
               aria-label="Abrir menu"
               aria-expanded={menuAberto}
-              className="-ml-1.5 cursor-pointer rounded-md p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="-ml-1.5 cursor-pointer rounded-md p-1.5 text-slate-600 hover:bg-slate-100 lg:hidden dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <Menu className="size-5" />
             </button>
-            <Logo />
-            <span className="text-sm font-semibold tracking-tight dark:text-slate-100">Radar de Capacidade</span>
+            <span className="flex items-center gap-2.5 lg:hidden">
+              <Logo />
+              <span className="text-sm font-semibold tracking-tight dark:text-slate-100">Radar de Capacidade</span>
+            </span>
+            <div className="ml-auto flex items-center gap-1">
+              <Glossario />
+              <SinoNotificacoes />
+            </div>
           </header>
           <main className="min-w-0 flex-1 overflow-y-auto">
             <Outlet />
@@ -83,22 +92,22 @@ function Sidebar({ aberto }: { aberto: boolean }) {
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-2 py-4">
         <div className="space-y-0.5">
-          <Link to="/inicio" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+          <Link to="/inicio" title="Resumo do dia: quem está sobrecarregado e o que fazer" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <House className="size-4 shrink-0 opacity-70" /> Início
           </Link>
-          <Link to="/analises" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+          <Link to="/projetos" title="Todos os projetos do Azure DevOps" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <FolderKanban className="size-4 shrink-0 opacity-70" /> Projetos
+          </Link>
+          <Link to="/membros" title="Pessoas, quanto cada uma está ocupada e o que sabe fazer" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
+            <Users className="size-4 shrink-0 opacity-70" /> Equipe
+          </Link>
+          <Link to="/analises" title="Quem pode assumir as tarefas que estão sem responsável" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <Lightbulb className="size-4 shrink-0 opacity-70" /> Sugestões
             {semDono > 0 && (
-              <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold tabular-nums text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" title="Tasks abertas sem responsável">
+              <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold tabular-nums text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" title="Tarefas abertas sem responsável">
                 {semDono}
               </span>
             )}
-          </Link>
-          <Link to="/membros" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <Users className="size-4 shrink-0 opacity-70" /> Equipe
-          </Link>
-          <Link to="/projetos" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
-            <FolderKanban className="size-4 shrink-0 opacity-70" /> Projetos
           </Link>
         </div>
 

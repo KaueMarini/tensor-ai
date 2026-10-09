@@ -5,6 +5,7 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { supabase, type Tables } from "./supabase";
@@ -37,6 +38,8 @@ function descrever(p: RealtimePostgresChangesPayload<WorkItem>): string {
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
+  // ref: o botão "Ver" do aviso navega sem recriar o canal do Realtime
+  const roteador = useRef(useRouter());
   const [status, setStatus] = useState<RealtimeStatus>("conectando");
   const [destacados, setDestacados] = useState<ReadonlySet<number>>(new Set());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -117,6 +120,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "alocacao_projeto" }, () => invalidar("regras"))
       .on("postgres_changes", { event: "*", schema: "public", table: "ausencia" }, () => {
         invalidar("agenda", "ausencias", "backlog");
+      })
+      // notificação nova (ex.: gravada pela IA): atualiza o sino e avisa na hora
+      .on<Tables<"notificacao">>("postgres_changes", { event: "*", schema: "public", table: "notificacao" }, (p) => {
+        invalidar("notificacoes");
+        if (p.eventType !== "INSERT") return;
+        const n = p.new as Tables<"notificacao">;
+        toast(n.titulo, {
+          description: n.mensagem ?? undefined,
+          action: n.link ? { label: "Ver", onClick: () => roteador.current.history.push(n.link!) } : undefined,
+        });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");

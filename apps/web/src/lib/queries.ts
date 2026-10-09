@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import type { Categoria, EstadosPorTipo } from "@shared/kanban";
-import { supabase, type Views } from "./supabase";
+import { supabase, type Tables, type Views } from "./supabase";
 
 export const keys = {
   projetos: ["projetos"] as const,
@@ -179,6 +179,34 @@ export function useFeriados() {
   });
 }
 
+// =====================================================================
+// Notificações (sino): a IA grava em `notificacao`; o front lista e marca como lida
+// =====================================================================
+
+export type Notificacao = Tables<"notificacao">;
+
+export function useNotificacoes() {
+  return useQuery({
+    queryKey: ["notificacoes"],
+    queryFn: async () =>
+      unwrap(await supabase.from("notificacao").select("*").order("criada_em", { ascending: false }).limit(50)),
+  });
+}
+
+export function useMarcarLidas() {
+  const qc = useQueryClient();
+  return useMutation({
+    /** ids vazios = marcar todas as não lidas */
+    mutationFn: async (ids: string[]) => {
+      let q = supabase.from("notificacao").update({ lida_em: new Date().toISOString() }).is("lida_em", null);
+      if (ids.length) q = q.in("id", ids);
+      const { error } = await q;
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["notificacoes"] }),
+  });
+}
+
 /** Projetos ativos para seletores (limite de 500; acima disso vale trocar por busca). */
 export function useProjetosLista() {
   return useQuery({
@@ -251,13 +279,22 @@ export function useAgenda(inicio: string, fim: string, projetoId: string) {
         ausencias = ausencias.in("pessoa_id", pessoasDoProjeto ?? []);
       }
 
-      const [s, f, a, e] = await Promise.all([
+      // folgas do Azure DevOps (days off): da pessoa = férias/folga; sem pessoa = o time inteiro
+      let folgas = supabase
+        .from("dias_off")
+        .select("id, inicio, fim, pessoa_id, pessoa(nome), time!inner(nome, projeto_id, projeto(nome))")
+        .lte("inicio", fim)
+        .gte("fim", inicio);
+      if (projetoId) folgas = folgas.eq("time.projeto_id", projetoId);
+
+      const [s, f, a, e, o] = await Promise.all([
         sprints,
         supabase.from("feriado").select("id, data, nome").gte("data", inicio).lte("data", fim),
         ausencias,
         entregas,
+        folgas,
       ]);
-      return { sprints: unwrap(s), feriados: unwrap(f), ausencias: unwrap(a), entregas: unwrap(e) };
+      return { sprints: unwrap(s), feriados: unwrap(f), ausencias: unwrap(a), entregas: unwrap(e), folgas: unwrap(o) };
     },
   });
 }

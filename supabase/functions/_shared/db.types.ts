@@ -387,6 +387,84 @@ export type Database = {
         }
         Relationships: []
       }
+      notificacao: {
+        Row: {
+          criada_em: string
+          gravidade: string
+          id: string
+          lida_em: string | null
+          link: string | null
+          mensagem: string | null
+          origem: string
+          pessoa_id: string | null
+          projeto_id: string | null
+          titulo: string
+          usuario_id: string | null
+        }
+        Insert: {
+          criada_em?: string
+          gravidade?: string
+          id?: string
+          lida_em?: string | null
+          link?: string | null
+          mensagem?: string | null
+          origem?: string
+          pessoa_id?: string | null
+          projeto_id?: string | null
+          titulo: string
+          usuario_id?: string | null
+        }
+        Update: {
+          criada_em?: string
+          gravidade?: string
+          id?: string
+          lida_em?: string | null
+          link?: string | null
+          mensagem?: string | null
+          origem?: string
+          pessoa_id?: string | null
+          projeto_id?: string | null
+          titulo?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "pessoa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros"
+            referencedColumns: ["pessoa_id"]
+          },
+          {
+            foreignKeyName: "notificacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
+      }
       pessoa: {
         Row: {
           atualizado_em: string

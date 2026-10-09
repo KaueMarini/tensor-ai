@@ -112,7 +112,8 @@ const PRIORIDADE: Record<TipoEvento, number> = { feriado: 0, sprint: 1, entrega:
 
 /**
  * Eventos de cada dia das células. Sprint só aparece no dia de início e no de fim;
- * ausência só em dias úteis; feriado e entrega no próprio dia.
+ * ausência e qualquer evento de vários dias (ex.: folga do time) só nos dias úteis;
+ * eventos de um dia só (feriado, entrega) no próprio dia.
  */
 export function eventosPorDia(celulas: Celula[], eventos: EventoAgenda[]): Map<string, EventoDoDia[]> {
   const mapa = new Map<string, EventoDoDia[]>(celulas.map((c) => [c.data, []]));
@@ -127,7 +128,7 @@ export function eventosPorDia(celulas: Celula[], eventos: EventoAgenda[]): Map<s
     if (e.tipo === "sprint") {
       por(e.inicio, e, `Início · ${e.texto}`);
       if (e.fim !== e.inicio) por(e.fim, e, `Fim · ${e.texto}`);
-    } else if (e.tipo === "ausencia") {
+    } else if (e.tipo === "ausencia" || e.inicio !== e.fim) {
       for (let d = e.inicio < primeiro ? primeiro : e.inicio; d <= e.fim && d <= ultimo; d = somarDias(d, 1)) {
         if (ehDiaUtil(d)) por(d, e, e.texto);
       }

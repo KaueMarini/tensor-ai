@@ -155,10 +155,10 @@ function ResumoSprint({ projetoId }: { projetoId: string }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icone={Gauge} rotulo="Uso do time na sprint" valor={pct(resumo.utilizacao)} />
-        <Stat icone={UserRoundX} rotulo="Acima da capacidade" valor={resumo.acima} alerta={resumo.acima > 0} />
-        <Stat icone={BatteryMedium} rotulo="Horas livres no time" valor={formatHoras(resumo.livre)} />
-        <Stat icone={Layers} rotulo="Tasks sem responsável" valor={semDono} detalhe={`${cap.semEstimativa.length} sem estimativa`} alerta={semDono > 0} />
+        <Stat icone={Gauge} rotulo="Uso do time na sprint" valor={pct(resumo.utilizacao)} ajuda="ocupacao" />
+        <Stat icone={UserRoundX} rotulo="Acima da capacidade" valor={resumo.acima} alerta={resumo.acima > 0} ajuda="sobrecarregado" />
+        <Stat icone={BatteryMedium} rotulo="Horas livres no time" valor={formatHoras(resumo.livre)} ajuda="horasLivres" />
+        <Stat icone={Layers} ajuda="semResponsavel" rotulo="Tarefas sem responsável" valor={semDono} detalhe={`${cap.semEstimativa.length} sem estimativa`} alerta={semDono > 0} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[3fr_2fr]">

@@ -39,38 +39,41 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Ajuda } from "@/components/ajuda";
 
 const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MAX_POR_DIA = 3;
+const MAX_POR_DIA = 4;
 const POR_PAGINA = 9;
 const MAX_PROXIMOS = 90;
-/** Altura fixa da linha de "Próximos eventos": todas as páginas ficam do mesmo tamanho. */
-const ALTURA_LINHA = 61;
 const JANELA_PROXIMOS_DIAS = 120;
 
-const ESTILO: Record<TipoEvento, { pilula: string; ponto: string; rotulo: string; badge: "slate" | "amber" | "violet" | "green" }> = {
+const ESTILO: Record<TipoEvento, { pilula: string; ponto: string; rotulo: string; legenda: string; badge: "slate" | "amber" | "violet" | "green" }> = {
   sprint: {
     pilula: "bg-brand-700 text-white dark:bg-brand-600",
     ponto: "bg-brand-700 dark:bg-brand-400",
     rotulo: "Sprint",
+    legenda: "Sprint (início e fim)",
     badge: "slate",
   },
   feriado: {
     pilula: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
     ponto: "bg-amber-400",
     rotulo: "Feriado",
+    legenda: "Feriado ou folga do time",
     badge: "amber",
   },
   ausencia: {
     pilula: "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
     ponto: "bg-indigo-400",
     rotulo: "Ausência",
+    legenda: "Férias, folga ou ausência",
     badge: "violet",
   },
   entrega: {
     pilula: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
     ponto: "bg-emerald-500",
     rotulo: "Entrega",
+    legenda: "Entrega de feature",
     badge: "green",
   },
 };
@@ -109,9 +112,10 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
       inicio: s.inicio,
       fim: s.fim,
       // na lista (sem agrupar), o projeto vem em destaque e a sprint embaixo
-      texto: !agruparSprints && geral ? nomes[0]! : !geral ? s.nome : n === 1 ? `${s.nome} · ${nomes[0]}` : `${s.nome} · ${n} projetos`,
+      // no calendário, várias sprints iguais mostram só o nome (os projetos ficam no title)
+      texto: !agruparSprints && geral ? nomes[0]! : !geral || n > 1 ? s.nome : `${s.nome} · ${nomes[0]}`,
       subtexto: !agruparSprints && geral ? s.nome : undefined,
-      detalhe: `${s.nome} (${rotuloData(s)}) — ${nomes.join(", ")}`,
+      detalhe: `${s.nome} (${rotuloData(s)}) — ${n > 1 ? `${n} projetos: ` : ""}${nomes.join(", ")}`,
       projetoId: n === 1 ? s.projetos[0]!.id : undefined,
     });
   }
@@ -139,6 +143,38 @@ function montarEventos(d: DadosAgenda | undefined, geral: boolean, agruparSprint
       detalhe: `${normalizarNome(a.nome)} — ${tipo} (${rotuloData(a)})`,
       ausenciaIds: a.ids,
     });
+  }
+  // folgas registradas no Azure DevOps (days off do time/sprint)
+  const diasDeFeriado = new Set(d.feriados.map((f) => f.data));
+  for (const o of d.folgas) {
+    const projeto = o.time?.projeto?.nome ?? "";
+    const quando = rotuloData(o);
+    if (o.pessoa_id) {
+      const nome = o.pessoa?.nome ?? "Sem nome";
+      out.push({
+        id: `o-${o.id}`,
+        tipo: "ausencia",
+        inicio: o.inicio,
+        fim: o.fim,
+        texto: `${primeiroNome(nome)} · Folga`,
+        subtexto: "Férias ou folga (Azure DevOps)",
+        detalhe: `${normalizarNome(nome)} — férias ou folga registrada no Azure DevOps (${quando}) · ${projeto}`,
+        projetoId: o.time?.projeto_id,
+      });
+    } else {
+      // folga do time num feriado nacional é o mesmo dia de descanso: não repete
+      if (o.inicio === o.fim && diasDeFeriado.has(o.inicio)) continue;
+      out.push({
+        id: `o-${o.id}`,
+        tipo: "feriado",
+        inicio: o.inicio,
+        fim: o.fim,
+        texto: geral ? `Folga do time · ${projeto}` : "Folga do time",
+        subtexto: "Folga do time inteiro (Azure DevOps)",
+        detalhe: `Folga do time ${o.time?.nome ?? ""} (${projeto}) — registrada no Azure DevOps (${quando})`,
+        projetoId: o.time?.projeto_id,
+      });
+    }
   }
   for (const e of d.entregas) {
     const data = (e.target_date ?? e.finish_date)?.slice(0, 10);
@@ -187,7 +223,10 @@ export function AgendaPage() {
         <div>
           <div className="text-[11px] font-semibold tracking-wider text-brand-600 uppercase dark:text-brand-300">Calendário</div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Agenda</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sprints, feriados, ausências e entregas das features.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+            Sprints, feriados, ausências e entregas das features. Num só lugar: quando começa e termina cada sprint (ciclo
+            de trabalho), os feriados, quem está de férias ou de folga e quando cada feature deve ser entregue.
+          </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Select
@@ -215,10 +254,10 @@ export function AgendaPage() {
         </p>
       )}
 
-      <div className="grid gap-5 min-[1100px]:grid-cols-[1fr_320px]">
+      <div className="space-y-5">
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {nomeMes(atual.ano, atual.mes0)}
               {grade.isFetching && <Loader2 className="size-3.5 animate-spin text-slate-400" aria-label="Carregando" />}
             </h2>
@@ -238,7 +277,7 @@ export function AgendaPage() {
           <div role="grid" aria-label={`Calendário de ${nomeMes(atual.ano, atual.mes0)}`}>
             <div role="row" className="grid grid-cols-7 border-y border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
               {SEMANA.map((d) => (
-                <div key={d} role="columnheader" className="px-1.5 py-2 text-center text-[11px] font-semibold tracking-wider text-slate-500 uppercase sm:px-2 sm:text-left dark:text-slate-400">
+                <div key={d} role="columnheader" className="px-1.5 py-2.5 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase sm:px-2.5 sm:text-left dark:text-slate-400">
                   {d}
                 </div>
               ))}
@@ -250,13 +289,15 @@ export function AgendaPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-slate-200 px-4 py-3 sm:px-5 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-200 px-4 py-3.5 sm:px-5 dark:border-slate-800">
             {(["sprint", "feriado", "ausencia", "entrega"] as const).map((t) => (
               <span key={t} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <span className={cn("size-2.5 rounded-sm", ESTILO[t].ponto)} /> {ESTILO[t].rotulo}
+                <span className={cn("size-3 rounded-sm", ESTILO[t].ponto)} /> {ESTILO[t].legenda}
+                {t === "sprint" && <Ajuda termo="sprint" />}
+                {t === "entrega" && <Ajuda termo="feature" />}
               </span>
             ))}
-            <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500">Sprints aparecem no dia de início e no de fim</span>
+            <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">Passe o mouse num dia para ver tudo o que acontece nele</span>
           </div>
         </Card>
 
@@ -277,17 +318,17 @@ function Dia({ celula, hoje, eventos }: { celula: Celula; hoje: boolean; eventos
       aria-label={`${celula.dia}${eventos.length ? `, ${eventos.length} ${eventos.length === 1 ? "evento" : "eventos"}` : ""}`}
       title={eventos.map((e) => e.detalhe).join("\n") || undefined}
       className={cn(
-        "min-h-16 min-w-0 bg-white p-1 sm:min-h-24 sm:p-1.5 dark:bg-slate-900",
+        "min-h-16 min-w-0 bg-white p-1 sm:min-h-28 sm:p-2 lg:min-h-36 dark:bg-slate-900",
         !celula.doMes && "bg-slate-50 opacity-55 dark:bg-slate-950",
       )}
     >
       <div className="mb-1 flex justify-center sm:justify-start">
         {hoje ? (
-          <span className="grid size-[22px] place-items-center rounded-full bg-red-500 text-[11px] font-semibold text-white" aria-current="date">
+          <span className="grid size-[26px] place-items-center rounded-full bg-red-500 text-xs font-semibold text-white" aria-current="date">
             {celula.dia}
           </span>
         ) : (
-          <span className={cn("grid h-[22px] items-center px-1 text-xs tabular-nums", celula.doMes ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500")}>
+          <span className={cn("grid h-[26px] items-center px-1 text-sm tabular-nums", celula.doMes ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500")}>
             {celula.dia}
           </span>
         )}
@@ -299,13 +340,13 @@ function Dia({ celula, hoje, eventos }: { celula: Celula; hoje: boolean; eventos
           <span key={e.id} className={cn("size-1.5 rounded-full", ESTILO[e.tipo].ponto)} />
         ))}
       </div>
-      <div className="hidden space-y-0.5 sm:block">
+      <div className="hidden space-y-1 sm:block">
         {visiveis.map((e) => (
-          <div key={e.id} title={e.detalhe} className={cn("truncate rounded px-1.5 py-px text-[10.5px] leading-4 font-medium", ESTILO[e.tipo].pilula)}>
+          <div key={e.id} title={e.detalhe} className={cn("truncate rounded-md px-2 py-0.5 text-xs leading-[18px] font-medium", ESTILO[e.tipo].pilula)}>
             {e.texto}
           </div>
         ))}
-        {resto > 0 && <div className="px-1 text-[10.5px] text-slate-500 dark:text-slate-400">+{resto} mais</div>}
+        {resto > 0 && <div className="px-1 text-xs font-medium text-slate-500 dark:text-slate-400">+{resto} mais</div>}
       </div>
     </div>
   );
@@ -322,28 +363,31 @@ function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; car
   useEffect(() => setPagina(0), [chaveLista]);
   const atual = Math.min(pagina, paginas - 1);
   const daPagina = eventos.slice(atual * POR_PAGINA, (atual + 1) * POR_PAGINA);
-  const vazias = paginas > 1 ? POR_PAGINA - daPagina.length : 0;
 
   return (
-    <Card className="self-start">
+    <Card>
       <div className="flex items-center gap-2.5 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
         <span className="grid size-8 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
           <CalendarClock className="size-4" />
         </span>
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Próximos eventos</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Próximos eventos</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">O que vem pela frente, em ordem de data. Itens com seta abrem o projeto.</p>
+        </div>
       </div>
-      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+      {/* altura reservada para uma página cheia (9 itens): trocar de página não mexe no layout */}
+      <ul className={cn("grid content-start gap-x-4 px-3 py-2 sm:grid-cols-2 lg:grid-cols-3", paginas > 1 && "min-h-[592px] sm:min-h-[336px] lg:min-h-[208px]")}>
         {carregando &&
           Array.from({ length: 4 }, (_, i) => (
-            <li key={i} className="px-5 py-3">
+            <li key={i} className="px-2 py-3">
               <div className="h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
             </li>
           ))}
         {!carregando && eventos.length === 0 && (
-          <li className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Nada programado nos próximos meses.</li>
+          <li className="col-span-full px-2 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Nada programado nos próximos meses.</li>
         )}
         {daPagina.map((e) => (
-          <li key={e.id} className="flex items-center gap-3 px-5" style={{ height: ALTURA_LINHA }}>
+          <li key={e.id} className="flex h-16 items-center gap-2 border-b border-slate-100 px-2 dark:border-slate-800">
             {e.projetoId ? (
               <Link
                 to="/projetos/$projetoId"
@@ -386,8 +430,6 @@ function ProximosEventos({ eventos, carregando }: { eventos: EventoAgenda[]; car
               ))}
           </li>
         ))}
-        {/* última página mais curta: linhas vazias mantêm a altura do card */}
-        {vazias > 0 && <li aria-hidden style={{ height: vazias * ALTURA_LINHA }} />}
       </ul>
       {paginas > 1 && (
         <nav aria-label="Páginas de próximos eventos" className="flex items-center justify-end gap-1 border-t border-slate-100 px-3 py-1.5 dark:border-slate-800">

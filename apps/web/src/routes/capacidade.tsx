@@ -35,7 +35,8 @@ export function CapacidadePage() {
         <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Ajustes</div>
         <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">Regras de capacidade</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          Configure uma vez e todo o app passa a usar: Início, Equipe, projetos e sugestões. O que você não definir segue o{" "}
+          Aqui você diz ao sistema quantas horas cada pessoa trabalha e a partir de quando alguém está ocupado demais.
+          Configure uma vez e todas as telas passam a usar. O que você não mudar segue o{" "}
           <strong className="font-medium text-slate-700 dark:text-slate-200">padrão de mercado</strong>.
         </p>
       </header>
@@ -47,10 +48,8 @@ export function CapacidadePage() {
       ) : (
         <div className="space-y-5">
           <RegrasGeraisCard geral={regras.geral} />
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[3fr_2fr]">
-            <JornadaPorPessoa regras={regras} membros={membros} carregando={membrosQ.isLoading} />
-            <AlertasPorProjeto regras={regras} projetos={projetos} />
-          </div>
+          <JornadaPorPessoa regras={regras} membros={membros} carregando={membrosQ.isLoading} />
+          <AlertasPorProjeto regras={regras} projetos={projetos} />
           <ComoCalculamos />
         </div>
       )}
@@ -78,8 +77,8 @@ function JornadaPorPessoa({
     <Card className="min-w-0">
       <CardTitulo
         icone={UserCog}
-        titulo="Jornada por pessoa"
-        descricao="Para quem trabalha meio período, tem outras funções ou foco diferente. Vazio = regra geral."
+        titulo="2. Exceções por pessoa"
+        descricao="Só para quem foge da regra geral (meio período, outras funções). Deixe em branco para usar a regra geral."
       />
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
         <div className="relative w-full max-w-[220px]">
@@ -165,8 +164,12 @@ function AlertasPorProjeto({ regras, projetos }: { regras: Regras; projetos: { i
   const salvar = useSalvarRegraProjeto();
   return (
     <Card className="min-w-0">
-      <CardTitulo icone={FolderKanban} titulo="Alertas por projeto" descricao="Um projeto crítico pode alertar mais cedo. Vale só nas telas dele." />
-      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+      <CardTitulo
+        icone={FolderKanban}
+        titulo="3. Alertas por projeto"
+        descricao="Opcional: um projeto mais crítico pode avisar mais cedo. Vale só nas telas daquele projeto."
+      />
+      <ul className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
         {projetos.map((p) => {
           const propria = regras.projetos.get(p.id);
           const gravar = (campo: "atencao" | "sobrecarga", v: number | null) => {
@@ -182,28 +185,32 @@ function AlertasPorProjeto({ regras, projetos }: { regras: Regras; projetos: { i
             salvar.mutate(novo);
           };
           return (
-            <li key={p.id} className="px-5 py-3">
+            <li key={p.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
               <Link
                 to="/projetos/$projetoId/equipe"
                 params={{ projetoId: p.id }}
-                className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300"
+                className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-800 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300"
               >
                 <MarcaProjeto nome={p.nome} className="size-6 rounded text-[11px]" /> {p.nome}
               </Link>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5">
-                  <STATUS_CARGA.limite.icone className="size-3.5" style={{ color: STATUS_CARGA.limite.cor }} /> no limite acima de
+              <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                  <STATUS_CARGA.limite.icone className="size-3.5" style={{ color: STATUS_CARGA.limite.cor }} /> Atenção a partir de
+                  </span>
                   <CampoRegra rotulo={`Atenção em ${p.nome}`} unidade="%" min={10} max={300} valor={propria?.atencao ?? null} herdado={regras.geral.atencao} onSalvar={(v) => gravar("atencao", v)} className="w-24" />
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <STATUS_CARGA.sobrecarga.icone className="size-3.5" style={{ color: STATUS_CARGA.sobrecarga.cor }} /> sobrecarga acima de
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <STATUS_CARGA.sobrecarga.icone className="size-3.5" style={{ color: STATUS_CARGA.sobrecarga.cor }} /> Sobrecarga a partir de
+                  </span>
                   <CampoRegra rotulo={`Sobrecarga em ${p.nome}`} unidade="%" min={10} max={300} valor={propria?.sobrecarga ?? null} herdado={regras.geral.sobrecarga} onSalvar={(v) => gravar("sobrecarga", v)} className="w-24" />
                 </span>
               </div>
             </li>
           );
         })}
-        {projetos.length === 0 && <li className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Nenhum projeto com equipe.</li>}
+        {projetos.length === 0 && <li className="col-span-full py-8 text-center text-sm text-slate-500 dark:text-slate-400">Nenhum projeto com equipe.</li>}
       </ul>
     </Card>
   );
@@ -225,11 +232,12 @@ function RegrasGeraisCard({ geral }: { geral: RegrasGerais }) {
     <Card>
       <CardTitulo
         icone={Scale}
-        titulo="Regras gerais"
+        titulo="1. Regra geral (vale para todos)"
         descricao={
           <>
-            Valem para quem não tiver regra própria. Hoje: <strong className="tabular-nums text-slate-700 dark:text-slate-200">{formatHoras(Math.round(geral.jornadaDia * geral.foco * 100) / 100)} produtivas por dia</strong>{" "}
-            por pessoa. A Capacity do DevOps e as horas por projeto nunca passam disso no total.
+            Com estes valores, cada pessoa tem{" "}
+            <strong className="tabular-nums text-slate-700 dark:text-slate-200">{formatHoras(Math.round(geral.jornadaDia * geral.foco * 100) / 100)} por dia para tarefas</strong>.
+            Ninguém recebe mais do que isso no total, somando todos os projetos.
           </>
         }
         acao={
@@ -244,17 +252,17 @@ function RegrasGeraisCard({ geral }: { geral: RegrasGerais }) {
           )
         }
       />
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 px-5 py-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Linha rotulo="Jornada por dia" ajuda="Horas de trabalho contratadas. CLT: 8h.">
+      <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2">
+        <Linha rotulo="Jornada por dia" ajuda="Quantas horas a pessoa trabalha por dia. Contrato CLT comum: 8h.">
           <CampoRegra obrigatorio rotulo="Jornada geral" unidade="h" min={1} max={24} valor={geral.jornadaDia} onSalvar={(v) => v !== null && gravar({ jornadaDia: v })} className="w-24" />
         </Linha>
-        <Linha rotulo="Foco" ajuda="Parte da jornada que vira trabalho de task. Reuniões, e-mail e interrupções ficam fora. Mercado: 70–80%.">
+        <Linha rotulo="Foco" ajuda="Quanto da jornada sobra para as tarefas, tirando reuniões, e-mails e interrupções. O comum é 70% a 80%.">
           <CampoRegra obrigatorio rotulo="Foco geral" unidade="%" min={10} max={100} valor={geral.foco} onSalvar={(v) => v !== null && gravar({ foco: v })} className="w-24" />
         </Linha>
-        <Linha rotulo={STATUS_CARGA.limite.rotulo} icone={STATUS_CARGA.limite} ajuda="Acende o alerta amarelo acima deste uso. Mercado: 80%.">
+        <Linha rotulo={STATUS_CARGA.limite.rotulo} icone={STATUS_CARGA.limite} ajuda="Quando a pessoa passa deste nível de ocupação, o sistema mostra um aviso amarelo. O comum é 80%.">
           <CampoRegra obrigatorio rotulo="Limite de atenção" unidade="%" min={10} max={300} valor={geral.atencao} onSalvar={(v) => v !== null && gravar({ atencao: v })} className="w-24" />
         </Linha>
-        <Linha rotulo={STATUS_CARGA.sobrecarga.rotulo} icone={STATUS_CARGA.sobrecarga} ajuda="Sobrecarga acima deste uso. Mercado: 100%.">
+        <Linha rotulo={STATUS_CARGA.sobrecarga.rotulo} icone={STATUS_CARGA.sobrecarga} ajuda="A partir daqui a pessoa tem mais trabalho do que horas (aviso vermelho). O comum é 100%.">
           <CampoRegra obrigatorio rotulo="Limite de sobrecarga" unidade="%" min={10} max={300} valor={geral.sobrecarga} onSalvar={(v) => v !== null && gravar({ sobrecarga: v })} className="w-24" />
         </Linha>
       </div>
@@ -274,15 +282,15 @@ function Linha({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">
           {icone && <icone.icone className="size-3.5" style={{ color: icone.cor }} />}
           {rotulo}
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{ajuda}</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{ajuda}</p>
       </div>
-      {children}
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -295,8 +303,8 @@ function ComoCalculamos() {
       </div>
       <ul className="grid list-disc gap-x-8 gap-y-1.5 pl-4 lg:grid-cols-2">
         <li>
-          <strong>Capacidade da pessoa</strong>: jornada × foco por dia útil, sem feriados e days off. Pode ser definida para
-          alguém específico em Jornada por pessoa.
+          <strong>Capacidade da pessoa</strong>: jornada × foco em cada dia útil, sem contar feriados, folgas e ausências. Pode ser ajustada para
+          alguém específico em “Exceções por pessoa”.
         </li>
         <li>
           <strong>Em cada projeto</strong> vale, nesta ordem: as horas que você dedicou na aba <em>Equipe</em> do projeto,

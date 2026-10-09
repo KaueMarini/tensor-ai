@@ -137,8 +137,8 @@ export function EquipeProjetoPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat icone={Users} rotulo="Pessoas" valor={cap.pessoas.length} detalhe={`${grupos.length} ${grupos.length === 1 ? "squad" : "squads"}`} />
-        <Stat icone={Clock} rotulo="Capacidade na sprint" valor={formatHoras(resumo.capacidadeH)} detalhe={`${formatHoras(resumo.livreH)} livres`} />
-        <Stat icone={Gauge} rotulo="Uso do time" valor={pct(resumo.utilizacao)} detalhe={`${resumo.porStatus.sobrecarga + resumo.porStatus["sem-capacidade"]} acima`} alerta={resumo.status !== "ok"} />
+        <Stat icone={Clock} ajuda="capacidade" rotulo="Capacidade na sprint" valor={formatHoras(resumo.capacidadeH)} detalhe={`${formatHoras(resumo.livreH)} livres`} />
+        <Stat icone={Gauge} ajuda="ocupacao" rotulo="Uso do time" valor={pct(resumo.utilizacao)} detalhe={`${resumo.porStatus.sobrecarga + resumo.porStatus["sem-capacidade"]} acima`} alerta={resumo.status !== "ok"} />
         <Stat icone={TriangleAlert} rotulo="Mais ocupados fora daqui" valor={escondidos.length} alerta={escondidos.length > 0} />
       </div>
 

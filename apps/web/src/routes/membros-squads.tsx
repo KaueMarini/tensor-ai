@@ -2,10 +2,9 @@
 // (time do Azure DevOps) com a carga da sprint atual — números do motor de capacidade,
 // os mesmos das abas Resumo e Equipe do projeto.
 //
-// Pensado para muitos projetos: cada projeto só busca os dados de capacidade quando o
-// bloco entra na tela (IntersectionObserver).
+// Um projeto por vez (escolhido numa lista), então só ele busca os dados de capacidade.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, CalendarRange, Sparkles, UserRoundX, Users } from "lucide-react";
 import type { Celula } from "@shared/capacidade/motor";
@@ -15,7 +14,7 @@ import { cn, corAvatar, formatData, formatHoras } from "@/lib/utils";
 import { Avatar, MarcaProjeto } from "@/components/avatar";
 import { MedidorCarga, pct, STATUS_CARGA, StatusCargaTag } from "@/components/carga";
 import { Badge } from "@/components/ui/badge";
-import { QuandoVisivel } from "@/components/quando-visivel";
+import { Select } from "@/components/ui/select";
 import type { Membro } from "./membros";
 
 interface Props {
@@ -27,20 +26,12 @@ interface Props {
 
 export function VisaoSquads({ projetos, membros, temFiltro, onAbrir }: Props) {
   const visiveis = useMemo(() => new Set(membros.map((m) => m.pessoaId)), [membros]);
-  // Projeto com 1 squad ocupa uma coluna (vários projetos lado a lado); com mais, a linha toda
-  const [largos, setLargos] = useState<ReadonlySet<string>>(new Set());
-  const marcarLargura = useCallback((id: string, largo: boolean) => {
-    setLargos((prev) => {
-      if (prev.has(id) === largo) return prev;
-      const next = new Set(prev);
-      if (largo) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
   const lista = temFiltro ? projetos.filter((p) => membros.some((m) => m.projetos.some((x) => x.id === p.id))) : projetos;
+  const [escolhido, setEscolhido] = useState<string | null>(null);
+  // um projeto por vez: o escolhido, ou o primeiro da lista (se o filtro tirou o escolhido)
+  const projeto = lista.find((p) => p.id === escolhido) ?? lista[0];
 
-  if (lista.length === 0) {
+  if (!projeto) {
     return (
       <div className="grid place-items-center rounded-xl border border-dashed border-slate-300 px-6 py-16 text-center dark:border-slate-700">
         <Users className="mb-3 size-8 text-slate-300 dark:text-slate-600" />
@@ -52,22 +43,23 @@ export function VisaoSquads({ projetos, membros, temFiltro, onAbrir }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-x-5 gap-y-8 lg:grid-cols-2 2xl:grid-cols-3">
-      {lista.map((p) => (
-        <QuandoVisivel
-          key={p.id}
-          className={cn(largos.has(p.id) && "lg:col-span-2 2xl:col-span-3")}
-          reserva={<EsqueletoProjeto nome={p.nome} />}
-        >
-          <ProjetoSquads
-            projeto={p}
-            visiveis={visiveis}
-            temFiltro={temFiltro}
-            onAbrir={onAbrir}
-            onLargura={(largo) => marcarLargura(p.id, largo)}
-          />
-        </QuandoVisivel>
-      ))}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <label htmlFor="squad-projeto" className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          Projeto
+        </label>
+        <Select id="squad-projeto" value={projeto.id} onChange={(e) => setEscolhido(e.target.value)} className="w-full sm:w-72">
+          {lista.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}
+            </option>
+          ))}
+        </Select>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {lista.length} {lista.length === 1 ? "projeto" : "projetos"} · escolha um para ver os squads (times) dele
+        </span>
+      </div>
+      <ProjetoSquads key={projeto.id} projeto={projeto} visiveis={visiveis} temFiltro={temFiltro} onAbrir={onAbrir} onLargura={() => {}} />
     </div>
   );
 }
@@ -391,22 +383,6 @@ function topSkills(pessoas: PessoaProjeto[], n: number): [string, number][] {
   const m = new Map<string, number>();
   for (const p of pessoas) for (const s of p.skills) m.set(s, (m.get(s) ?? 0) + 1);
   return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, n);
-}
-
-// ---------------------------------------------------------------------------
-// Carregamento sob demanda
-// ---------------------------------------------------------------------------
-
-function EsqueletoProjeto({ nome }: { nome: string }) {
-  return (
-    <section>
-      <header className="mb-3 flex items-center gap-4">
-        <MarcaProjeto nome={nome} className="size-10 text-base" />
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">{nome}</h2>
-      </header>
-      <GradeEsqueleto />
-    </section>
-  );
 }
 
 function GradeEsqueleto() {

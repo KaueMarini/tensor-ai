@@ -43,12 +43,15 @@ export function MapaOcupacao({
   celula,
   nomeProjeto,
   onAbrir,
+  rotuloPrimeiro = "Esta semana",
 }: {
   linhas: LinhaMapa[];
   periodos: Periodo[];
   celula: (p: Periodo, id: string) => CelulaGlobal | undefined;
   nomeProjeto: (id: string) => string;
   onAbrir?: (id: string) => void;
+  /** Cabeçalho da 1ª coluna (ex.: "Este mês" quando as colunas são meses). */
+  rotuloPrimeiro?: string;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -66,7 +69,7 @@ export function MapaOcupacao({
                   i === 0 ? "text-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400",
                 )}
               >
-                {i === 0 ? "Esta semana" : p.rotulo}
+                {i === 0 ? rotuloPrimeiro : p.rotulo}
               </th>
             ))}
             <th className="w-3" />
@@ -137,7 +140,7 @@ function CelulaMapa({ c, nomeProjeto, onClick }: { c?: CelulaGlobal; nomeProjeto
       <button
         type="button"
         onClick={onClick}
-        title={`Sem tasks nesta semana · ${formatHoras(c.capacidadeH)} livres`}
+        title={`Sem tarefas neste período · ${formatHoras(c.capacidadeH)} livres`}
         className={cn(base, "text-sm text-slate-300 hover:bg-slate-100 dark:text-slate-600 dark:hover:bg-slate-800")}
       >
         —

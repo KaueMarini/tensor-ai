@@ -91,6 +91,13 @@ describe("eventosPorDia", () => {
     expect(m.get("2026-10-06")).toEqual([]);
   });
 
+  it("evento de vários dias que não é ausência (folga do time) ocupa os dias úteis", () => {
+    const m = eventosPorDia(celulas, [ev({ tipo: "feriado", texto: "Folga do time", inicio: "2026-10-09", fim: "2026-10-12" })]);
+    expect(m.get("2026-10-09")!.length).toBe(1); // sexta
+    expect(m.get("2026-10-10")).toEqual([]); // sábado
+    expect(m.get("2026-10-12")!.length).toBe(1); // segunda
+  });
+
   it("ordena feriado, sprint, entrega e ausência; ignora o que está fora da grade", () => {
     const m = eventosPorDia(celulas, [
       ev({ tipo: "ausencia", texto: "Bia", inicio: "2026-10-12", fim: "2026-10-12" }),

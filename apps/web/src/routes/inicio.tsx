@@ -31,6 +31,8 @@ import { MarcaProjeto } from "@/components/avatar";
 import { STATUS_CARGA } from "@/components/carga";
 import { LegendaMapa, MapaOcupacao, ordenarPorRisco } from "@/components/mapa-ocupacao";
 import { Card } from "@/components/ui/card";
+import { Ajuda } from "@/components/ajuda";
+import type { TermoGlossario } from "@/lib/glossario";
 import { PainelMembro } from "@/routes/membros";
 
 const HORIZONTES = [1, 2, 4] as const;
@@ -132,6 +134,7 @@ export function InicioPage() {
       <Card className="mb-6 grid grid-cols-2 gap-px overflow-hidden bg-slate-100 lg:grid-cols-4 dark:bg-slate-800 [&>*]:bg-white dark:[&>*]:bg-slate-900">
         <Indicador
           rotulo="Acima da capacidade"
+          ajuda="sobrecarregado"
           valor={analise?.acima}
           contexto={`pessoas · ${periodo.rotulo}`}
           status={(analise?.acima ?? 0) > 0 ? "critico" : "ok"}
@@ -139,13 +142,15 @@ export function InicioPage() {
         />
         <Indicador
           rotulo="No limite"
+          ajuda="noLimite"
           valor={analise?.limite}
           contexto={`pessoas · ${periodo.rotulo}`}
           status={(analise?.limite ?? 0) > 0 ? "atencao" : "ok"}
           href="#prioridades"
         />
         <Indicador
-          rotulo="Tasks sem responsável"
+          rotulo="Tarefas sem responsável"
+          ajuda="semResponsavel"
           valor={semDonoQ.isLoading ? undefined : totalSemDono}
           contexto="abertas, em todos os projetos"
           status={totalSemDono > 0 ? "atencao" : "ok"}
@@ -153,6 +158,7 @@ export function InicioPage() {
         />
         <Indicador
           rotulo="Horas livres"
+          ajuda="horasLivres"
           valor={analise ? formatHoras(Math.round(analise.livres)) : undefined}
           contexto={`na equipe · ${periodo.rotulo}`}
           status="neutro"
@@ -208,6 +214,7 @@ export function InicioPage() {
           <CabecalhoCard
             icone={Grid3x3}
             titulo="Ocupação nas próximas semanas"
+            ajuda="ocupacao"
             descricao="Quem está em risco aparece primeiro. Clique numa pessoa para ver de onde vem a carga."
           />
           <div className="border-b border-slate-100 px-5 py-2.5 dark:border-slate-800">
@@ -298,7 +305,9 @@ function CabecalhoCard({
   titulo,
   descricao,
   contador,
+  ajuda,
 }: {
+  ajuda?: TermoGlossario;
   icone: typeof Lightbulb;
   titulo: string;
   descricao: string;
@@ -312,6 +321,7 @@ function CabecalhoCard({
       <div className="min-w-0">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
           {titulo}
+          {ajuda && <Ajuda termo={ajuda} />}
           {!!contador && (
             <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {contador}
@@ -337,7 +347,9 @@ function Indicador({
   status,
   href,
   to,
+  ajuda,
 }: {
+  ajuda?: TermoGlossario;
   rotulo: string;
   valor: number | string | undefined;
   contexto: string;
@@ -347,40 +359,33 @@ function Indicador({
 }) {
   const Icone = status === "critico" ? OctagonAlert : status === "atencao" ? AlertTriangle : status === "ok" ? CircleCheck : null;
   const cor = status === "neutro" ? undefined : COR_STATUS[status];
-  const conteudo = (
-    <>
+  // o cartão não é um link (tem o "?" dentro); a ação fica num "Ver detalhes" explícito
+  const verDetalhes = "inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline underline-offset-2 dark:text-brand-300";
+  return (
+    <div className="flex flex-col px-5 py-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{rotulo}</span>
+        <span className="flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          {rotulo}
+          {ajuda && <Ajuda termo={ajuda} />}
+        </span>
         {Icone && <Icone className="size-4 shrink-0" style={{ color: cor }} aria-hidden />}
       </div>
       <div className="mt-1.5 text-3xl leading-none font-semibold tracking-tight text-slate-900 tabular-nums dark:text-slate-50">
         {valor ?? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-100 align-middle dark:bg-slate-800" />}
       </div>
-      <div className="mt-1.5 flex items-start gap-1 text-xs text-slate-400 dark:text-slate-500">
-        <span className="line-clamp-2">{contexto}</span>
-        {(href || to) && (
-          <ArrowRight className="ml-auto size-3.5 shrink-0 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
-        )}
-      </div>
-    </>
+      <div className="mt-1.5 line-clamp-2 text-xs text-slate-400 dark:text-slate-500">{contexto}</div>
+      {to && (
+        <Link to={to} className={cn(verDetalhes, "mt-2")}>
+          Ver detalhes <ArrowRight className="size-3.5" />
+        </Link>
+      )}
+      {href && (
+        <a href={href} className={cn(verDetalhes, "mt-2")}>
+          Ver detalhes <ArrowRight className="size-3.5" />
+        </a>
+      )}
+    </div>
   );
-  const classe = cn(
-    "group block px-5 py-4 transition-colors",
-    (href || to) && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40",
-  );
-  if (to)
-    return (
-      <Link to={to} className={classe}>
-        {conteudo}
-      </Link>
-    );
-  if (href)
-    return (
-      <a href={href} className={classe}>
-        {conteudo}
-      </a>
-    );
-  return <div className={classe}>{conteudo}</div>;
 }
 
 const TIPO_ITEM = {
