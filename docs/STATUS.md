@@ -15,6 +15,22 @@ Sino de notificações pronto para a IA gravar (tabela `notificacao`). Ainda for
 
 ## 1. Onde paramos
 
+Sessão de 2026-10-09 (3ª parte): **portfólio e IA explicável**. (1) **Esforço × impacto**: impacto do
+projeto 1–3 com precedência gestor (seletor no cabeçalho do projeto) > DevOps (linha `Impacto:` na
+descrição, lida pelo mapper) > **estimado pela IA** pela descrição (`projeto_avaliacao.impacto_ia`,
+uma vez por projeto); `_shared/capacidade/portfolio.ts` mede horas das próximas 4 semanas e a fatia
+da capacidade da equipe e aponta "muito esforço para pouco impacto" / "importante com pouca gente".
+(2) **Projetos parecidos** (descrição + tags, mesma semelhança da equipe sugerida, limiar 35%).
+Ambos viram sugestões do agente (tipos `portfolio` e `similares`). (3) **[ Entender análise ]** no
+card: modal com só as ferramentas aplicáveis (`_shared/agente/explicacao.ts`: diagnóstico de tempo +
+mapa de calor estado × dias parado, Pareto 80/20, matriz esforço × impacto com escala absoluta de
+30% da equipe), leitura de cada uma pelo Gemini validada contra os dados, cache em
+`sugestao.payload.explicacao` (só quando a IA respondeu). Cliente de LLM genérico em
+`_lib/llm.ts` (Gemini preferido; reservas por cota: `gemini-3.5-flash` → `-lite` →
+`flash-lite-latest` → `2.5-flash`; `LLM_MODEL=gemini-3.5-flash`). A sync agora traz
+`System.CreatedDate`/`StateChangeDate`/`ActivatedDate`/`ClosedDate` (`pnpm devops:datas` preencheu os
+itens antigos). Migration `20261009000600`. 118 testes.
+
 Sessão de 2026-10-09 (2ª parte): **agente de IA funcionando em produção** (decisão do usuário: Edge
 Function no Supabase, não o serviço Python no Fly). `supabase/functions/agente`: o motor monta as
 **candidatas** com todos os números (`_shared/agente/candidatos.ts`: atribuir task sem dono,
@@ -1003,3 +1019,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-09 | **Serviço de análise em Python** (`services/analytics`, só backend, 6 etapas/commits): migrations de transições, `fluxo_config`/`analise_config`, `sugestao` estendida + Realtime e disparo (pg_net + cron 15 min); domínio puro (capacidade semanal com a cascata do app, fluxo, Pareto, esforço × impacto, candidatos, pseudonimização); repositórios + cliente DevOps só-leitura + backfill; agente (structured outputs, validador anti-alucinação, fallback por template); FastAPI com debounce; Dockerfile, Fly.io (`gru`) e CI. Python 3.12 via `uv` instalado nesta máquina. 113 testes, 98,8% de cobertura no domínio, ruff/mypy strict limpos. **Pendente**: `db push` das 4 migrations, segredos no Vault/Fly, backfill, texto do prompt v1 e o teste ponta a ponta. Front intocado. |
 | 2026-10-09 | **Agente de IA** em Edge Function (`agente`): candidatas do motor + Claude com pseudônimos + validador anti-alucinação; disparo por evento e cron via Vault (`radar_analytics_url` → function); aprovar/ignorar no `devops-acoes`; caixa no Início/Sugestões/Resumo. Montagem de carga compartilhada front/agente. Migrations `20261009000000`–`0500` aplicadas. ESLint, code-split, CI verde, README, tela Sincronização, feriados regionais/recessos. E2E: DevOps → sugestão na tela em 12,6 s; aprovar atribuiu no DevOps. Falta a chave da Anthropic. |
 | 2026-10-09 | **Agente com Gemini**: provedor por chave (Gemini > Claude > template), retry/fallback de modelos no 503 do plano gratuito, processamento em segundo plano nas rotas do pg_net, artigo removido antes dos pseudônimos (teste), `ia`/`erro_ia` no resumo. 5 sugestões reais escritas pelo Gemini e aprovadas pelo validador. 107 testes. |
+| 2026-10-09 | **Portfólio + IA explicável**: impacto do projeto (gestor > DevOps > IA), esforço × impacto e projetos parecidos como sugestões do agente; modal "Entender análise" (tempo/mapa de calor, Pareto, matriz) com leitura do Gemini validada; `_lib/llm.ts` com reservas de modelo por cota; datas de criação/estado na sync. Testado: 4 impactos estimados pela IA, 2 sugestões de similaridade, 3 modais 100% Gemini. |
