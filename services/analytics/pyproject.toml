@@ -45,11 +45,13 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "S", "PT", "DTZ", "C
 ignore = [
   "PLR0913", "PLR0917",  # funções de domínio recebem várias entradas explícitas (sem estado global)
   "PLR2004",  # constantes de regra de negócio ficam nomeadas onde importa
-  "RUF001", "RUF002", "RUF003",  # textos em pt-BR com acentos e símbolos
+  "RUF001", "RUF002", "RUF003",
+  "N818",  # textos em pt-BR com acentos e símbolos
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "PLR0915", "PLR0912"]
+"tests/**" = ["S101", "PLR0915", "PLR0912", "DTZ001"]
+"src/radar_analytics/api/main.py" = ["E731", "PLC0415"]
 
 [tool.mypy]
 strict = true

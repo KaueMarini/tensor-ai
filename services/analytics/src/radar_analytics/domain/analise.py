@@ -67,7 +67,6 @@ class Analise(_Base):
 
 
 class Snapshot(_Base):
-
     projeto_id: str
     capacidade: EntradaCapacidade
     transicoes: tuple[Transicao, ...] = ()

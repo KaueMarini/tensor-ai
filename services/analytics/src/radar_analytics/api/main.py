@@ -19,7 +19,6 @@ class ServicoAnalise(Protocol):
 
 
 class Debouncer:
-
     def __init__(self, atraso_s: float) -> None:
         self.atraso_s = atraso_s
         self._tarefas: dict[Any, asyncio.Task[None]] = {}

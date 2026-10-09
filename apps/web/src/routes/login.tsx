@@ -1,10 +1,12 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
+
+const DEMO = { email: "demo@radar-capacidade.dev", senha: "RadarDemo2026!" };
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -13,11 +15,11 @@ export function LoginPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
-  async function entrar(e: FormEvent) {
-    e.preventDefault();
+  async function entrar(e?: FormEvent, credenciais = { email, senha }) {
+    e?.preventDefault();
     setErro(null);
     setCarregando(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { error } = await supabase.auth.signInWithPassword({ email: credenciais.email, password: credenciais.senha });
     setCarregando(false);
     if (error) {
       setErro(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
@@ -69,6 +71,31 @@ export function LoginPage() {
               Entrar
             </Button>
           </form>
+
+          <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-900/30">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-900 dark:text-brand-100">
+              <KeyRound className="size-4" /> Acesso para os jurados
+            </div>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-slate-500 dark:text-slate-400">E-mail</dt>
+              <dd className="font-mono text-slate-900 select-all dark:text-slate-100">{DEMO.email}</dd>
+              <dt className="text-slate-500 dark:text-slate-400">Senha</dt>
+              <dd className="font-mono text-slate-900 select-all dark:text-slate-100">{DEMO.senha}</dd>
+            </dl>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 w-full"
+              disabled={carregando}
+              onClick={() => {
+                setEmail(DEMO.email);
+                setSenha(DEMO.senha);
+                void entrar(undefined, DEMO);
+              }}
+            >
+              Entrar com o acesso de demonstração
+            </Button>
+          </div>
         </div>
       </div>
     </div>

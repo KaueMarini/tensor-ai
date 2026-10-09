@@ -33,7 +33,6 @@ class _Base(BaseModel):
 
 
 class EntradaCapacidade(_Base):
-
     pessoas: tuple[Pessoa, ...]
     sprints: tuple[Sprint, ...]
     capacidades: tuple[CapacidadeTime, ...] = ()
@@ -128,7 +127,6 @@ def distribuir(
 
 
 class _Contexto:
-
     def __init__(self, e: EntradaCapacidade) -> None:
         self.e = e
         self.sprints = {s.id: s for s in e.sprints}
@@ -142,7 +140,11 @@ class _Contexto:
         self.folgas_time = [f for f in e.folgas if f.pessoa_id is None]
 
     def projetos_no_dia(self, d: date) -> set[str]:
-        return {s.projeto_id for s in self.datadas if s.inicio <= d <= s.fim}
+        return {
+            s.projeto_id
+            for s in self.datadas
+            if s.inicio is not None and s.fim is not None and s.inicio <= d <= s.fim
+        }
 
     def capacidade_dia(self, pessoa: Pessoa, d: date, teto: float) -> tuple[float, OrigemCapacidade]:
         por_projeto: dict[str, float] = {}

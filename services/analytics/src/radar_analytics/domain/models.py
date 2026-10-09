@@ -14,7 +14,6 @@ class _Base(BaseModel):
 
 
 class Evidencia(_Base):
-
     metrica: str
     formula: str
     entradas: dict[str, Valor | list[Valor]]
@@ -23,7 +22,6 @@ class Evidencia(_Base):
 
 
 class Categoria(StrEnum):
-
     PROPOSTO = "Proposed"
     ANDAMENTO = "InProgress"
     RESOLVIDO = "Resolved"
@@ -32,7 +30,6 @@ class Categoria(StrEnum):
 
 
 class RegrasGerais(_Base):
-
     jornada_dia: float = 8.0
     foco: float = 0.75
     atencao: float = 0.8
@@ -60,7 +57,6 @@ class Sprint(_Base):
 
 
 class CapacidadeTime(_Base):
-
     sprint_id: str
     time_id: str
     pessoa_id: str
@@ -68,14 +64,12 @@ class CapacidadeTime(_Base):
 
 
 class Alocacao(_Base):
-
     projeto_id: str
     pessoa_id: str
     horas_dia: float
 
 
 class Folga(_Base):
-
     inicio: date
     fim: date
     pessoa_id: str | None = None
@@ -133,7 +127,6 @@ class ColunaFluxo(_Base):
 
 
 class Expediente(_Base):
-
     inicio: time = time(9, 0)
     fim: time = time(18, 0)
 
