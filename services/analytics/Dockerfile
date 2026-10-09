@@ -9,7 +9,6 @@ COPY services/analytics/pyproject.toml services/analytics/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 COPY services/analytics/src ./src
-COPY services/analytics/README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
@@ -17,9 +16,7 @@ FROM python:3.12-slim
 RUN useradd --create-home --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
-COPY prompts /app/prompts
 ENV PATH=/app/.venv/bin:$PATH \
-    PROMPTS_DIR=/app/prompts \
     PYTHONUNBUFFERED=1 \
     TZ=America/Sao_Paulo
 USER app

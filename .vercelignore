@@ -6,8 +6,6 @@ supabase/.temp
 supabase/.env*
 .env*
 !apps/web/.env.example
-docs
-prompts
 scripts
 *.log
 apps/web/dist

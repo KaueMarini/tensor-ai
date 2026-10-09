@@ -179,7 +179,6 @@ supabase/
     devops-sync/ devops-webhook/ devops-acoes/ agente/
 services/analytics/           serviço Python opcional de métricas de fluxo
 scripts/                      utilitários (popular a org de demo, webhooks, latência)
-docs/                         status do projeto, metodologia, contratos e deploy
 .github/workflows/            CI
 ```
 

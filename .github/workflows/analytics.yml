@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - "services/analytics/**"
-      - "prompts/**"
       - ".github/workflows/analytics.yml"
   pull_request:
     paths:
       - "services/analytics/**"
-      - "prompts/**"
       - ".github/workflows/analytics.yml"
 
 permissions:
