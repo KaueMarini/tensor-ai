@@ -31,9 +31,7 @@ DevOps com auditoria ligada à sugestão). Front: caixa **"Sugestões do agente"
 Sugestões e no Resumo do projeto, com "Analisar agora". Montagem de regras/carga e nomes agora é
 **compartilhada** (`_shared/capacidade/montagem.ts`, `_shared/nomes.ts`): tela e agente dão o
 mesmo número. Validado de ponta a ponta: task criada no DevOps virou sugestão na tela em 12,6 s
-sem recarregar; Aprovar atribuiu no DevOps. **Falta só a chave da Anthropic** (o usuário vai pôr
-em `supabase/.env.functions` → `npx supabase secrets set --env-file supabase/.env.functions`);
-sem ela o texto é o template (`usou_fallback=true`). Também nesta sessão: ESLint, code-split
+sem recarregar; Aprovar atribuiu no DevOps. **LLM em uso: Gemini** (`GEMINI_API_KEY` no `supabase/.env.functions`, plano gratuito, `LLM_MODEL=gemini-flash-latest`; em 503/429 tenta de novo e cai para `gemini-2.5-flash` e `-lite`). O agente escolhe Gemini se houver `GEMINI_API_KEY`, senão Claude (`ANTHROPIC_API_KEY`), senão template. Rotas automáticas respondem 202 e analisam em segundo plano (pg_net espera só 10 s; `?esperar=1` no sweep para teste). `semArtigo` tira artigo feminino antes do pseudônimo ("à Pessoa B" → "para Pessoa B"). O resumo da análise traz `ia` e `erro_ia` para diagnóstico. Também nesta sessão: ESLint, code-split
 por rota, CI (`.github/workflows/ci.yml`, verde), README, tela **Sincronização** (Ajustes) e
 cadastro de **feriado regional/recesso** na Agenda (migration `20261009000500`).
 
@@ -875,7 +873,7 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
       `deploy-supabase.yml` (db push + functions deploy na main), gitleaks,
       `pull_request_template.md`, CODEOWNERS
 - [ ] **Vercel** para o front (preview por PR, produção na main) — precisa da conta do usuário
-- [ ] **Chave da Anthropic** no `supabase/.env.functions` + `secrets set` (o agente já roda com template)
+- [x] LLM ligado: Gemini (chave colada no chat em 2026-10-09 — **gerar outra no AI Studio e trocar**)
 - [x] **README** (arquitetura, setup, PAT, chave do Claude, deploy, qualidade). Plano original: escopos do PAT, link do Supabase, migrations, deploy (lembrar
       `--no-verify-jwt`), Vault/cron, Service Hooks pela UI, rodar o front, "Como contribuir"
 - [ ] Validar o critério de pronto pelo app: alterar task no DevOps → aparece em < 5 s sem
@@ -1004,3 +1002,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Ajustes de usabilidade** (2.12): sidebar Início/Projetos/Equipe/Sugestões; Sugestões sem "Horas sem dono" e popover que fecha ao clicar fora; Equipe com 3 meses/1 ano/2 anos (meses) e Squads 1 projeto por vez; Agenda maior com feriados nacionais 2026–2027 (migration `20261008000900`) e folgas do DevOps; Regras de capacidade empilhadas; **sino de notificações** em todas as telas (tabela `notificacao`, migration `20261008001000`, Realtime) + alertas atuais; **Ajuda/glossário** e "?" nos números. Headless claro/escuro/celular sem erros; 97 testes, typecheck e build limpos. |
 | 2026-10-09 | **Serviço de análise em Python** (`services/analytics`, só backend, 6 etapas/commits): migrations de transições, `fluxo_config`/`analise_config`, `sugestao` estendida + Realtime e disparo (pg_net + cron 15 min); domínio puro (capacidade semanal com a cascata do app, fluxo, Pareto, esforço × impacto, candidatos, pseudonimização); repositórios + cliente DevOps só-leitura + backfill; agente (structured outputs, validador anti-alucinação, fallback por template); FastAPI com debounce; Dockerfile, Fly.io (`gru`) e CI. Python 3.12 via `uv` instalado nesta máquina. 113 testes, 98,8% de cobertura no domínio, ruff/mypy strict limpos. **Pendente**: `db push` das 4 migrations, segredos no Vault/Fly, backfill, texto do prompt v1 e o teste ponta a ponta. Front intocado. |
 | 2026-10-09 | **Agente de IA** em Edge Function (`agente`): candidatas do motor + Claude com pseudônimos + validador anti-alucinação; disparo por evento e cron via Vault (`radar_analytics_url` → function); aprovar/ignorar no `devops-acoes`; caixa no Início/Sugestões/Resumo. Montagem de carga compartilhada front/agente. Migrations `20261009000000`–`0500` aplicadas. ESLint, code-split, CI verde, README, tela Sincronização, feriados regionais/recessos. E2E: DevOps → sugestão na tela em 12,6 s; aprovar atribuiu no DevOps. Falta a chave da Anthropic. |
+| 2026-10-09 | **Agente com Gemini**: provedor por chave (Gemini > Claude > template), retry/fallback de modelos no 503 do plano gratuito, processamento em segundo plano nas rotas do pg_net, artigo removido antes dos pseudônimos (teste), `ia`/`erro_ia` no resumo. 5 sugestões reais escritas pelo Gemini e aprovadas pelo validador. 107 testes. |
