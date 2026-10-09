@@ -138,6 +138,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "sugestao" }, () => invalidar("sugestoes_agente"))
       // importância do projeto (gestor ou estimada pela IA)
       .on("postgres_changes", { event: "*", schema: "public", table: "projeto_avaliacao" }, () => invalidar("projetos"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "usuario_papel" }, () => invalidar("papel"))
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");
       })

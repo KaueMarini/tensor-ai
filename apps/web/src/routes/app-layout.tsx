@@ -9,6 +9,7 @@ import { useRecentes } from "@/lib/recentes";
 import { useTheme } from "@/lib/theme";
 import { cn, formatHora, tempoRelativo } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { SomenteGestor } from "@/lib/papel";
 import { MarcaProjeto } from "@/components/avatar";
 import { SinoNotificacoes } from "@/components/notificacoes";
 import { Glossario } from "@/components/ajuda";
@@ -101,6 +102,7 @@ function Sidebar({ aberto }: { aberto: boolean }) {
           <Link to="/membros" title="Pessoas, quanto cada uma está ocupada e o que sabe fazer" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <Users className="size-4 shrink-0 opacity-70" /> Equipe
           </Link>
+          <SomenteGestor oculto>
           <Link to="/analises" title="Quem pode assumir as tarefas que estão sem responsável" activeOptions={{ includeSearch: false }} className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
             <Lightbulb className="size-4 shrink-0 opacity-70" /> Sugestões
             {semDono > 0 && (
@@ -109,6 +111,7 @@ function Sidebar({ aberto }: { aberto: boolean }) {
               </span>
             )}
           </Link>
+          </SomenteGestor>
         </div>
 
         <div>
@@ -137,6 +140,7 @@ function Sidebar({ aberto }: { aberto: boolean }) {
             </div>
           </div>
         )}
+        <SomenteGestor oculto>
         <div>
           <div className={GRUPO}>Ajustes</div>
           <Link to="/capacidade" className={ITEM_NAV} activeProps={{ className: ITEM_ATIVO }}>
@@ -146,6 +150,7 @@ function Sidebar({ aberto }: { aberto: boolean }) {
             <RefreshCw className="size-4 shrink-0 opacity-70" /> Sincronização
           </Link>
         </div>
+        </SomenteGestor>
       </nav>
 
       <StatusSync />

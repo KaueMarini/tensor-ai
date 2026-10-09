@@ -45,6 +45,7 @@ import type { SkillsPessoa } from "@/lib/skills";
 export type { FuncaoTag, Membro };
 import { VisaoSquads } from "./membros-squads";
 import { OcupacaoMembro } from "@/components/ocupacao-membro";
+import { ExcluirDadosPessoa } from "@/components/excluir-pessoa";
 import { OcupacaoEquipe } from "./equipe-ocupacao";
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -859,6 +860,8 @@ export function PainelMembro({
               </Button>
             </form>
           </Bloco>
+
+          <ExcluirDadosPessoa pessoaId={membro.pessoaId} nome={membro.nome} onFeito={onClose} />
         </div>
       </div>
     </div>

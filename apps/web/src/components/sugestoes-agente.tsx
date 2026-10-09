@@ -9,6 +9,7 @@ import { cn, tempoRelativo } from "@/lib/utils";
 import { STATUS_CARGA } from "@/components/carga";
 import { Card } from "@/components/ui/card";
 import { ModalExplicacao } from "@/components/explicacao-agente";
+import { SomenteGestor } from "@/lib/papel";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
@@ -22,7 +23,16 @@ const VISUAL: Record<SugestaoAgente["tipo"], { icone: typeof Bot; cor: string; a
 };
 const PRIORIDADE = { 1: "Hoje", 2: "Esta semana", 3: "Quando der" } as const;
 
-export function SugestoesAgente({ projetoId, limite, titulo = "Sugestões do agente" }: { projetoId?: string; limite?: number; titulo?: string }) {
+export function SugestoesAgente(props: { projetoId?: string; limite?: number; titulo?: string }) {
+  // sugestões são executivas: membro não vê a caixa (o banco também não devolve as linhas)
+  return (
+    <SomenteGestor oculto>
+      <CaixaSugestoes {...props} />
+    </SomenteGestor>
+  );
+}
+
+function CaixaSugestoes({ projetoId, limite, titulo = "Sugestões do agente" }: { projetoId?: string; limite?: number; titulo?: string }) {
   const q = useSugestoesAgente(projetoId);
   const analisar = useAnalisarAgora();
   const [todas, setTodas] = useState(false);

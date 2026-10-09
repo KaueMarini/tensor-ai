@@ -1,6 +1,8 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import { Toaster } from "sonner";
+import type { ComponentType } from "react";
 import { supabase } from "@/lib/supabase";
+import { SomenteGestor } from "@/lib/papel";
 import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
 import { ProjetoLayout } from "@/routes/projeto/layout";
@@ -18,6 +20,16 @@ const CronogramaPage = lazyRouteComponent(() => import("@/routes/projeto/cronogr
 const EquipeProjetoPage = lazyRouteComponent(() => import("@/routes/projeto/equipe"), "EquipeProjetoPage");
 const KanbanPage = lazyRouteComponent(() => import("@/routes/projeto/kanban"), "KanbanPage");
 const MetricasPage = lazyRouteComponent(() => import("@/routes/projeto/metricas"), "MetricasPage");
+
+/** RBAC: telas executivas só para gestor/admin (o banco também bloqueia por RLS). */
+const soGestor = (Pagina: ComponentType) =>
+  function PaginaDeGestor() {
+    return (
+      <SomenteGestor>
+        <Pagina />
+      </SomenteGestor>
+    );
+  };
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -86,7 +98,7 @@ const sugestoesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/analises",
   validateSearch: (s: Record<string, unknown>): { projeto?: string } => (texto(s.projeto) ? { projeto: texto(s.projeto) } : {}),
-  component: SugestoesAlocacaoPage,
+  component: soGestor(SugestoesAlocacaoPage),
 });
 
 const agendaRoute = createRoute({
@@ -99,8 +111,8 @@ const agendaRoute = createRoute({
   component: AgendaPage,
 });
 
-const regrasRoute = createRoute({ getParentRoute: () => appRoute, path: "/capacidade", component: RegrasPage });
-const sincronizacaoRoute = createRoute({ getParentRoute: () => appRoute, path: "/sincronizacao", component: SincronizacaoPage });
+const regrasRoute = createRoute({ getParentRoute: () => appRoute, path: "/capacidade", component: soGestor(RegrasPage) });
+const sincronizacaoRoute = createRoute({ getParentRoute: () => appRoute, path: "/sincronizacao", component: soGestor(SincronizacaoPage) });
 
 const projetoRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -128,7 +140,7 @@ const kanbanRoute = createRoute({
 });
 const cronogramaRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/cronograma", component: CronogramaPage });
 const equipeRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/equipe", component: EquipeProjetoPage });
-const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: MetricasPage });
+const metricasRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/metricas", component: soGestor(MetricasPage) });
 // Abas antigas (links salvos continuam funcionando)
 const antigaAnalisesRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/analises", beforeLoad: paraAba("resumo") });
 const antigaSquadRoute = createRoute({ getParentRoute: () => projetoRoute, path: "/squad", beforeLoad: paraAba("equipe") });
