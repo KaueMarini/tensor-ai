@@ -1,7 +1,7 @@
 [project]
 name = "radar-analytics"
 version = "0.1.0"
-description = "Motor de análise de fluxo e capacidade do Radar de Capacidade (gera sugestões pendentes)"
+description = "Motor de análise de fluxo e capacidade do Tensor AI (gera sugestões pendentes)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",

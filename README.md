@@ -1,8 +1,8 @@
-# Radar de Capacidade
+# Tensor AI
 
 ### O assistente de IA que acompanha o seu Azure DevOps 24 horas por dia e diz o que fazer antes do problema acontecer.
 
-**Demo:** https://radar-capacidade.vercel.app
+**Demo:** https://tensor-ai-app.vercel.app
 
 O Azure DevOps mostra **o que** precisa ser feito, **onde** e **quando**. Ele não responde à
 pergunta que tira o sono de qualquer gestor:
@@ -10,22 +10,22 @@ pergunta que tira o sono de qualquer gestor:
 > **Quem da minha equipe está livre de verdade agora, quem já passou do limite, e o que eu faço
 > com isso?**
 
-O Radar de Capacidade responde. Ele fica conectado ao Azure DevOps o tempo todo, junta os dados de
+O Tensor AI responde. Ele fica conectado ao Azure DevOps o tempo todo, junta os dados de
 todos os projetos, sprints, tasks, times, férias e feriados, e transforma isso em **decisões
 prontas**: quem deve assumir cada task, de quem tirar trabalho, quem montar num projeto novo, onde
 o projeto está travado e quais projetos estão fazendo a mesma coisa. O gestor aprova com um clique
 e a mudança já acontece no próprio Azure DevOps.
 
-> *"Os outros mostram o problema. O Radar avisa antes, diz quem é a melhor pessoa para resolver e
+> *"Os outros mostram o problema. O Tensor AI avisa antes, diz quem é a melhor pessoa para resolver e
 > resolve com um clique."*
 
 Projeto desenvolvido para o hackathon da iPORT Solutions.
 
 ---
 
-## Por que o Radar é diferente
+## Por que o Tensor AI é diferente
 
-| Painel comum | Radar de Capacidade |
+| Painel comum | Tensor AI |
 |---|---|
 | Você precisa abrir, filtrar e interpretar | **Ele te procura**: avisa no sino assim que algo muda no DevOps |
 | Mostra a carga de um projeto por vez | Soma a carga de cada pessoa **em todos os projetos** |
@@ -39,7 +39,7 @@ Projeto desenvolvido para o hackathon da iPORT Solutions.
 ## O que o assistente faz por você
 
 ### 1. Vigia o Azure DevOps sem parar
-Cada task criada, reatribuída ou movida chega ao Radar em segundos pelos Service Hooks do DevOps
+Cada task criada, reatribuída ou movida chega ao Tensor AI em segundos pelos Service Hooks do DevOps
 (em torno de 8 segundos do clique no DevOps até a tela). A cada 5 minutos uma reconciliação confere
 o que possa ter escapado, e a cada 15 minutos o agente reavalia a equipe inteira. Ninguém precisa
 lembrar de abrir um relatório.
@@ -54,7 +54,7 @@ vale o padrão de mercado.
 - **Task sem dono:** indica quem tem skill e folga para pegar.
 - **Pessoa sobrecarregada:** escolhe qual task tirar e para quem passar, mostrando a ocupação de
   cada um antes e depois.
-- **Férias com trabalho no meio:** o Radar avisa que a pessoa vai sair com tasks abertas, monta a
+- **Férias com trabalho no meio:** o Tensor AI avisa que a pessoa vai sair com tasks abertas, monta a
   divisão de todas elas entre quem tem tempo livre, skills e experiência em projetos parecidos, e
   oferece **"Rotear tudo no DevOps"** num clique só.
 - **Projeto novo sem ninguém:** lê a descrição e as tags, encontra o squad de um projeto parecido
@@ -70,7 +70,7 @@ vale o padrão de mercado.
 
 ### 5. Revela projetos semelhantes
 Compara a descrição de todos os projetos (análise de texto) e as tags. Quando dois projetos estão
-resolvendo o mesmo problema, o Radar aponta, mostra as palavras em comum e sugere aproveitar quem
+resolvendo o mesmo problema, o Tensor AI aponta, mostra as palavras em comum e sugere aproveitar quem
 já tem experiência no outro.
 
 ### 6. Explica cada recomendação
@@ -79,7 +79,7 @@ tempo com mapa de calor, Pareto 80/20 e matriz esforço × impacto, com a leitur
 conferida contra os dados.
 
 ### 7. Executa com a sua aprovação
-Aprovou, está feito: a task é reatribuída no Azure DevOps na hora. Antes de aplicar, o Radar
+Aprovou, está feito: a task é reatribuída no Azure DevOps na hora. Antes de aplicar, o Tensor AI
 confere se a situação ainda é a mesma, e tudo fica registrado na auditoria (quem aprovou, quando,
 o que mudou).
 

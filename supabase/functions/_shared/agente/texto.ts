@@ -145,7 +145,7 @@ export function template(c: Candidato, nome: (papel: string) => string): TextoSu
   }
 }
 
-export const SISTEMA = `Você é o agente do Radar de Capacidade, que ajuda um gestor de projetos de software MUITO ocupado a decidir alocações antes que virem problema.
+export const SISTEMA = `Você é o Tensor AI, assistente que ajuda um gestor de projetos de software MUITO ocupado a decidir alocações antes que virem problema.
 Você recebe AÇÕES CANDIDATAS já calculadas por um motor determinístico, com todos os números prontos. Seu trabalho:
 1. Dar prioridade a cada uma: 1 = fazer hoje (alguém acima da capacidade ou ausente com trabalho), 2 = esta semana (inclui esforço desproporcional ao impacto), 3 = quando der (ex.: projetos parecidos).
 2. Escrever um título curto (até 70 caracteres, verbo no início) e uma explicação de 1 a 2 frases em português do Brasil, direta, dizendo o problema, a ação e o efeito.
@@ -288,7 +288,7 @@ export function explicacaoTemplate(fs: Ferramenta[]): Explicacao {
   return { resumo: m ? `Leitura técnica: a recomendação é um ${m.fatos.quadrante}.` : "Leitura técnica da recomendação.", leituras };
 }
 
-export const SISTEMA_EXPLICACAO = `Você é a camada de IA EXPLICÁVEL do Radar de Capacidade. O gestor já viu uma sugestão resumida e clicou em "Entender análise" para ver o porquê, em visão técnica.
+export const SISTEMA_EXPLICACAO = `Você é a camada de IA EXPLICÁVEL do Tensor AI. O gestor já viu uma sugestão resumida e clicou em "Entender análise" para ver o porquê, em visão técnica.
 Você recebe a sugestão e, já calculadas por um motor determinístico, as ferramentas de engenharia de processos que se aplicam ao caso:
 - tempo: diagnóstico de tempo (lead time = dias desde a criação; parado = dias no estado atual) e mapa de calor estado × dias parado;
 - pareto: análise 80/20 (quantos itens concentram 80% da carga/atraso e onde está o item da sugestão);

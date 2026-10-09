@@ -34,9 +34,9 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center text-center lg:hidden">
             <Logo className="size-11" />
-            <h1 className="mt-4 text-xl font-semibold tracking-tight dark:text-slate-100">Radar de Capacidade</h1>
+            <h1 className="mt-4 text-xl font-semibold tracking-tight dark:text-slate-100">Tensor AI</h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Disponibilidade real do time, direto do Azure DevOps.
+              Seu assistente de IA que monitora o Azure DevOps 24 horas.
             </p>
           </div>
           <div className="mb-6 hidden lg:block">
@@ -87,16 +87,16 @@ function PainelMarca() {
       />
       <div className="relative flex items-center gap-2.5">
         <Logo className="size-8" />
-        <span className="text-sm font-semibold tracking-tight">Radar de Capacidade</span>
+        <span className="text-sm font-semibold tracking-tight">Tensor AI</span>
       </div>
 
       <div className="relative max-w-sm">
         <h1 className="text-3xl font-semibold tracking-tight text-balance">
-          Veja a disponibilidade real do seu time antes que vire um problema.
+          Seu assistente de IA que vigia o Azure DevOps 24 horas por dia.
         </h1>
         <p className="mt-4 text-sm text-brand-100/80">
-          Sincronizado direto do Azure DevOps: carga por pessoa, habilidades, ausências e
-          sobrecarga — tudo em um só lugar, com um clique até a ação.
+          Aloca a equipe, encontra gaps e projetos semelhantes e avisa antes do problema: você
+          aprova com um clique e a mudança acontece no próprio DevOps.
         </p>
       </div>
 
