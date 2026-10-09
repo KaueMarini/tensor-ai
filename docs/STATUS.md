@@ -4,7 +4,7 @@
 > **atualize ao final de cada etapa**: o que foi feito, onde parou e o que vem a seguir.
 > Visão de produto e regras: [CLAUDE.md](../CLAUDE.md).
 
-**Última atualização:** 2026-10-09 (serviço de análise)
+**Última atualização:** 2026-10-09 (agente de IA funcionando)
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
 (Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
 Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
@@ -14,6 +14,28 @@ Sino de notificações pronto para a IA gravar (tabela `notificacao`). Ainda for
 ---
 
 ## 1. Onde paramos
+
+Sessão de 2026-10-09 (2ª parte): **agente de IA funcionando em produção** (decisão do usuário: Edge
+Function no Supabase, não o serviço Python no Fly). `supabase/functions/agente`: o motor monta as
+**candidatas** com todos os números (`_shared/agente/candidatos.ts`: atribuir task sem dono,
+rebalancear quem está acima da capacidade, cobrir ausente com task, equipe para projeto sem
+pessoas), o **Claude** (`ANTHROPIC_API_KEY`, modelo `LLM_MODEL`, padrão `claude-sonnet-5-5`) só
+prioriza e explica com **pseudônimos**, e o **validador** (`_shared/agente/texto.ts`) reprova
+número/pessoa fora dos fatos ou fala de desempenho → template. Grava `sugestao` pendente +
+`notificacao`; idempotente pela chave da situação (`hash_payload`), pendente que perdeu o motivo
+vira `expirada` (migration `20261009000400`). Disparo: **o Vault `radar_analytics_url` aponta
+para a function `agente`** (rotas `/analyze/event` e `/analyze/sweep` do contrato do serviço
+Python), então o trigger em `evento` e o cron de 15 min (migration `20261009000300`, aplicada)
+chamam o agente. Aprovar/Ignorar: `devops-acoes` (`aprovar_sugestao` revalida e reatribui no
+DevOps com auditoria ligada à sugestão). Front: caixa **"Sugestões do agente"** no Início, em
+Sugestões e no Resumo do projeto, com "Analisar agora". Montagem de regras/carga e nomes agora é
+**compartilhada** (`_shared/capacidade/montagem.ts`, `_shared/nomes.ts`): tela e agente dão o
+mesmo número. Validado de ponta a ponta: task criada no DevOps virou sugestão na tela em 12,6 s
+sem recarregar; Aprovar atribuiu no DevOps. **Falta só a chave da Anthropic** (o usuário vai pôr
+em `supabase/.env.functions` → `npx supabase secrets set --env-file supabase/.env.functions`);
+sem ela o texto é o template (`usou_fallback=true`). Também nesta sessão: ESLint, code-split
+por rota, CI (`.github/workflows/ci.yml`, verde), README, tela **Sincronização** (Ajustes) e
+cadastro de **feriado regional/recesso** na Agenda (migration `20261009000500`).
 
 Sessão de 2026-10-09: **motor de análise de fluxo e capacidade em Python** (`services/analytics`,
 só backend, ver 2.11), em etapas. **Etapa 1 feita** (migrations + config): `work_item_transicao`
@@ -837,7 +859,7 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
         **Métricas**, **Análises** (2.8)
   - [x] **Motor de capacidade** puro + mapa de utilização + alertas de sobrecarga
   - [x] Realtime `postgres_changes` → invalida queries + destaque ~2s + toast
-  - [ ] Página **Sync**: últimos eventos, status da reconciliação, botão de sync completa
+  - [x] Página **Sincronização** (Ajustes): estado por projeto, sincronizar agora, eventos, auditoria
   - [x] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
   - [x] Dark mode (toggle + persistência) e paleta de marca em `#4C516D`
   - [x] Login redesenhado (card dividido, painel de marca)
@@ -845,15 +867,16 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
         ausência ligada ao motor (2.10)
   - [x] Sidebar responsiva (gaveta no celular/tablet), feita junto com a Agenda
   - [x] Agenda: feriados nacionais 2026–2027 e folgas do DevOps no calendário
-  - [ ] Agenda: tela para cadastrar feriados regionais/recessos
-  - [ ] ESLint no front (o CI pede lint)
-  - [ ] Code-split do bundle (build avisa chunk > 500 kB)
-- [ ] **`deno test`** nas functions (hoje só Vitest cobre `_shared`)
-- [ ] **CI/CD** `.github/`: `ci.yml` (pnpm cache, typecheck, lint, Vitest, deno test, build),
+  - [x] Agenda: cadastrar/remover feriado regional e recesso (nacionais protegidos)
+  - [x] ESLint no front (`pnpm lint`; 0 erros, 5 avisos de deps de hooks intencionais)
+  - [x] Code-split por rota (`lazyRouteComponent`), sem aviso de chunk grande
+- [x] Functions checadas com `deno check` (`pnpm functions:check`, no CI); a lógica fica em `_shared`, testada pelo Vitest
+- [x] **CI** `.github/workflows/ci.yml` (typecheck, lint, Vitest, build, deno check, gitleaks) — verde. Falta o deploy automático, que precisa de `SUPABASE_ACCESS_TOKEN` nos secrets do GitHub. Plano original: `ci.yml` (pnpm cache, typecheck, lint, Vitest, deno test, build),
       `deploy-supabase.yml` (db push + functions deploy na main), gitleaks,
       `pull_request_template.md`, CODEOWNERS
-- [ ] **Vercel** para o front (preview por PR, produção na main)
-- [ ] **README**: escopos do PAT, link do Supabase, migrations, deploy (lembrar
+- [ ] **Vercel** para o front (preview por PR, produção na main) — precisa da conta do usuário
+- [ ] **Chave da Anthropic** no `supabase/.env.functions` + `secrets set` (o agente já roda com template)
+- [x] **README** (arquitetura, setup, PAT, chave do Claude, deploy, qualidade). Plano original: escopos do PAT, link do Supabase, migrations, deploy (lembrar
       `--no-verify-jwt`), Vault/cron, Service Hooks pela UI, rodar o front, "Como contribuir"
 - [ ] Validar o critério de pronto pelo app: alterar task no DevOps → aparece em < 5 s sem
       refresh; desligar subscription, alterar coisas, reconciliação corrige sozinha
@@ -980,3 +1003,4 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Tela Início refeita visualmente** (sem mudar lógica): título "Visão geral da equipe", indicadores num painel único neutro, "Prioridades" com faixa de gravidade + selo e ações em link, selo de saúde nos projetos. **Mapa de ocupação** mais legível (também na Equipe): % + mini barra, fundo só em risco, "—" para sem tasks. Validado headless em claro, escuro, tablet e celular; 96 testes, typecheck e build limpos. |
 | 2026-10-08 | **Ajustes de usabilidade** (2.12): sidebar Início/Projetos/Equipe/Sugestões; Sugestões sem "Horas sem dono" e popover que fecha ao clicar fora; Equipe com 3 meses/1 ano/2 anos (meses) e Squads 1 projeto por vez; Agenda maior com feriados nacionais 2026–2027 (migration `20261008000900`) e folgas do DevOps; Regras de capacidade empilhadas; **sino de notificações** em todas as telas (tabela `notificacao`, migration `20261008001000`, Realtime) + alertas atuais; **Ajuda/glossário** e "?" nos números. Headless claro/escuro/celular sem erros; 97 testes, typecheck e build limpos. |
 | 2026-10-09 | **Serviço de análise em Python** (`services/analytics`, só backend, 6 etapas/commits): migrations de transições, `fluxo_config`/`analise_config`, `sugestao` estendida + Realtime e disparo (pg_net + cron 15 min); domínio puro (capacidade semanal com a cascata do app, fluxo, Pareto, esforço × impacto, candidatos, pseudonimização); repositórios + cliente DevOps só-leitura + backfill; agente (structured outputs, validador anti-alucinação, fallback por template); FastAPI com debounce; Dockerfile, Fly.io (`gru`) e CI. Python 3.12 via `uv` instalado nesta máquina. 113 testes, 98,8% de cobertura no domínio, ruff/mypy strict limpos. **Pendente**: `db push` das 4 migrations, segredos no Vault/Fly, backfill, texto do prompt v1 e o teste ponta a ponta. Front intocado. |
+| 2026-10-09 | **Agente de IA** em Edge Function (`agente`): candidatas do motor + Claude com pseudônimos + validador anti-alucinação; disparo por evento e cron via Vault (`radar_analytics_url` → function); aprovar/ignorar no `devops-acoes`; caixa no Início/Sugestões/Resumo. Montagem de carga compartilhada front/agente. Migrations `20261009000000`–`0500` aplicadas. ESLint, code-split, CI verde, README, tela Sincronização, feriados regionais/recessos. E2E: DevOps → sugestão na tela em 12,6 s; aprovar atribuiu no DevOps. Falta a chave da Anthropic. |
