@@ -34,6 +34,7 @@ import { Card } from "@/components/ui/card";
 import { Ajuda } from "@/components/ajuda";
 import type { TermoGlossario } from "@/lib/glossario";
 import { PainelMembro } from "@/routes/membros";
+import { SugestoesAgente } from "@/components/sugestoes-agente";
 
 const HORIZONTES = [1, 2, 4] as const;
 const SEMANAS_MAPA = semanas(5);
@@ -164,6 +165,10 @@ export function InicioPage() {
           status="neutro"
         />
       </Card>
+
+      <div className="mb-6">
+        <SugestoesAgente limite={3} />
+      </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* Prioridades */}

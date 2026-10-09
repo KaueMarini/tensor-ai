@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Stat } from "@/components/ui/card";
+import { SugestoesAgente } from "@/components/sugestoes-agente";
 import { Popover } from "@/components/ui/popover";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
@@ -72,6 +73,10 @@ export function AnalisesPage() {
           )}
         </ol>
       </header>
+
+      <div className="mb-6">
+        <SugestoesAgente />
+      </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Stat icone={UserRoundX} rotulo="Tarefas sem responsável" valor={totalTasks} alerta={totalTasks > 0} ajuda="semResponsavel" />

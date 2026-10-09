@@ -131,6 +131,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           action: n.link ? { label: "Ver", onClick: () => roteador.current.history.push(n.link!) } : undefined,
         });
       })
+      // sugestão do agente de IA (nova, aprovada, ignorada, expirada): atualiza as caixas
+      .on("postgres_changes", { event: "*", schema: "public", table: "sugestao" }, () => invalidar("sugestoes_agente"))
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");
       })
