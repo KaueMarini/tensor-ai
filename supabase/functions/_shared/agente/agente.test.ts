@@ -197,6 +197,18 @@ describe("ausência com tasks", () => {
     expect(rotasDe(a!)[0]).toMatchObject({ para_pessoa_id: "bia", projeto_semelhante: "Farol", semelhanca_pct: 80 });
   });
 
+  it("a análise de um só projeto monta o mesmo lote completo (chave estável)", () => {
+    const outra = { ...task(5, "caio", 12), projetoId: "p2" };
+    const pessoas = [...base.pessoas.map((p) => ({ ...p, projetos: ["p1", "p2"] }))];
+    const conf = conflito([4, 5]);
+    conf.tarefas[1]!.projetoId = "p2";
+    const e = { pessoas, tarefas: [task(4, "caio", 12), outra], conflitos: [conf] };
+    const [geral] = ausencias(e);
+    const [soP2] = ausencias({ ...e, escopo: ["p2"] });
+    expect(soP2!.chave).toBe(geral!.chave);
+    expect(rotasDe(soP2!)).toHaveLength(2);
+  });
+
   it("quem também está ausente no período não recebe a task", () => {
     const celulaComAna = (p: { id: string }, id: string) => (p.id.startsWith("aus-") && id === "ana" ? cel("ana", 0, 0) : folgada(p, id));
     const [a] = ausencias({ celula: celulaComAna, tarefas: [task(4, "caio", 12, ["front-end"])], conflitos: [conflito([4])] });

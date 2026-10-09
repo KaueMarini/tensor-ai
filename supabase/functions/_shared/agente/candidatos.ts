@@ -260,7 +260,7 @@ export function gerarCandidatos(e: {
     if (nAus >= maxPorTipo) break;
     const de = pessoas.get(conf.pessoaId);
     if (!de) continue;
-    const doEscopo = conf.tarefas.filter((tr) => noEscopo(tr.projetoId));
+    const doEscopo = conf.tarefas.some((tr) => noEscopo(tr.projetoId)) ? conf.tarefas : [];
     if (doEscopo.length === 0) continue;
 
     const extra = new Map<string, number>();

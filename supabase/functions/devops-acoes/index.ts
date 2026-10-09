@@ -269,7 +269,12 @@ async function decidirSugestao(
     }
     const aplicadas = resultados.filter((r) => r.ok).length;
     if (aplicadas === 0) return [{ error: `Nenhuma task foi roteada: ${resultados[0]?.erro ?? "erro"}`, resultados }, 409];
-    await decidir("aplicada");
+    const { error: e4 } = await db
+      .from("sugestao")
+      .update({ status: "aplicada", decidida_por: user.id, decidida_em: new Date().toISOString() })
+      .eq("id", sugestaoId)
+      .in("status", ["pendente", "expirada"]);
+    if (e4) throw new Error(e4.message);
     return [{ ok: true, status: "aplicada", aplicadas, total: resultados.length, resultados }, 200];
   }
   if (acao.tipo !== "reatribuir") return [{ error: `ação ${acao.tipo} ainda não suportada` }, 422];
