@@ -23,6 +23,7 @@ import {
   TIPOS_FORA_DO_KANBAN,
 } from "../_shared/kanban.ts";
 import { asJson, corsHeaders, createAzdo, createDb, type Db, jsonResponse } from "../_lib/context.ts";
+import { protegido } from "../_lib/seguranca.ts";
 import { upsertWorkItems } from "../_lib/sync.ts";
 
 type Azdo = ReturnType<typeof createAzdo>;
@@ -62,7 +63,7 @@ function mensagemAzdo(err: unknown): string {
   return errorMessage(err);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(protegido("devops-acoes", ["admin", "gestor"], async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "use POST" }, 405);
 
@@ -106,7 +107,7 @@ Deno.serve(async (req) => {
     log("error", "devops-acoes falhou", { acao: body.acao, erro: errorMessage(err) });
     return jsonResponse({ error: mensagemAzdo(err) }, 500);
   }
-});
+}));
 
 async function mover(
   db: Db,

@@ -15,22 +15,23 @@ import {
   env,
   jsonResponse,
   projectFilter,
-  safeEqual,
+  verificarSegredo,
 } from "../_lib/context.ts";
+import { protegido } from "../_lib/seguranca.ts";
 import { type Modo, type ResultadoProjeto, runFull, runReconcile, type SyncCtx, syncProjetos, withLease } from "../_lib/sync.ts";
 
 const ORCAMENTO_MS = 110_000; // limite de wall clock no free tier é 150s
 
 async function autorizado(req: Request, db: Db): Promise<boolean> {
   const secret = req.headers.get("x-sync-secret");
-  if (secret) return safeEqual(secret, env("SYNC_SECRET"));
+  if (secret) return await verificarSegredo(secret, "SYNC_SECRET");
   const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return false;
   const { data, error } = await db.auth.getUser(token);
   return !error && !!data.user;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(protegido("devops-sync", ["admin", "gestor"], async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "use POST" }, 405);
 
@@ -58,4 +59,4 @@ Deno.serve(async (req) => {
     log("error", "devops-sync falhou", { modo, erro: errorMessage(err) });
     return jsonResponse({ error: errorMessage(err) }, 500);
   }
-});
+}));

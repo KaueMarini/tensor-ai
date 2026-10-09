@@ -6,12 +6,12 @@
 import type { AzdoServiceHookPayload } from "../_shared/azdo/types.ts";
 import { extractWebhookRef } from "../_shared/mappers/webhook.ts";
 import { errorMessage, log } from "../_shared/log.ts";
-import { asJson, createAzdo, createDb, env, jsonResponse, projectFilter, safeEqual } from "../_lib/context.ts";
+import { asJson, createAzdo, createDb, env, jsonResponse, projectFilter, safeEqual, verificarSegredo } from "../_lib/context.ts";
 import { processarEvento, type SyncCtx } from "../_lib/sync.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
-function basicAuthOk(req: Request): boolean {
+async function basicAuthOk(req: Request): Promise<boolean> {
   const header = req.headers.get("Authorization") ?? "";
   if (!header.startsWith("Basic ")) return false;
   let decoded = "";
@@ -25,13 +25,13 @@ function basicAuthOk(req: Request): boolean {
   const pass = decoded.slice(sep + 1);
   // avalia os dois para não vazar qual falhou pelo tempo de resposta
   const okUser = safeEqual(user, env("WEBHOOK_BASIC_USER"));
-  const okPass = safeEqual(pass, env("WEBHOOK_BASIC_PASS"));
+  const okPass = await verificarSegredo(pass, "WEBHOOK_BASIC_PASS");
   return sep > 0 && okUser && okPass;
 }
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return jsonResponse({ error: "use POST" }, 405);
-  if (!basicAuthOk(req)) return jsonResponse({ error: "não autorizado" }, 401);
+  if (!(await basicAuthOk(req))) return jsonResponse({ error: "não autorizado" }, 401);
 
   let payload: AzdoServiceHookPayload;
   try {

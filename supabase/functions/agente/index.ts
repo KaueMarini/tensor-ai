@@ -38,18 +38,16 @@ import {
   validarExplicacao,
   VERSAO_PROMPT,
 } from "../_shared/agente/texto.ts";
-import { asJson, corsHeaders, createDb, type Db, env, jsonResponse, safeEqual } from "../_lib/context.ts";
-import { pedirJSON, provedorLLM, ultimoErroLLM } from "../_lib/llm.ts";
+import { asJson, corsHeaders, createDb, type Db, env, jsonResponse, verificarSegredo } from "../_lib/context.ts";
+import { protegido } from "../_lib/seguranca.ts";
+import { definirPessoasPII, pedirJSON, provedorLLM, ultimoErroLLM } from "../_lib/llm.ts";
 
 const MAX_LLM = 12;
 const DIA = 86_400_000;
 
 async function autorizado(req: Request, db: Db): Promise<boolean> {
-  const segredos = [
-    [req.headers.get("x-analytics-secret"), env("ANALYTICS_SHARED_SECRET", false)],
-    [req.headers.get("x-sync-secret"), env("SYNC_SECRET", false)],
-  ];
-  if (segredos.some(([dado, esperado]) => dado && esperado && safeEqual(dado, esperado))) return true;
+  if (await verificarSegredo(req.headers.get("x-analytics-secret"), "ANALYTICS_SHARED_SECRET")) return true;
+  if (await verificarSegredo(req.headers.get("x-sync-secret"), "SYNC_SECRET")) return true;
   const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return false;
   const { data, error } = await db.auth.getUser(token);
@@ -87,7 +85,7 @@ interface SkillJson {
 async function carregar(db: Db) {
   const [projetos, membros, regraG, regraP, regraPr, aloc, sprints, caps, folgas, feriados, backlog, ausencias] = await Promise.all([
     db.from("v_projeto_resumo").select("id, nome, descricao, tags, n_membros, n_itens"),
-    db.from("v_membros").select("pessoa_id, nome, projeto_id, time_id, time_nome, skills, tags"),
+    db.from("v_membros").select("pessoa_id, nome, unique_name, projeto_id, time_id, time_nome, skills, tags"),
     db.from("regra_capacidade").select("*").maybeSingle(),
     db.from("regra_capacidade_pessoa").select("pessoa_id, jornada_dia, foco"),
     db.from("regra_capacidade_projeto").select("projeto_id, limite_atencao, limite_sobrecarga"),
@@ -108,6 +106,12 @@ async function carregar(db: Db) {
     db.from("projeto_avaliacao").select("projeto_id, impacto_gestor, impacto_ia"),
   ]);
   if (regraG.error) throw new Error(regraG.error.message);
+  // LGPD: nomes e e-mails de todo mundo entram no dicionário de anonimização do LLM
+  definirPessoasPII(
+    [...new Map(rows(membros, "membros").filter((m) => m.pessoa_id).map((m) => [m.pessoa_id, { nome: normalizarNome(m.nome ?? ""), email: m.unique_name }])).values()].filter(
+      (p) => p.nome,
+    ),
+  );
   return {
     projetos: rows(projetos, "projetos"),
     membros: rows(membros, "membros"),
@@ -476,7 +480,7 @@ declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
 const emSegundoPlano = (p: Promise<unknown>) => p.catch((err) => log("error", "agente falhou (segundo plano)", { erro: errorMessage(err) }));
 
-Deno.serve(async (req) => {
+Deno.serve(protegido("agente", ["admin", "gestor"], async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "use POST" }, 405);
   const db = createDb();
@@ -506,4 +510,4 @@ Deno.serve(async (req) => {
     log("error", "agente falhou", { erro: errorMessage(err) });
     return jsonResponse({ error: errorMessage(err) }, 500);
   }
-});
+}));
