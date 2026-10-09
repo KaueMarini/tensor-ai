@@ -1,20 +1,22 @@
-import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { LoginPage } from "@/routes/login";
 import { AppLayout } from "@/routes/app-layout";
-import { InicioPage } from "@/routes/inicio";
-import { ProjetosPage } from "@/routes/projetos";
-import { MembrosPage } from "@/routes/membros";
-import { AgendaPage } from "@/routes/agenda";
-import { AnalisesPage as SugestoesAlocacaoPage } from "@/routes/analises";
-import { CapacidadePage as RegrasPage } from "@/routes/capacidade";
 import { ProjetoLayout } from "@/routes/projeto/layout";
-import { ResumoPage } from "@/routes/projeto/resumo";
-import { CronogramaPage } from "@/routes/projeto/cronograma";
-import { EquipeProjetoPage } from "@/routes/projeto/equipe";
-import { KanbanPage } from "@/routes/projeto/kanban";
-import { MetricasPage } from "@/routes/projeto/metricas";
+
+// Code-split: cada página vira um chunk carregado ao abrir (login e layouts ficam no principal)
+const InicioPage = lazyRouteComponent(() => import("@/routes/inicio"), "InicioPage");
+const ProjetosPage = lazyRouteComponent(() => import("@/routes/projetos"), "ProjetosPage");
+const MembrosPage = lazyRouteComponent(() => import("@/routes/membros"), "MembrosPage");
+const AgendaPage = lazyRouteComponent(() => import("@/routes/agenda"), "AgendaPage");
+const SugestoesAlocacaoPage = lazyRouteComponent(() => import("@/routes/analises"), "AnalisesPage");
+const RegrasPage = lazyRouteComponent(() => import("@/routes/capacidade"), "CapacidadePage");
+const ResumoPage = lazyRouteComponent(() => import("@/routes/projeto/resumo"), "ResumoPage");
+const CronogramaPage = lazyRouteComponent(() => import("@/routes/projeto/cronograma"), "CronogramaPage");
+const EquipeProjetoPage = lazyRouteComponent(() => import("@/routes/projeto/equipe"), "EquipeProjetoPage");
+const KanbanPage = lazyRouteComponent(() => import("@/routes/projeto/kanban"), "KanbanPage");
+const MetricasPage = lazyRouteComponent(() => import("@/routes/projeto/metricas"), "MetricasPage");
 
 const rootRoute = createRootRoute({
   component: () => (
