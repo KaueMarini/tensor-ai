@@ -6,6 +6,7 @@ import { AppLayout } from "@/routes/app-layout";
 import { InicioPage } from "@/routes/inicio";
 import { ProjetosPage } from "@/routes/projetos";
 import { MembrosPage } from "@/routes/membros";
+import { AgendaPage } from "@/routes/agenda";
 import { AnalisesPage as SugestoesAlocacaoPage } from "@/routes/analises";
 import { CapacidadePage as RegrasPage } from "@/routes/capacidade";
 import { ProjetoLayout } from "@/routes/projeto/layout";
@@ -85,6 +86,16 @@ const sugestoesRoute = createRoute({
   component: SugestoesAlocacaoPage,
 });
 
+const agendaRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/agenda",
+  validateSearch: (s: Record<string, unknown>): { mes?: string; projeto?: string } => ({
+    ...(typeof s.mes === "string" && /^\d{4}-\d{2}$/.test(s.mes) ? { mes: s.mes } : {}),
+    ...(texto(s.projeto) ? { projeto: texto(s.projeto) } : {}),
+  }),
+  component: AgendaPage,
+});
+
 const regrasRoute = createRoute({ getParentRoute: () => appRoute, path: "/capacidade", component: RegrasPage });
 
 const projetoRoute = createRoute({
@@ -126,6 +137,7 @@ const routeTree = rootRoute.addChildren([
     inicioRoute,
     projetosRoute,
     membrosRoute,
+    agendaRoute,
     sugestoesRoute,
     regrasRoute,
     projetoRoute.addChildren([

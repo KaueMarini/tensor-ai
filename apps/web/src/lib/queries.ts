@@ -16,6 +16,8 @@ export const keys = {
   capacidade: (projetoId: string) => ["capacidade", projetoId] as const,
   diasOff: (projetoId: string) => ["dias_off", projetoId] as const,
   feriados: ["feriados"] as const,
+  ausencias: ["ausencias"] as const,
+  agenda: (inicio: string, fim: string, projetoId: string) => ["agenda", inicio, fim, projetoId] as const,
   estados: (projetoId: string) => ["estados", projetoId] as const,
   skillsCatalogo: ["skills_catalogo"] as const,
   funcaoTags: ["funcao_tags"] as const,
@@ -174,6 +176,124 @@ export function useFeriados() {
     queryKey: keys.feriados,
     staleTime: 60 * 60_000,
     queryFn: async () => unwrap(await supabase.from("feriado").select("data, nome")),
+  });
+}
+
+/** Projetos ativos para seletores (limite de 500; acima disso vale trocar por busca). */
+export function useProjetosLista() {
+  return useQuery({
+    queryKey: ["projetos", "lista"],
+    queryFn: async () =>
+      unwrap(await supabase.from("projeto").select("id, nome").is("deleted_at", null).order("nome").limit(500)),
+  });
+}
+
+/** Ausências de todo mundo (tabela pequena): o motor de capacidade desconta como folga pessoal. */
+export function useAusencias() {
+  return useQuery({
+    queryKey: keys.ausencias,
+    queryFn: async () => unwrap(await supabase.from("ausencia").select("pessoa_id, inicio, fim")),
+  });
+}
+
+// =====================================================================
+// Agenda: sprints, feriados, ausências e entregas de features numa janela de datas
+// =====================================================================
+
+export const TIPOS_AUSENCIA = [
+  { valor: "ferias", rotulo: "Férias" },
+  { valor: "certificacao", rotulo: "Certificação" },
+  { valor: "licenca", rotulo: "Licença" },
+  { valor: "outro", rotulo: "Outro" },
+] as const;
+export type TipoAusencia = (typeof TIPOS_AUSENCIA)[number]["valor"];
+
+/** Janela [inicio, fim] em "YYYY-MM-DD"; projetoId vazio = todos os projetos. */
+export function useAgenda(inicio: string, fim: string, projetoId: string) {
+  return useQuery({
+    queryKey: keys.agenda(inicio, fim, projetoId),
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      // datas das features são timestamptz: o fim da janela vira "antes do dia seguinte"
+      const d = new Date(Date.parse(`${fim}T00:00:00Z`) + 86_400_000);
+      const depois = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+
+      let pessoasDoProjeto: string[] | null = null;
+      if (projetoId) {
+        const m = unwrap(await supabase.from("v_membros").select("pessoa_id").eq("projeto_id", projetoId));
+        pessoasDoProjeto = [...new Set(m.map((x) => x.pessoa_id).filter((x): x is string => !!x))];
+      }
+
+      let sprints = supabase
+        .from("sprint")
+        .select("id, nome, inicio, fim, projeto_id, projeto!inner(nome, deleted_at)")
+        .is("deleted_at", null)
+        .is("projeto.deleted_at", null)
+        .lte("inicio", fim)
+        .gte("fim", inicio);
+      let entregas = supabase
+        .from("work_item")
+        .select("devops_id, titulo, target_date, finish_date, projeto_id, projeto!inner(nome, deleted_at)")
+        .eq("tipo", "Feature")
+        .is("deleted_at", null)
+        .is("projeto.deleted_at", null)
+        .or(
+          `and(target_date.gte.${inicio},target_date.lt.${depois}),and(target_date.is.null,finish_date.gte.${inicio},finish_date.lt.${depois})`,
+        );
+      let ausencias = supabase
+        .from("ausencia")
+        .select("id, pessoa_id, tipo, inicio, fim, observacao, pessoa(nome)")
+        .lte("inicio", fim)
+        .gte("fim", inicio);
+      if (projetoId) {
+        sprints = sprints.eq("projeto_id", projetoId);
+        entregas = entregas.eq("projeto_id", projetoId);
+        ausencias = ausencias.in("pessoa_id", pessoasDoProjeto ?? []);
+      }
+
+      const [s, f, a, e] = await Promise.all([
+        sprints,
+        supabase.from("feriado").select("id, data, nome").gte("data", inicio).lte("data", fim),
+        ausencias,
+        entregas,
+      ]);
+      return { sprints: unwrap(s), feriados: unwrap(f), ausencias: unwrap(a), entregas: unwrap(e) };
+    },
+  });
+}
+
+function useInvalidarAgenda() {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: ["agenda"] });
+    void qc.invalidateQueries({ queryKey: keys.ausencias });
+    // carga global (prefixo "backlog") também desconta ausências
+    void qc.invalidateQueries({ queryKey: ["backlog"] });
+  };
+}
+
+export function useRegistrarAusencia() {
+  const invalidar = useInvalidarAgenda();
+  return useMutation({
+    mutationFn: async (v: { pessoaId: string; tipo: TipoAusencia; inicio: string; fim: string }) => {
+      if (v.fim < v.inicio) throw new Error("A data de fim não pode ser antes do início.");
+      const { error } = await supabase
+        .from("ausencia")
+        .insert({ pessoa_id: v.pessoaId, tipo: v.tipo, inicio: v.inicio, fim: v.fim });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidar,
+  });
+}
+
+export function useRemoverAusencia() {
+  const invalidar = useInvalidarAgenda();
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const { error } = await supabase.from("ausencia").delete().in("id", ids);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidar,
   });
 }
 

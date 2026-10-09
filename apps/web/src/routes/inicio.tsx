@@ -1,19 +1,21 @@
 // Início: a tela que o gestor abre de manhã. Em segundos responde "quem está em risco e o que
-// eu faço agora?": pendências priorizadas com ação de um clique, mapa de ocupação pessoa ×
-// semana (todos os projetos somados) e a saúde de cada projeto. Números vêm do motor global.
+// eu faço agora?": prioridades com ação de um clique, mapa de ocupação pessoa × semana (todos
+// os projetos somados) e a saúde de cada projeto. Números vêm do motor global.
+// Visual: neutro por padrão; cor só onde há risco (status com ícone + texto, nunca só cor).
 
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowRight,
   CalendarOff,
+  ChevronDown,
   CircleCheck,
-  Clock,
   FolderKanban,
   Grid3x3,
   KanbanSquare,
   Lightbulb,
+  ListChecks,
   OctagonAlert,
   PartyPopper,
   UserRoundPlus,
@@ -28,18 +30,13 @@ import { cn, formatHoras } from "@/lib/utils";
 import { MarcaProjeto } from "@/components/avatar";
 import { STATUS_CARGA } from "@/components/carga";
 import { LegendaMapa, MapaOcupacao, ordenarPorRisco } from "@/components/mapa-ocupacao";
-import { Card, CardTitulo } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PainelMembro } from "@/routes/membros";
 
 const HORIZONTES = [1, 2, 4] as const;
 const SEMANAS_MAPA = semanas(5);
 const LINHAS_MAPA = 8;
 const ITENS_VISIVEIS = 5;
-
-function saudacao() {
-  const h = new Date().getHours();
-  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-}
 
 export function InicioPage() {
   const eq = useOcupacaoEquipe();
@@ -95,30 +92,33 @@ export function InicioPage() {
 
   const totalSemDono = semDono.reduce((n, s) => n + s.tasks, 0);
   const selecionado = eq.membros.find((m) => m.pessoaId === aberto) ?? null;
+  const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="mx-auto max-w-[1500px] px-6 py-6">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:py-8">
+      {/* Cabeçalho */}
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight dark:text-slate-100">{saudacao()}! Veja como está a equipe.</h1>
+          <div className="text-[11px] font-semibold tracking-wider text-brand-600 uppercase dark:text-brand-300">{hoje}</div>
+          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Visão geral da equipe</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Ocupação somando <strong className="font-medium text-slate-700 dark:text-slate-200">todos os projetos</strong>, atualizada ao vivo com o Azure DevOps.
+            Ocupação somando todos os projetos · atualizada ao vivo com o Azure DevOps
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          Olhando
-          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Período</span>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/60">
             {HORIZONTES.map((n) => (
               <button
                 key={n}
                 type="button"
+                aria-pressed={horizonte === n}
                 onClick={() => setHorizonte(n)}
                 className={cn(
-                  "cursor-pointer rounded-md px-2.5 py-1 font-medium",
-                  horizonte === n ? "bg-brand-700 text-white dark:bg-brand-600" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                  "cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  horizonte === n
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
                 )}
               >
                 {n === 1 ? "Esta semana" : `${n} semanas`}
@@ -128,120 +128,128 @@ export function InicioPage() {
         </div>
       </header>
 
-      {/* Semáforo: 4 números, cada um leva à ação */}
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Indicadores: um painel só, cor apenas quando há problema */}
+      <Card className="mb-6 grid grid-cols-2 gap-px overflow-hidden bg-slate-100 lg:grid-cols-4 dark:bg-slate-800 [&>*]:bg-white dark:[&>*]:bg-slate-900">
         <Indicador
-          icone={OctagonAlert}
-          cor={STATUS_CARGA.sobrecarga.cor}
+          rotulo="Acima da capacidade"
           valor={analise?.acima}
-          rotulo="acima da capacidade"
-          destaque={(analise?.acima ?? 0) > 0}
-          href="#precisa"
+          contexto={`pessoas · ${periodo.rotulo}`}
+          status={(analise?.acima ?? 0) > 0 ? "critico" : "ok"}
+          href="#prioridades"
         />
         <Indicador
-          icone={AlertTriangle}
-          cor={STATUS_CARGA.limite.cor}
+          rotulo="No limite"
           valor={analise?.limite}
-          rotulo="no limite"
-          destaque={(analise?.limite ?? 0) > 0}
-          href="#precisa"
+          contexto={`pessoas · ${periodo.rotulo}`}
+          status={(analise?.limite ?? 0) > 0 ? "atencao" : "ok"}
+          href="#prioridades"
         />
         <Indicador
-          icone={UserRoundX}
-          cor={STATUS_CARGA.limite.cor}
+          rotulo="Tasks sem responsável"
           valor={semDonoQ.isLoading ? undefined : totalSemDono}
-          rotulo={totalSemDono === 1 ? "task sem responsável" : "tasks sem responsável"}
-          destaque={totalSemDono > 0}
+          contexto="abertas, em todos os projetos"
+          status={totalSemDono > 0 ? "atencao" : "ok"}
           to="/analises"
         />
         <Indicador
-          icone={Clock}
-          cor={STATUS_CARGA.ok.cor}
+          rotulo="Horas livres"
           valor={analise ? formatHoras(Math.round(analise.livres)) : undefined}
-          rotulo="horas livres na equipe"
+          contexto={`na equipe · ${periodo.rotulo}`}
+          status="neutro"
         />
-      </div>
+      </Card>
 
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <Card id="precisa" className="scroll-mt-6">
-          <CardTitulo
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        {/* Prioridades */}
+        <Card id="prioridades" className="scroll-mt-6 overflow-hidden">
+          <CabecalhoCard
             icone={Lightbulb}
-            titulo="Precisa de você"
-            descricao={`O que pode virar problema ${periodo.rotulo}, do mais grave para o menos grave.`}
+            titulo="Prioridades"
+            contador={analise?.itens.length}
+            descricao={`O que pode virar problema ${periodo.rotulo}, do mais grave ao menos grave.`}
           />
           {!analise ? (
-            <div className="space-y-2 p-5">
+            <div className="space-y-3 p-5">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-14 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60" />
               ))}
             </div>
           ) : analise.itens.length === 0 ? (
-            <div className="grid place-items-center px-6 py-12 text-center">
+            <div className="grid place-items-center px-6 py-14 text-center">
               <PartyPopper className="mb-2 size-7 text-emerald-500" />
               <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Tudo sob controle</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Ninguém acima do limite e nenhuma task sem dono {periodo.rotulo}.</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Ninguém acima do limite e nenhuma task sem dono {periodo.rotulo}.
+              </p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {(todosItens ? analise.itens : analise.itens.slice(0, ITENS_VISIVEIS)).map((it, i) => (
-                <ItemPendencia key={i} item={it} onPessoa={setAberto} />
-              ))}
+            <>
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(todosItens ? analise.itens : analise.itens.slice(0, ITENS_VISIVEIS)).map((it, i) => (
+                  <ItemPrioridade key={i} item={it} onPessoa={setAberto} />
+                ))}
+              </ul>
               {analise.itens.length > ITENS_VISIVEIS && (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setTodosItens((v) => !v)}
-                    className="w-full cursor-pointer px-5 py-2.5 text-center text-xs font-medium text-brand-700 hover:bg-slate-50 dark:text-brand-300 dark:hover:bg-slate-800/50"
-                  >
-                    {todosItens ? "Mostrar menos" : `Mostrar mais ${analise.itens.length - ITENS_VISIVEIS}`}
-                  </button>
-                </li>
+                <button
+                  type="button"
+                  onClick={() => setTodosItens((v) => !v)}
+                  className="flex w-full cursor-pointer items-center justify-center gap-1 border-t border-slate-100 px-5 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/50"
+                >
+                  {todosItens ? "Mostrar menos" : `Mostrar mais ${analise.itens.length - ITENS_VISIVEIS}`}
+                  <ChevronDown className={cn("size-3.5 transition-transform", todosItens && "rotate-180")} />
+                </button>
               )}
-            </ul>
+            </>
           )}
         </Card>
 
-        <Card className="min-w-0">
-          <CardTitulo
+        {/* Mapa de ocupação */}
+        <Card className="min-w-0 overflow-hidden">
+          <CabecalhoCard
             icone={Grid3x3}
             titulo="Ocupação nas próximas semanas"
-            descricao="Quem está pior aparece primeiro. Clique numa pessoa para ver de onde vem a carga."
+            descricao="Quem está em risco aparece primeiro. Clique numa pessoa para ver de onde vem a carga."
           />
-          <div className="border-b border-slate-100 px-5 py-2 dark:border-slate-800">
+          <div className="border-b border-slate-100 px-5 py-2.5 dark:border-slate-800">
             <LegendaMapa />
           </div>
           {!analise ? (
             <div className="m-5 h-72 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/60" />
           ) : (
-            <div className="py-3 pr-3">
-              <MapaOcupacao
-                linhas={analise.linhas.slice(0, LINHAS_MAPA)}
-                periodos={SEMANAS_MAPA}
-                celula={eq.celula!}
-                nomeProjeto={eq.nomeProjeto}
-                onAbrir={setAberto}
-              />
-            </div>
+            <MapaOcupacao
+              linhas={analise.linhas.slice(0, LINHAS_MAPA)}
+              periodos={SEMANAS_MAPA}
+              celula={eq.celula!}
+              nomeProjeto={eq.nomeProjeto}
+              onAbrir={setAberto}
+            />
           )}
           <Link
             to="/membros"
-            className="flex items-center justify-center gap-1 border-t border-slate-100 px-5 py-2.5 text-xs font-medium text-brand-700 hover:bg-slate-50 dark:border-slate-800 dark:text-brand-300 dark:hover:bg-slate-800/50"
+            className="flex items-center justify-center gap-1 border-t border-slate-100 px-5 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/50"
           >
             Ver a equipe toda ({eq.membros.length}) <ArrowRight className="size-3.5" />
           </Link>
         </Card>
       </div>
 
-      <section className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-            <FolderKanban className="size-4 text-brand-700 dark:text-brand-300" /> Projetos
-          </h2>
-          <Link to="/projetos" className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300">
-            Ver todos
+      {/* Projetos */}
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+              <FolderKanban className="size-4 text-slate-400" /> Projetos
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Saúde de cada projeto {periodo.rotulo}.</p>
+          </div>
+          <Link
+            to="/projetos"
+            className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+          >
+            Ver todos <ArrowRight className="size-3.5" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {(projetosQ.data?.projetos ?? []).map((p) => {
             const pessoas = eq.membros.filter((m) => m.projetos.some((x) => x.id === p.id));
             const acima = analise
@@ -264,7 +272,7 @@ export function InicioPage() {
               />
             );
           })}
-          {projetosQ.isLoading && [0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />)}
+          {projetosQ.isLoading && [0, 1, 2].map((i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800/60" />)}
         </div>
       </section>
 
@@ -281,44 +289,84 @@ export function InicioPage() {
   );
 }
 
-function Indicador({
+// ---------------------------------------------------------------------------
+// Peças
+// ---------------------------------------------------------------------------
+
+function CabecalhoCard({
   icone: Icone,
-  cor,
-  valor,
+  titulo,
+  descricao,
+  contador,
+}: {
+  icone: typeof Lightbulb;
+  titulo: string;
+  descricao: string;
+  contador?: number;
+}) {
+  return (
+    <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <Icone className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {titulo}
+          {!!contador && (
+            <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {contador}
+            </span>
+          )}
+        </h2>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{descricao}</p>
+      </div>
+    </div>
+  );
+}
+
+const COR_STATUS = {
+  critico: STATUS_CARGA.sobrecarga.cor,
+  atencao: STATUS_CARGA.limite.cor,
+  ok: STATUS_CARGA.ok.cor,
+} as const;
+
+function Indicador({
   rotulo,
-  destaque,
+  valor,
+  contexto,
+  status,
   href,
   to,
 }: {
-  icone: typeof Clock;
-  cor: string;
-  valor: number | string | undefined;
   rotulo: string;
-  destaque?: boolean;
+  valor: number | string | undefined;
+  contexto: string;
+  status: "critico" | "atencao" | "ok" | "neutro";
   href?: string;
   to?: "/analises";
 }) {
+  const Icone = status === "critico" ? OctagonAlert : status === "atencao" ? AlertTriangle : status === "ok" ? CircleCheck : null;
+  const cor = status === "neutro" ? undefined : COR_STATUS[status];
   const conteudo = (
     <>
-      <span
-        className="grid size-10 shrink-0 place-items-center rounded-lg"
-        style={{ background: `color-mix(in oklab, ${cor} ${destaque ? 18 : 10}%, transparent)`, color: cor }}
-      >
-        <Icone className="size-5" />
-      </span>
-      <div className="min-w-0">
-        <div className="text-2xl leading-tight font-semibold text-slate-900 tabular-nums dark:text-slate-100">
-          {valor ?? <span className="inline-block h-6 w-8 animate-pulse rounded bg-slate-100 align-middle dark:bg-slate-800" />}
-        </div>
-        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{rotulo}</div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{rotulo}</span>
+        {Icone && <Icone className="size-4 shrink-0" style={{ color: cor }} aria-hidden />}
       </div>
-      {(href || to) && <ArrowRight className="ml-auto size-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600" />}
+      <div className="mt-1.5 text-3xl leading-none font-semibold tracking-tight text-slate-900 tabular-nums dark:text-slate-50">
+        {valor ?? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-100 align-middle dark:bg-slate-800" />}
+      </div>
+      <div className="mt-1.5 flex items-start gap-1 text-xs text-slate-400 dark:text-slate-500">
+        <span className="line-clamp-2">{contexto}</span>
+        {(href || to) && (
+          <ArrowRight className="ml-auto size-3.5 shrink-0 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
+        )}
+      </div>
     </>
   );
   const classe = cn(
-    "group flex items-center gap-3 rounded-xl border bg-white px-4 py-3.5 shadow-xs transition-colors dark:bg-slate-900",
-    destaque ? "border-slate-300 dark:border-slate-700" : "border-slate-200 dark:border-slate-800",
-    (href || to) && "cursor-pointer hover:border-brand-500/50",
+    "group block px-5 py-4 transition-colors",
+    (href || to) && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40",
   );
   if (to)
     return (
@@ -335,58 +383,58 @@ function Indicador({
   return <div className={classe}>{conteudo}</div>;
 }
 
-const ICONE_ITEM = {
-  "sem-capacidade": { icone: CalendarOff, cor: STATUS_CARGA["sem-capacidade"].cor },
-  sobrecarga: { icone: OctagonAlert, cor: STATUS_CARGA.sobrecarga.cor },
-  limite: { icone: AlertTriangle, cor: STATUS_CARGA.limite.cor },
-  "sem-dono": { icone: UserRoundX, cor: STATUS_CARGA.limite.cor },
-  "sem-equipe": { icone: UserRoundPlus, cor: "var(--color-brand-600)" },
+const TIPO_ITEM = {
+  "sem-capacidade": { icone: CalendarOff, cor: STATUS_CARGA["sem-capacidade"].cor, selo: "Crítico" },
+  sobrecarga: { icone: OctagonAlert, cor: STATUS_CARGA.sobrecarga.cor, selo: "Crítico" },
+  limite: { icone: AlertTriangle, cor: STATUS_CARGA.limite.cor, selo: "Atenção" },
+  "sem-dono": { icone: UserRoundX, cor: STATUS_CARGA.limite.cor, selo: "Atenção" },
+  "sem-equipe": { icone: UserRoundPlus, cor: "var(--color-brand-500)", selo: "Ação" },
 } as const;
 
-function ItemPendencia({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: string) => void }) {
-  const ic = ICONE_ITEM[item.tipo];
+function ItemPrioridade({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: string) => void }) {
+  const t = TIPO_ITEM[item.tipo];
   return (
-    <li className="flex gap-3 px-5 py-3.5">
-      <span
-        className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full"
-        style={{ background: `color-mix(in oklab, ${ic.cor} 14%, transparent)`, color: ic.cor }}
-      >
-        <ic.icone className="size-3.5" />
-      </span>
+    <li className="relative flex gap-3.5 py-4 pr-5 pl-6">
+      {/* faixa de gravidade */}
+      <span className="absolute inset-y-3 left-0 w-[3px] rounded-r-full" style={{ background: t.cor }} aria-hidden />
+      <t.icone className="mt-0.5 size-4 shrink-0" style={{ color: t.cor }} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.titulo}</p>
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.detalhe}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm leading-snug font-medium text-slate-900 dark:text-slate-100">{item.titulo}</p>
+          <span
+            className="mt-px shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-slate-700 uppercase dark:text-slate-200"
+            style={{ background: `color-mix(in oklab, ${t.cor} 16%, transparent)` }}
+          >
+            {t.selo}
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{item.detalhe}</p>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
           {item.tipo === "sem-equipe" ? (
-            <Link
-              to="/projetos/$projetoId/resumo"
-              params={{ projetoId: item.projetoId }}
-              className="inline-flex items-center gap-1 rounded-md bg-brand-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-900 dark:bg-brand-600 dark:hover:bg-brand-500"
-            >
-              <UserRoundPlus className="size-3.5" /> Ver equipe sugerida
-            </Link>
+            <AcaoLink>
+              <Link to="/projetos/$projetoId/resumo" params={{ projetoId: item.projetoId }}>
+                <UserRoundPlus className="size-3.5" /> Ver equipe sugerida
+              </Link>
+            </AcaoLink>
           ) : item.tipo === "sem-dono" ? (
-            <Acao to="/analises" search={item.projetoId ? { projeto: item.projetoId } : {}} primaria>
-              <Lightbulb className="size-3.5" /> Ver sugestões
-            </Acao>
+            <AcaoLink>
+              <Link to="/analises" search={item.projetoId ? { projeto: item.projetoId } : {}}>
+                <Lightbulb className="size-3.5" /> Ver sugestões de quem pode pegar
+              </Link>
+            </AcaoLink>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => onPessoa(item.pessoaId)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-brand-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-900 dark:bg-brand-600 dark:hover:bg-brand-500"
-              >
-                <UserRoundSearch className="size-3.5" /> Ver ocupação
-              </button>
+              <AcaoLink>
+                <button type="button" onClick={() => onPessoa(item.pessoaId)}>
+                  <UserRoundSearch className="size-3.5" /> Ver ocupação
+                </button>
+              </AcaoLink>
               {item.projetoId && (
-                <Link
-                  to="/projetos/$projetoId/kanban"
-                  params={{ projetoId: item.projetoId }}
-                  search={{ resp: item.pessoaId }}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <KanbanSquare className="size-3.5" /> Ver tasks
-                </Link>
+                <AcaoLink secundaria>
+                  <Link to="/projetos/$projetoId/kanban" params={{ projetoId: item.projetoId }} search={{ resp: item.pessoaId }}>
+                    <KanbanSquare className="size-3.5" /> Ver tasks
+                  </Link>
+                </AcaoLink>
               )}
             </>
           )}
@@ -396,20 +444,17 @@ function ItemPendencia({ item, onPessoa }: { item: ItemAtencao; onPessoa: (id: s
   );
 }
 
-function Acao({ to, search, primaria, children }: { to: "/analises"; search: { projeto?: string }; primaria?: boolean; children: React.ReactNode }) {
+/** Ação discreta em formato de link (o filho é <Link> ou <button>). */
+function AcaoLink({ children, secundaria }: { children: ReactNode; secundaria?: boolean }) {
   return (
-    <Link
-      to={to}
-      search={search}
+    <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium",
-        primaria
-          ? "bg-brand-700 text-white hover:bg-brand-900 dark:bg-brand-600 dark:hover:bg-brand-500"
-          : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300",
+        "text-xs font-medium [&>*]:inline-flex [&>*]:cursor-pointer [&>*]:items-center [&>*]:gap-1.5 [&>*]:hover:underline [&>*]:underline-offset-2",
+        secundaria ? "text-slate-500 dark:text-slate-400 [&>*]:hover:text-slate-800 dark:[&>*]:hover:text-slate-200" : "text-brand-700 dark:text-brand-300",
       )}
     >
       {children}
-    </Link>
+    </span>
   );
 }
 
@@ -430,52 +475,59 @@ function CartaoProjeto({
   semDono: number;
   semEquipe: boolean;
 }) {
-  const ok = acima.length === 0 && semDono === 0 && !semEquipe;
+  const saude =
+    acima.length > 0
+      ? { rotulo: "Em risco", icone: OctagonAlert, cor: STATUS_CARGA.sobrecarga.cor }
+      : semDono > 0 || semEquipe
+        ? { rotulo: "Atenção", icone: AlertTriangle, cor: STATUS_CARGA.limite.cor }
+        : { rotulo: "Saudável", icone: CircleCheck, cor: STATUS_CARGA.ok.cor };
+
   return (
     <Link
       to="/projetos/$projetoId"
       params={{ projetoId: id }}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-brand-500/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+      className="group flex flex-col rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3 p-4">
         <MarcaProjeto nome={nome} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold text-slate-900 dark:text-slate-100">{nome}</div>
-          <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-            {sprint ? `${sprint} em andamento` : "Sem sprint ativa"} · {pessoas} {pessoas === 1 ? "pessoa" : "pessoas"}
+          <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+            {sprint ?? "Sem sprint ativa"} · {pessoas} {pessoas === 1 ? "pessoa" : "pessoas"}
           </div>
         </div>
-        <ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600" />
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-200"
+          style={{ background: `color-mix(in oklab, ${saude.cor} 14%, transparent)` }}
+        >
+          <saude.icone className="size-3" style={{ color: saude.cor }} aria-hidden /> {saude.rotulo}
+        </span>
       </div>
-      <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs dark:border-slate-800">
-        {ok ? (
-          <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-            <CircleCheck className="size-3.5" style={{ color: STATUS_CARGA.ok.cor }} /> Equipe com folga e tudo com dono
-          </span>
-        ) : (
-          <>
-            {semEquipe && (
-              <div className="flex items-center gap-1.5 font-medium text-brand-800 dark:text-brand-200">
-                <UserRoundPlus className="size-3.5 shrink-0" /> Sem equipe · ver squad e pessoas sugeridas
-              </div>
-            )}
-            {acima.length > 0 && (
-              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                <OctagonAlert className="size-3.5 shrink-0" style={{ color: STATUS_CARGA.sobrecarga.cor }} />
-                <span className="truncate">
-                  {acima.length === 1 ? `${acima[0]} acima da capacidade` : `${acima.length} pessoas acima da capacidade`}
-                </span>
-              </div>
-            )}
-            {semDono > 0 && (
-              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                <UserRoundX className="size-3.5 shrink-0" style={{ color: STATUS_CARGA.limite.cor }} />
-                {semDono} {semDono === 1 ? "task sem responsável" : "tasks sem responsável"}
-              </div>
-            )}
-          </>
+      <ul className="mt-auto space-y-1.5 border-t border-slate-100 px-4 py-3 text-xs dark:border-slate-800">
+        {acima.length === 0 && semDono === 0 && !semEquipe && (
+          <Linha icone={ListChecks}>Equipe com folga e tudo com dono</Linha>
         )}
-      </div>
+        {semEquipe && <Linha icone={UserRoundPlus}>Sem equipe · veja o squad e as pessoas sugeridas</Linha>}
+        {acima.length > 0 && (
+          <Linha icone={OctagonAlert} cor={STATUS_CARGA.sobrecarga.cor}>
+            {acima.length === 1 ? `${acima[0]} acima da capacidade` : `${acima.length} pessoas acima da capacidade`}
+          </Linha>
+        )}
+        {semDono > 0 && (
+          <Linha icone={UserRoundX} cor={STATUS_CARGA.limite.cor}>
+            {semDono} {semDono === 1 ? "task sem responsável" : "tasks sem responsável"}
+          </Linha>
+        )}
+      </ul>
     </Link>
+  );
+}
+
+function Linha({ icone: Icone, cor, children }: { icone: typeof ListChecks; cor?: string; children: ReactNode }) {
+  return (
+    <li className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+      <Icone className={cn("size-3.5 shrink-0", !cor && "text-slate-400")} style={cor ? { color: cor } : undefined} aria-hidden />
+      <span className="truncate">{children}</span>
+    </li>
   );
 }

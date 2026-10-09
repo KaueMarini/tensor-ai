@@ -8,14 +8,15 @@
 **Fase atual:** P0 em andamento — sync com o Azure DevOps, front reorganizado para o gestor
 (Início com "Precisa de você" + mapa pessoa × semana, Equipe, Sugestões, projeto com Resumo/
 Kanban/Cronograma/Equipe/Métricas, Regras de capacidade), motor de capacidade global com
-regras do gestor. Ainda fora: agente de IA, cadastro de ausências/feriados pela UI.
+regras do gestor, categoria **Agenda** (calendário + registro de ausências que descontam na capacidade).
+Ainda fora: agente de IA, cadastro de feriados pela UI.
 
 ---
 
 ## 1. Onde paramos
 
 Sessão de 2026-10-09: **motor de análise de fluxo e capacidade em Python** (`services/analytics`,
-só backend, ver 2.10), em etapas. **Etapa 1 feita** (migrations + config): `work_item_transicao`
+só backend, ver 2.11), em etapas. **Etapa 1 feita** (migrations + config): `work_item_transicao`
 (+ trigger em `evento`), `fluxo_config`/`analise_config`/`devops_relacao_cache`, colunas novas e
 Realtime em `sugestao`; esqueleto `uv` (Python 3.12) com ruff/mypy/pytest. **Migrations ainda
 não aplicadas**: esta máquina não tinha `.env.local`, `supabase/.env.functions` nem
@@ -42,6 +43,17 @@ O **backend de sincronização está completo, publicado e validado em produçã
 (na `main`, ver 2.6). Validado com navegador headless: alteração no
 DevOps aparece na tela sem refresh, com destaque da linha e toast.
 Também aplicadas as proteções de limite de uso (ver seção 5, "Limites de uso").
+
+Sessão de 2026-10-08 (10ª parte): **visual da tela Início refeito para leitura profissional**
+(pedido: "muito ruim de ler"). Mesma lógica e dados; só apresentação (ver 2.6, "Início — visual").
+
+Sessão de 2026-10-08 (9ª parte): **nova categoria Agenda** na sidebar (grupo "Calendário" → item
+"Agenda", página `/agenda`, detalhes em 2.10):
+calendário do mês com sprints (só início e fim), feriados, ausências (só dias úteis) e entregas
+de features; "Próximos eventos"; modal "Registrar ausência" e remover pela lista. Ausência
+registrada **entra no motor** como folga pessoal (por projeto e global). Migration
+`20261008000800` (insert/delete em `ausencia` para authenticated + Realtime). A **sidebar
+virou gaveta abaixo de lg** (botão ☰), app inteiro usável no celular.
 
 Sessão de 2026-10-08 (8ª parte): **equipe sugerida para projeto novo sem pessoas**. Motor
 `_shared/capacidade/equipe-sugerida.ts` (termos do projeto = tags + skills citadas na descrição +
@@ -155,7 +167,7 @@ Situação do backend verificada em 2026-10-07 ~03:47 UTC:
 | `tsc --noEmit` e `deno check` | sem erros |
 | Histórico de migrations remoto | reparado (`migration repair`); `db push` funciona |
 
-**Próximo passo imediato:** cadastro de ausências/feriados pela UI (alimenta o motor),
+**Próximo passo imediato:** cadastro de feriados pela UI (a tabela `feriado` está vazia),
 webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (seção 4).
 
 ---
@@ -329,6 +341,22 @@ webhooks dos projetos novos (ver seção 5), página de Sync, ESLint, CI/CD (se�
   global para Início/Equipe), `lib/membros.ts` (`agruparMembros`), `components/mapa-ocupacao.tsx`
   (heatmap pessoa × semana, ordenado por risco), `components/ocupacao-membro.tsx` (seção da
   ficha), `_shared/capacidade/atencao.ts` ("Precisa de você", testado).
+- **Início — visual** (`routes/inicio.tsx`, refeito em 2026-10-08): princípio "neutro por
+  padrão, cor só onde há risco".
+  - Cabeçalho: data em eyebrow, título "Visão geral da equipe" (saiu "Boa noite! Veja como
+    está a equipe."), seletor **Período** (Esta semana / 2 / 4 semanas) no estilo neutro.
+  - Indicadores num **painel único** de 4 colunas (2 no celular) com divisórias: rótulo,
+    número grande, linha de contexto ("pessoas · nas próximas 2 semanas"); ícone de status
+    colorido só no canto. Clicáveis ganham seta no hover.
+  - "Precisa de você" virou **"Prioridades"** (com contador): faixa fina de gravidade à
+    esquerda, selo **Crítico / Atenção / Ação**, detalhe em até 2 linhas e ações como
+    links discretos (antes eram botões escuros repetidos).
+  - Cards de **Projetos** com selo de saúde **Saudável / Atenção / Em risco** (ícone + texto).
+- **Mapa de ocupação** (`components/mapa-ocupacao.tsx`, vale para Início **e Equipe**):
+  tabela com linhas separadas por traço fino e hover na linha; célula = % + mini barra de uso
+  na cor do status; fundo só em **No limite / Sobrecarregado**; sem tasks = "—" (antes
+  "livre" em caixa cinza); ausente = hachurado; coluna de nomes mais larga. Legenda ganhou
+  "— Sem tasks". API do componente não mudou.
 - **Sidebar**: Início, Sugestões (badge de tasks sem dono), Equipe, Projetos, **Recentes** (5 últimos projetos abertos, guardados no
   navegador em `lib/recentes.ts`) — a lista completa de projetos saiu da sidebar, indicador "Ao vivo / Conectando / Desconectado" (status do canal
   Realtime), "Última reconciliação há X" (sync_state), e-mail + sair.
@@ -519,7 +547,97 @@ com duas visões no seletor do topo:
   `acao` conferidos) e de volta para New; Análises reproduz o cenário do seed (Kauê
   117% na Sprint 1). 35 testes, typecheck e build limpos.
 
-### 2.10 Serviço de análise de fluxo e capacidade (`services/analytics`, Python)
+### 2.10 Categoria **Agenda** (nova categoria da sidebar)
+
+> Tudo neste bloco se refere à **categoria Agenda**: um grupo novo na sidebar chamado
+> **"Calendário"**, logo abaixo de "Projetos", com o item **"Agenda"** (ícone de calendário),
+> que abre a página `/agenda`. Feita em 2026-10-08 (9ª parte da sessão).
+
+**Onde fica e como navegar**
+- Sidebar → grupo **"Calendário"** → **"Agenda"** (`routes/app-layout.tsx`).
+- Rota `/agenda` dentro da rota `app` (mesmo guard de sessão), em `router.tsx`.
+  Parâmetros na URL: `?mes=YYYY-MM` (sem = mês atual) e `?projeto=<id>` (sem = todos).
+- Escopo (decidido com o usuário): **geral, com filtro de projeto** ("Todos os projetos" ou um).
+
+**O que a página Agenda mostra** (`routes/agenda.tsx`)
+- Cabeçalho: eyebrow "CALENDÁRIO", título "Agenda", subtítulo "Sprints, feriados, ausências e
+  entregas das features.", filtro de projeto e botão "+ Registrar ausência".
+- Grid de 2 colunas: calendário (1fr) + "Próximos eventos" (320px); empilha abaixo de 1100px.
+- Calendário: título "Mês de Ano", botões mês anterior / Hoje / próximo (com aria-label);
+  42 células começando no domingo; dias de outro mês apagados; hoje em círculo vermelho;
+  até 3 pílulas por dia + "+N mais"; texto completo no `title`; legenda (Sprint, Feriado,
+  Ausência, Entrega). No celular (< sm) as pílulas viram pontos coloridos.
+- Cores das pílulas: Sprint = marca escura com texto branco; Feriado = âmbar; Ausência =
+  índigo; Entrega = verde (todas com par `dark:`).
+- "Próximos eventos": até 9 a partir de hoje, badge com a data (dd/mm ou dd/mm–dd/mm);
+  ausências têm botão de remover com confirmação.
+  - **Sprints aparecem uma por projeto** (não agrupadas como no calendário): nome do
+    projeto em destaque e o nome da sprint embaixo. **Clicar leva à página do projeto**
+    (`/projetos/<id>`, que abre no Resumo). Entregas de features também são clicáveis e
+    levam ao projeto delas; ausências e feriados não têm projeto, então não são links.
+  - **Paginação discreta**: a lista traz até 90 eventos (próximos 120 dias) e mostra **9 por
+    página**; no rodapé do card ficam "1 de N" e setas ‹ › pequenas (aparecem só com mais de
+    uma página; a seta desativa no início/fim). Linhas com altura fixa e um espaço liso na
+    última página mantêm **o card do mesmo tamanho** em todas as páginas. Ao trocar o filtro
+    de projeto, volta para a página 1.
+- Modal "Registrar ausência" (`components/ui/dialog.tsx`: role="dialog", fecha com Esc e
+  clique no fundo, foco no 1º campo): pessoa, tipo (férias, certificação, licença, outro),
+  início e fim; valida fim ≥ início; toast ao salvar.
+
+**De onde vêm os eventos da Agenda** (colunas reais do schema)
+- **Sprint**: `sprint.inicio/fim`. Decisão do usuário: pílula **só no dia de início e no de
+  fim**. Na visão geral, sprints de mesmo nome e mesmas datas em projetos diferentes viram
+  uma pílula só ("Sprint 1 · 3 projetos", projetos no `title`).
+- **Feriado**: `feriado.data/nome` (tabela hoje vazia, ver pendências).
+- **Ausência**: tabela `ausencia` (pessoa_id, tipo, inicio, fim). Só dias úteis; períodos
+  contíguos da mesma pessoa e tipo são agrupados.
+- **Entrega**: Features de `work_item` (`target_date`, com fallback `finish_date`). A view
+  `feature` não tem essas colunas, por isso a Agenda lê `work_item` direto.
+- Projetos excluídos (`projeto.deleted_at`) não aparecem.
+
+**Banco (para a Agenda escrever)**
+- Migration `20261008000800_agenda_ausencias.sql` (aplicada com `db push`): policies de
+  **insert** e **delete** em `ausencia` para `authenticated` (mesmo padrão de skills/tags) e
+  `ausencia` na publicação do Realtime. Sem colunas novas; tipos gerados não mudaram.
+
+**Ligação da Agenda com a capacidade** (decidido com o usuário)
+- Ausência registrada na Agenda **desconta na capacidade** da pessoa: `lib/capacidade-projeto.ts`
+  e `lib/carga-global.ts` somam as ausências às folgas pessoais. O motor puro não mudou.
+  Efeito em Equipe, Resumo, Sugestões e Início.
+
+**Arquivos da categoria Agenda**
+- Novos: `routes/agenda.tsx`, `lib/agenda.ts` (funções puras: células do mês, eventos por
+  dia, agrupar ausências, próximos eventos, datas "YYYY-MM-DD" sem `toISOString`),
+  `lib/agenda.test.ts` (10 testes), `components/ui/dialog.tsx`, `components/ui/select.tsx`,
+  `supabase/migrations/20261008000800_agenda_ausencias.sql`.
+- Alterados: `router.tsx` (rota), `routes/app-layout.tsx` (grupo "Calendário" + item
+  "Agenda"), `lib/queries.ts` (`useAgenda`, `useAusencias`, `useRegistrarAusencia`,
+  `useRemoverAusencia`, `useProjetosLista`, `TIPOS_AUSENCIA`), `lib/realtime.tsx` (escuta
+  `ausencia`), `lib/capacidade-projeto.ts` e `lib/carga-global.ts` (ausência no motor).
+
+**Feito junto com a Agenda, mas vale para o app inteiro**
+- **Sidebar responsiva** (`routes/app-layout.tsx`): abaixo de `lg` vira gaveta com barra no
+  topo (botão ☰); fecha com Esc, clique fora e ao navegar. Era necessária para a Agenda
+  funcionar no celular; no desktop nada mudou.
+
+**Como a Agenda foi testada**
+- Chrome headless: login → Agenda pela sidebar, trocar de mês (URL acompanha), botão Hoje,
+  validação fim < início, registrar ausência (toast, aparece só nos dias úteis), Esc fecha
+  o modal, remover pela lista; claro, escuro, tablet (820px) e celular (390px) sem rolagem
+  lateral; gaveta abre/fecha. Sem erros de console.
+- Ausência de teste removida (tabela `ausencia` vazia).
+- 96 testes (10 da Agenda), typecheck e build limpos.
+
+**Pendências da Agenda**
+- **Feriados**: não há tela para cadastrar; a tabela `feriado` está vazia, então a legenda
+  mostra "Feriado" mas nenhum aparece. Próximo passo natural.
+- Filtro de projeto lista até 500 projetos (`useProjetosLista`); com mais que isso, trocar
+  por busca.
+- Ausência não tem edição (só registrar e remover).
+- Protótipo `radar-prototipo.html` não estava no repositório: o layout seguiu a descrição
+  da tarefa.
+
+### 2.11 Serviço de análise de fluxo e capacidade (`services/analytics`, Python)
 
 - **O quê**: lê o banco, calcula fluxo + capacidade de forma determinística, pede ao LLM só a
   escolha de uma ação candidata + texto, valida e grava `sugestao` **pendente**. Nunca escreve
@@ -621,6 +739,10 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
   - [x] Alias para importar `supabase/functions/_shared` no front; `apps/web/.env.example`
   - [x] Dark mode (toggle + persistência) e paleta de marca em `#4C516D`
   - [x] Login redesenhado (card dividido, painel de marca)
+  - [x] Categoria **Agenda** na sidebar (grupo "Calendário"): calendário + registrar/remover
+        ausência ligada ao motor (2.10)
+  - [x] Sidebar responsiva (gaveta no celular/tablet), feita junto com a Agenda
+  - [ ] Agenda: cadastro de **feriados** pela UI
   - [ ] ESLint no front (o CI pede lint)
   - [ ] Code-split do bundle (build avisa chunk > 500 kB)
 - [ ] **`deno test`** nas functions (hoje só Vitest cobre `_shared`)
@@ -634,8 +756,7 @@ Comandos úteis: `pnpm db:types`, `pnpm db:test`, `pnpm functions:deploy`,
       refresh; desligar subscription, alterar coisas, reconciliação corrige sozinha
 
 ### Próximos (P0/P1 do CLAUDE.md)
-Cadastro de ausências/feriados pela UI (hoje o motor usa days off do DevOps e a tabela
-`feriado`, vazia), utilização por **semana** (hoje é por sprint), agente de IA (explicar
+Cadastro de feriados pela UI (a tabela `feriado` está vazia; ausências já têm UI), utilização por **semana** (hoje é por sprint), agente de IA (explicar
 e priorizar as sugestões da tela Análises, ler descritivo/Feature, sinônimos de skills),
 sugestões proativas por evento (webhook → sugestão na caixa), sugestões de **realocação**
 de quem está sobrecarregado (mesmo motor `recomendarAlocacao`, partindo de tasks com dono)
@@ -752,4 +873,6 @@ Realtime por aba (limite 200), banco em ~13 MB (limite 500 MB). Proteções apli
 | 2026-10-08 | **Regras de capacidade do gestor**: migration `20261008000700` (4 tabelas + trigger `atualizado_por` + Realtime), `_shared/capacidade/regras.ts` (cascata + padrão de mercado), motores por projeto e global recebem regras, alocações e limites (`origemCapacidade` substitui `capacidadePadrao`). Front: painel `/capacidade` (regras gerais + ocupação geral por pessoa editável) e aba `/projetos/$id/capacidade` (limites do projeto + horas/dia por pessoa, projeto × geral). Telas antigas sem 85% fixo. 70 testes, typecheck e build limpos; headless (claro/escuro) editando e desfazendo jornada e alocação, Análises conferida. |
 | 2026-10-08 | **Front reorganizado para o gestor**: Início (pendências priorizadas + mapa pessoa × semana + saúde dos projetos), Equipe com abas (Ocupação/Skills/Squads), ficha da pessoa com ocupação e jornada, projeto com Resumo (padrão) e Equipe (Squad + Capacidade), Regras de capacidade só com configuração, Kanban `?resp=`, Sugestões `?projeto=`, redirects das rotas antigas. `atencao.ts` (4 testes); motor global distribui a carga nos dias disponíveis da pessoa (2 testes). 76 testes, typecheck e build limpos; tour headless claro/escuro em todas as telas sem erros de console. |
 | 2026-10-08 | **Equipe sugerida** para projeto sem pessoas: motor `equipe-sugerida.ts` (9 testes), painel no Resumo/Equipe do projeto, "Sugerir reforço", pendência no Início (`atencao.ts` ganhou `sem-equipe`), selo em Projetos. Projeto real "Farol Cargas" criado no DevOps por `pnpm devops:projeto-novo`, sincronizado, com webhooks; headless claro/escuro sem erros. 86 testes, typecheck e build limpos. |
+| 2026-10-08 | **Categoria Agenda** (novo grupo "Calendário" na sidebar → item "Agenda", `/agenda`): calendário do mês (sprints início/fim, feriados, ausências em dias úteis, entregas de features), próximos eventos, registrar/remover ausência. Ausências entram no motor como folga pessoal (por projeto e global). Migration `20261008000800` (insert/delete em `ausencia` + Realtime). Sidebar vira gaveta abaixo de lg. `lib/agenda.ts` com 10 testes; headless claro/escuro/tablet/celular sem erros; ausência de teste removida. 96 testes, typecheck e build limpos. |
+| 2026-10-08 | **Tela Início refeita visualmente** (sem mudar lógica): título "Visão geral da equipe", indicadores num painel único neutro, "Prioridades" com faixa de gravidade + selo e ações em link, selo de saúde nos projetos. **Mapa de ocupação** mais legível (também na Equipe): % + mini barra, fundo só em risco, "—" para sem tasks. Validado headless em claro, escuro, tablet e celular; 96 testes, typecheck e build limpos. |
 | 2026-10-09 | **Serviço de análise em Python** (`services/analytics`, só backend, 6 etapas/commits): migrations de transições, `fluxo_config`/`analise_config`, `sugestao` estendida + Realtime e disparo (pg_net + cron 15 min); domínio puro (capacidade semanal com a cascata do app, fluxo, Pareto, esforço × impacto, candidatos, pseudonimização); repositórios + cliente DevOps só-leitura + backfill; agente (structured outputs, validador anti-alucinação, fallback por template); FastAPI com debounce; Dockerfile, Fly.io (`gru`) e CI. Python 3.12 via `uv` instalado nesta máquina. 113 testes, 98,8% de cobertura no domínio, ruff/mypy strict limpos. **Pendente**: `db push` das 4 migrations, segredos no Vault/Fly, backfill, texto do prompt v1 e o teste ponta a ponta. Front intocado. |

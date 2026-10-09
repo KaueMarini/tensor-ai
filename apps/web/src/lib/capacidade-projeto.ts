@@ -7,6 +7,7 @@ import { categoriaDe, TIPOS_FORA_DO_KANBAN } from "@shared/kanban";
 import {
   useBacklog,
   useCapacidades,
+  useAusencias,
   useDiasOff,
   useEstados,
   useFeriados,
@@ -45,10 +46,11 @@ export function useCapacidadeProjeto(projetoId: string) {
   const capacidades = useCapacidades(projetoId);
   const folgas = useDiasOff(projetoId);
   const feriados = useFeriados();
+  const ausencias = useAusencias();
   const estados = useEstados(projetoId);
   const { regras, carregando: carregandoRegras } = useRegras();
 
-  const consultas = [sprints, backlog, membros, capacidades, folgas, feriados];
+  const consultas = [sprints, backlog, membros, capacidades, folgas, feriados, ausencias];
   const carregando = consultas.some((q) => q.isLoading) || carregandoRegras;
   const erro = consultas.find((q) => q.error)?.error ?? null;
 
@@ -126,7 +128,15 @@ export function useCapacidadeProjeto(projetoId: string) {
         pessoaId: c.pessoa_id,
         capacidadeDia: Number(c.capacidade_dia),
       })),
-      folgas: (folgas.data ?? []).map((f) => ({ sprintId: f.sprint_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
+      folgas: [
+        ...(folgas.data ?? []).map((f) => ({ sprintId: f.sprint_id, pessoaId: f.pessoa_id, inicio: f.inicio, fim: f.fim })),
+        // ausência registrada na Agenda = folga pessoal em cada sprint que ela cruza
+        ...(ausencias.data ?? []).flatMap((a) =>
+          sprintsComData
+            .filter((s) => a.inicio <= s.fim && a.fim >= s.inicio)
+            .map((s) => ({ sprintId: s.id, pessoaId: a.pessoa_id, inicio: a.inicio, fim: a.fim })),
+        ),
+      ],
       feriados: (feriados.data ?? []).map((f) => f.data),
       itens,
     });
@@ -149,7 +159,7 @@ export function useCapacidadeProjeto(projetoId: string) {
       semEstimativa: rows.filter((r, i) => !itens[i]!.fechado && !itens[i]!.temFilhos && r.sem_estimativa),
       semSprint: abertos.filter((i) => !i.sprintId).length,
     };
-  }, [membros.data, backlog.data, sprints.data, capacidades.data, folgas.data, feriados.data, estados.data, regras, projetoId]);
+  }, [membros.data, backlog.data, sprints.data, capacidades.data, folgas.data, feriados.data, ausencias.data, estados.data, regras, projetoId]);
 
   return { carregando, erro, ...dados };
 }
