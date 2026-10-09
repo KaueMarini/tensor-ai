@@ -138,6 +138,42 @@ export type Database = {
           },
         ]
       }
+      analise_config: {
+        Row: {
+          atualizado_em: string
+          campo_bloqueio: string | null
+          campo_horas_carga: string
+          horas_fallback_padrao: number
+          horas_fallback_por_tag: Json
+          id: boolean
+          janela_historico_dias: number
+          percentil_referencia: number
+          tags_bloqueio: string[]
+        }
+        Insert: {
+          atualizado_em?: string
+          campo_bloqueio?: string | null
+          campo_horas_carga?: string
+          horas_fallback_padrao?: number
+          horas_fallback_por_tag?: Json
+          id?: boolean
+          janela_historico_dias?: number
+          percentil_referencia?: number
+          tags_bloqueio?: string[]
+        }
+        Update: {
+          atualizado_em?: string
+          campo_bloqueio?: string | null
+          campo_horas_carga?: string
+          horas_fallback_padrao?: number
+          horas_fallback_por_tag?: Json
+          id?: boolean
+          janela_historico_dias?: number
+          percentil_referencia?: number
+          tags_bloqueio?: string[]
+        }
+        Relationships: []
+      }
       ausencia: {
         Row: {
           fim: string
@@ -242,6 +278,27 @@ export type Database = {
             referencedColumns: ["time_id"]
           },
         ]
+      }
+      devops_relacao_cache: {
+        Row: {
+          alvo_id: number
+          lido_em: string
+          tipo: string
+          work_item_id: number
+        }
+        Insert: {
+          alvo_id: number
+          lido_em?: string
+          tipo: string
+          work_item_id: number
+        }
+        Update: {
+          alvo_id?: number
+          lido_em?: string
+          tipo?: string
+          work_item_id?: number
+        }
+        Relationships: []
       }
       dias_off: {
         Row: {
@@ -368,6 +425,58 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      fluxo_config: {
+        Row: {
+          atualizado_em: string
+          coluna: string
+          limite_wip_coluna: number | null
+          limite_wip_pessoa: number | null
+          projeto_id: string
+          sla_horas_uteis: number | null
+          tipo: string
+        }
+        Insert: {
+          atualizado_em?: string
+          coluna: string
+          limite_wip_coluna?: number | null
+          limite_wip_pessoa?: number | null
+          projeto_id: string
+          sla_horas_uteis?: number | null
+          tipo?: string
+        }
+        Update: {
+          atualizado_em?: string
+          coluna?: string
+          limite_wip_coluna?: number | null
+          limite_wip_pessoa?: number | null
+          projeto_id?: string
+          sla_horas_uteis?: number | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fluxo_config_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fluxo_config_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fluxo_config_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
       }
       funcao_tag: {
         Row: {
@@ -797,39 +906,88 @@ export type Database = {
       }
       sugestao: {
         Row: {
+          acao: Json | null
           criada_em: string
           decidida_em: string | null
           decidida_por: string | null
+          hash_payload: string | null
           id: string
           impacto: Json | null
+          impacto_antes: Json | null
+          impacto_depois: Json | null
           justificativa: string | null
+          markdown: string | null
+          origem: string | null
           payload: Json
+          projeto_id: string | null
           status: string
           tipo: string
+          usou_fallback: boolean
+          versao_prompt: string | null
         }
         Insert: {
+          acao?: Json | null
           criada_em?: string
           decidida_em?: string | null
           decidida_por?: string | null
+          hash_payload?: string | null
           id?: string
           impacto?: Json | null
+          impacto_antes?: Json | null
+          impacto_depois?: Json | null
           justificativa?: string | null
+          markdown?: string | null
+          origem?: string | null
           payload: Json
+          projeto_id?: string | null
           status?: string
           tipo: string
+          usou_fallback?: boolean
+          versao_prompt?: string | null
         }
         Update: {
+          acao?: Json | null
           criada_em?: string
           decidida_em?: string | null
           decidida_por?: string | null
+          hash_payload?: string | null
           id?: string
           impacto?: Json | null
+          impacto_antes?: Json | null
+          impacto_depois?: Json | null
           justificativa?: string | null
+          markdown?: string | null
+          origem?: string | null
           payload?: Json
+          projeto_id?: string | null
           status?: string
           tipo?: string
+          usou_fallback?: boolean
+          versao_prompt?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sugestao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projeto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sugestao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_projeto_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sugestao_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "v_sem_dono_resumo"
+            referencedColumns: ["projeto_id"]
+          },
+        ]
       }
       sync_state: {
         Row: {
@@ -1124,6 +1282,42 @@ export type Database = {
           },
         ]
       }
+      work_item_transicao: {
+        Row: {
+          campo: string
+          changed_at: string
+          changed_rev: number
+          criado_em: string
+          de: string | null
+          id: number
+          origem: string
+          para: string | null
+          work_item_id: number
+        }
+        Insert: {
+          campo: string
+          changed_at: string
+          changed_rev: number
+          criado_em?: string
+          de?: string | null
+          id?: never
+          origem: string
+          para?: string | null
+          work_item_id: number
+        }
+        Update: {
+          campo?: string
+          changed_at?: string
+          changed_rev?: number
+          criado_em?: string
+          de?: string | null
+          id?: never
+          origem?: string
+          para?: string | null
+          work_item_id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       feature: {
@@ -1307,6 +1501,10 @@ export type Database = {
         Returns: boolean
       }
       arquivar_projeto: { Args: { p_projeto_id: string }; Returns: undefined }
+      chamar_analytics: {
+        Args: { caminho: string; corpo: Json }
+        Returns: number
+      }
       feature_ancestral: { Args: { p_devops_id: number }; Returns: number }
       recalcular_skills: { Args: { p_pessoas: string[] }; Returns: number }
       recompute_hierarquia: { Args: { p_ids: number[] }; Returns: number }
@@ -1324,6 +1522,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      seed_fluxo_config: { Args: { p_projeto: string }; Returns: undefined }
       skill_chave: { Args: { p_tag: string }; Returns: string }
       soft_delete_work_item: {
         Args: { p_devops_id: number; p_rev?: number }
@@ -1337,6 +1536,7 @@ export type Database = {
         Args: { p_membros: Json; p_time_id: string }
         Returns: undefined
       }
+      transicao_valor: { Args: { campo: Json; qual: string }; Returns: string }
       upsert_work_items: {
         Args: { p_items: Json; p_origem: string }
         Returns: {
