@@ -5,6 +5,7 @@ import { useProjeto } from "@/lib/queries";
 import { registrarRecente } from "@/lib/recentes";
 import { MarcaProjeto } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ImpactoProjeto } from "@/components/impacto-projeto";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
@@ -73,6 +74,7 @@ export function ProjetoLayout() {
                 </h1>
                 {projeto?.processo && <Badge tone="slate">{projeto.processo}</Badge>}
                 {projeto?.sprint_atual && <Badge tone="teal">Sprint atual: {projeto.sprint_atual}</Badge>}
+                <ImpactoProjeto projetoId={projetoId} />
               </div>
               <p className="mt-0.5 line-clamp-2 text-sm text-slate-500 dark:text-slate-400" title={projeto?.descricao ?? undefined}>
                 {projeto?.descricao || "Sem descrição no Azure DevOps."}

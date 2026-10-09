@@ -136,6 +136,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       })
       // sugestão do agente de IA (nova, aprovada, ignorada, expirada): atualiza as caixas
       .on("postgres_changes", { event: "*", schema: "public", table: "sugestao" }, () => invalidar("sugestoes_agente"))
+      // importância do projeto (gestor ou estimada pela IA)
+      .on("postgres_changes", { event: "*", schema: "public", table: "projeto_avaliacao" }, () => invalidar("projetos"))
       .on("postgres_changes", { event: "*", schema: "public", table: "sync_state" }, () => {
         invalidar("sync_state");
       })

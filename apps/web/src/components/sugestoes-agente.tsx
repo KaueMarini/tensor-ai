@@ -3,11 +3,12 @@
 
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Bot, Check, ExternalLink, Loader2, OctagonAlert, RefreshCw, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
+import { ArrowRight, Bot, Check, ExternalLink, GitCompareArrows, Loader2, OctagonAlert, RefreshCw, Scale, ScanSearch, Sparkles, UserRoundPlus, UserRoundX, X } from "lucide-react";
 import { type SugestaoAgente, useAnalisarAgora, useDecidirSugestao, useSugestoesAgente } from "@/lib/sugestoes-agente";
 import { cn, tempoRelativo } from "@/lib/utils";
 import { STATUS_CARGA } from "@/components/carga";
 import { Card } from "@/components/ui/card";
+import { ModalExplicacao } from "@/components/explicacao-agente";
 
 const AZDO_ORG_URL = (import.meta.env.VITE_AZDO_ORG_URL as string | undefined)?.replace(/\/$/, "");
 
@@ -16,6 +17,8 @@ const VISUAL: Record<SugestaoAgente["tipo"], { icone: typeof Bot; cor: string; a
   ausencia: { icone: OctagonAlert, cor: STATUS_CARGA["sem-capacidade"].cor, aprovar: "Aprovar e reatribuir no DevOps" },
   atribuir: { icone: UserRoundX, cor: STATUS_CARGA.limite.cor, aprovar: "Aprovar e atribuir no DevOps" },
   equipe: { icone: UserRoundPlus, cor: "var(--color-brand-600)", aprovar: "Vou montar" },
+  portfolio: { icone: Scale, cor: STATUS_CARGA.limite.cor, aprovar: "Vou avaliar" },
+  similares: { icone: GitCompareArrows, cor: "var(--color-brand-600)", aprovar: "Vou avaliar" },
 };
 const PRIORIDADE = { 1: "Hoje", 2: "Esta semana", 3: "Quando der" } as const;
 
@@ -90,6 +93,7 @@ export function SugestoesAgente({ projetoId, limite, titulo = "Sugestões do age
 
 function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto: boolean }) {
   const decidir = useDecidirSugestao();
+  const [entendendo, setEntendendo] = useState(false);
   const v = VISUAL[s.tipo];
   const pendente = decidir.isPending;
   return (
@@ -149,6 +153,13 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
           >
             <X className="size-3.5" /> Ignorar
           </button>
+          <button
+            type="button"
+            onClick={() => setEntendendo(true)}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-900/30 dark:text-brand-200 dark:hover:bg-brand-900/50"
+          >
+            <ScanSearch className="size-3.5" /> Entender análise
+          </button>
           {s.tipo === "equipe" && s.projetoId ? (
             <Link to="/projetos/$projetoId/resumo" params={{ projetoId: s.projetoId }} className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300">
               Ver equipe sugerida
@@ -172,6 +183,7 @@ function ItemSugestao({ s, mostrarProjeto }: { s: SugestaoAgente; mostrarProjeto
           </span>
         </div>
       </div>
+      {entendendo && <ModalExplicacao sugestao={s} onClose={() => setEntendendo(false)} />}
     </li>
   );
 }

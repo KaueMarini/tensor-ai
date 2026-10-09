@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { Ferramenta } from "@shared/agente/explicacao";
 import { supabase } from "./supabase";
 
 export const keySugestoesAgente = ["sugestoes_agente"] as const;
@@ -18,7 +19,7 @@ export interface UsoPessoa {
 
 export interface SugestaoAgente {
   id: string;
-  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe";
+  tipo: "atribuir" | "rebalancear" | "ausencia" | "equipe" | "portfolio" | "similares";
   projetoId: string | null;
   projeto: string | null;
   titulo: string;
@@ -116,5 +117,29 @@ export function useAnalisarAgora() {
       void qc.invalidateQueries({ queryKey: keySugestoesAgente });
     },
     onError: (e) => toast.error(`Não foi possível analisar: ${e.message}`),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// IA explicável ("Entender análise"): visão micro gerada pelo agente, com cache na sugestão
+// ---------------------------------------------------------------------------
+
+export interface ExplicacaoAgente {
+  ferramentas: Ferramenta[];
+  resumo: string;
+  leituras: Partial<Record<Ferramenta["tipo"], string>>;
+  /** De onde veio cada texto: "ia" (validado) ou "template". */
+  origem: Record<string, "ia" | "template">;
+  ia: string | null;
+  gerado_em: string;
+}
+
+export function useExplicacao(sugestaoId: string | null) {
+  return useQuery({
+    queryKey: ["sugestoes_agente", "explicacao", sugestaoId],
+    enabled: !!sugestaoId,
+    staleTime: 10 * 60_000,
+    retry: false,
+    queryFn: async () => (await invocar("agente", { acao: "explicar", sugestao_id: sugestaoId })) as unknown as ExplicacaoAgente,
   });
 }
